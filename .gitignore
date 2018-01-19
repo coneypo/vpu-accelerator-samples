@@ -1,0 +1,6 @@
+*.o
+build/*
+*.out
+*~
+*.orig
+bak

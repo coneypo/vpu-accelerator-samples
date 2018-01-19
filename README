@@ -1,0 +1,90 @@
+COMPILE
+     mkdir  build && cd build
+	 cmake ..  &&  make 
+Install 
+     make install
+note: 
+     Example_modules are be compiled with mediapipe by default, if you want a simple 
+     mediapipe 
+     cmake -DENABLE_EXAMPLE_MODULE=NO ..
+
+
+Develop document
+How to develop and build custom modules 
+    A module C file must be named of "mp_${modulename}.c"
+    The C file must include the head file of name  "mediapipe_com.h"
+    There must be three structs definded in the C file. For example,
+    the rtsp module C file is named "mp_rtsp.c"
+    static mp_command_t  mp_rtsp_commands[] = {
+    {
+            mp_string("rtsp"),
+            MP_MAIN_CONF,
+            mp_rtsp_block,
+            0,
+            0,
+            NULL
+    },
+    mp_null_command
+    };
+
+    static mp_core_module_t  mp_rtsp_module_ctx = {
+    mp_string("rtsp"),
+    NULL,
+    NULL
+    };
+
+   mp_module_t  mp_rtsp_module = {
+       MP_MODULE_V1,
+       &mp_rtsp_module_ctx,                /* module context */
+       mp_rtsp_commands,                   /* module directives */
+       MP_CORE_MODULE,                       /* module type */
+       NULL,                               /* init master */
+       NULL,                               /* init module */
+       NULL,                    /* keyshot_process*/
+       NULL,                               /* message_process */
+       NULL,                      /* init_callback */
+       NULL,                               /* netcommand_process */
+       NULL,                               /* exit master */
+       MP_MODULE_V1_PADDING
+   };
+
+   "mp_rtsp_commands" are usted to parse the config file 
+   mp_rtsp_block is one of real callback functions ptr to parse config file 
+
+   The function ptr in mp_rtsp_module is used to process runtime event ,
+   For example,  "keyshot_process" for keyboard event. 
+
+How to compile the modules into mediapipe
+The first way :
+Modify the CMakeFileList.txt in the root directory.
+    modify "set(MP_MODULES element rtsp ${your_module_name} )" and the module C file must be 
+    placed in the directory of src/modules/. if you don't want to compile it with mediapipe,
+    just remove it from "MP_MODULES". it's very userful to test single module.
+
+    if there are other C files in your module that need to be compiled with mediapipe, 
+    add this in you CMakeFileList.txt
+    list(APPEND SRC_LIST "your_c_file_path");
+    
+    if there are other h files need to be include , add this in CMakeFileList.txt
+    include_directories(your_h_file_dir_path)
+
+    if there are some othe libs in your module, 
+    write a find scripts in the directory of "cmake"
+
+The second way : 
+Sometimes, the custom modules codes is not wanted to be mixed with the origin
+codes. so you can create your own modules directory and compile like this 
+     cmake -DADDON_MODULE_PATH=addon_module_absolute_path .. 
+if there are many module directorys
+     cmake -DADDON_MODULE_PATH=addon_module_absolute_path_1;addon_module_absolute_path_2 .. 
+The custom module directorys must contain CMakeFileList.txt
+There is a example directory named "example_modules" in the directory of "src/modules/"
+
+There are also much functions and jobs need to be done in the future.
+if there will be updates, This README document will be updated with them. 
+
+all codes use same format;
+code format command:
+astyle --style=linux  -s4  -m3 -k3 -p -j -d -H -U -E -S -c -w -Y  -xy -L -xC80 --mode=c  --recursive *.c *.h
+
+
