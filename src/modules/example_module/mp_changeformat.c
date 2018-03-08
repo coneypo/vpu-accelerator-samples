@@ -35,6 +35,9 @@ change_to265(gpointer user_data);
 static gboolean
 change_to264(gpointer user_data);
 
+static  mp_int_t
+message_process(mediapipe_t *mp, void *message);
+
 static mp_command_t  mp_changeformat_commands[] = {
     {
         mp_string("changeformat"),
@@ -62,7 +65,7 @@ mp_module_t  mp_changeformat_module = {
     NULL,                               /* init master */
     NULL,                               /* init module */
     keyshot_process,                    /* keyshot_process*/
-    NULL,                               /* message_process */
+    message_process,                               /* message_process */
     NULL,                               /* init_callback */
     NULL,                               /* netcommand_process */
     NULL,                        /* exit master */
@@ -250,6 +253,8 @@ change_format_event_probe_cb(GstPad *pad, GstPadProbeInfo *info,
         new_elem = gst_element_factory_make("mfxh264enc", NULL);
     } else if (!strcmp(ctx->format_string, "H265")) {
         new_elem = gst_element_factory_make("mfxhevcenc", NULL);
+    } else if (!strcmp(ctx->format_string, "JPEG")||!strcmp(ctx->format_string, "jpeg")) {
+        new_elem = gst_element_factory_make("mfxjpegenc", NULL);
     } else {
         g_print("unsupported format changing\n");
     }
@@ -309,4 +314,35 @@ change_format_pad_probe_cb(GstPad *pad, GstPadProbeInfo *info,
     return GST_PAD_PROBE_OK;
 }
 
-
+static  mp_int_t
+message_process(mediapipe_t *mp, void *message)
+{
+    GstMessage *m = (GstMessage *) message;
+    const  GstStructure *s;
+    const gchar *enc_name;
+    const gchar *queue_name;
+    const gchar *caps_name;
+    const  gchar *_encoder;
+    gpointer  fun;
+    gpointer  userdata;
+    if (GST_MESSAGE_TYPE(m) != GST_MESSAGE_APPLICATION) {
+        return MP_IGNORE;
+    }
+    s = gst_message_get_structure(m);
+    const gchar *name = gst_structure_get_name(s);
+    if (0 == strcmp(name, "changeformat")) {
+        if (gst_structure_get(s,
+                              "enc_name", G_TYPE_STRING, &enc_name,
+                              "queue_name", G_TYPE_STRING, &queue_name,
+                              "caps_name", G_TYPE_STRING, &caps_name,
+                              "_encoder", G_TYPE_STRING, &_encoder,
+                              "change_format_in_channel", G_TYPE_POINTER, &fun,
+                              "mp_chform", G_TYPE_POINTER, &userdata,
+                              NULL)) {
+            mediapipe_change_format(mp, enc_name, queue_name, caps_name,
+                                    _encoder, (format_change_extra_func_t)fun, userdata);
+        }
+        return MP_OK;
+    }
+    return MP_IGNORE;
+}

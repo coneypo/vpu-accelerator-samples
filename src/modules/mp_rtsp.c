@@ -21,7 +21,13 @@ media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
                 gpointer user_data);
 
 static void
+mediapipe_remove_rtsp_mount_point (mediapipe_t *mp, const char* mount_path);
+
+static void
 json_new_rtsp_server(mediapipe_t *mp, struct json_object *rtsp_server);
+
+static  mp_int_t
+message_process(mediapipe_t *mp, void *message);
 
 static mp_command_t  mp_rtsp_commands[] = {
     {
@@ -49,7 +55,7 @@ mp_module_t  mp_rtsp_module = {
     NULL,                               /* init master */
     NULL,                               /* init module */
     NULL,                    /* keyshot_process*/
-    NULL,                               /* message_process */
+    message_process,            /* message_process */
     NULL,                      /* init_callback */
     NULL,                               /* netcommand_process */
     NULL,                               /* exit master */
@@ -281,4 +287,48 @@ mp_rtsp_block(mediapipe_t *mp, mp_command_t *cmd)
     return MP_CONF_OK;
 }
 
+/**
+ * @brief Start all the created rtsp server.
+ *
+ * @param mp Pointer to mediapipe.
+ */
+static void
+mediapipe_remove_rtsp_mount_point(mediapipe_t *mp, const char *mount_path)
+{
+    GstRTSPServer *server;
+    GstRTSPMountPoints *mounts;
+    if (NULL != mp->rtsp_server) {
+        server = mp->rtsp_server;
+        mounts = gst_rtsp_server_get_mount_points(server);
+        gst_rtsp_mount_points_remove_factory(mounts, mount_path);
+    }
+}
 
+static  mp_int_t
+message_process(mediapipe_t *mp, void *message)
+{
+    GstMessage *m = (GstMessage *) message;
+    const  GstStructure *s;
+    const gchar *ele_name_s;
+    const gchar *r_caps_s;
+    int  fps;
+    const  gchar *mount_path;
+    if (GST_MESSAGE_TYPE(m) != GST_MESSAGE_APPLICATION) {
+        return MP_IGNORE;
+    }
+    s = gst_message_get_structure(m);
+    const gchar *name = gst_structure_get_name(s);
+    if (0 == strcmp(name, "rtsp_restart")) {
+        if (gst_structure_get(s,
+                              "ele_name_s", G_TYPE_STRING, &ele_name_s,
+                              "r_caps_s", G_TYPE_STRING, &r_caps_s,
+                              "fps", G_TYPE_INT, &fps,
+                              "mount_path", G_TYPE_STRING, &mount_path,
+                              NULL)) {
+            mediapipe_remove_rtsp_mount_point(mp, mount_path);
+            mediapipe_rtsp_server_new(mp, ele_name_s, r_caps_s, fps, mount_path);
+        }
+        return MP_OK;
+    }
+    return MP_IGNORE;
+}
