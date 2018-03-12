@@ -1,4 +1,4 @@
-videotestsrc  name=src !
+v4l2src  name=src !
 capsfilter                 name=src_caps !
 vaapipostproc !
 queue !
@@ -13,7 +13,7 @@ t. !
 t. !
     vaapisink
 
-audiotestsrc is-live=true !
+alsasrc !
 audioconvert !
 audioresample !
 tee name=audio_tt

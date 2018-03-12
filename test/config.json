@@ -175,8 +175,10 @@
         {
             "name":"src",
             "location":"src.nv12",
-            "device-name":6,
-            "io-mode":3,
+//            "device-name":6,
+            "device":"/dev/video0",
+//            "io-mode":3,
+            "pattern":0,
             "printfps":1
             //  "framerate":"30/1"
         },
@@ -190,7 +192,8 @@
             //},
             {
                 "name":"src_caps",
-                "caps":"video/x-raw,format=NV12,width=1920,height=1080,framerate=30/1"
+//                "caps":"video/x-raw,format=NV12,width=640,height=480,framerate=30/1"
+                "caps":"video/x-raw,format=I420,width=640,height=480"
             },
 
             //---------scale---------
