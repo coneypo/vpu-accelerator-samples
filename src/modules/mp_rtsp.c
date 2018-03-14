@@ -160,6 +160,21 @@ mediapipe_rtsp_server_new(mediapipe_t *mp, const char *element_name,
     } else if (strstr(caps_string, "jpeg")) {
         gst_rtsp_media_factory_set_launch(factory,
                                           "( appsrc name=mysrc ! rtpjpegpay name=pay0 pt=96 )");
+    } else if (strstr(caps_string, "alaw")) {
+        gst_rtsp_media_factory_set_launch(factory,
+                                          "( appsrc name=mysrc ! rtppcmapay name=pay0 pt=96 )");
+    } else if (strstr(caps_string, "mulaw")) {
+        gst_rtsp_media_factory_set_launch(factory,
+                                          "( appsrc name=mysrc ! rtppcmupay name=pay0 pt=96 )");
+    } else if (strstr(caps_string, "adpcm")) {
+        gst_rtsp_media_factory_set_launch(factory,
+                                          "( appsrc name=mysrc ! rtpg726pay name=pay0 pt=96 )");
+    } else if (strstr(caps_string, "G722")) {
+        gst_rtsp_media_factory_set_launch(factory,
+                                          "( appsrc name=mysrc ! rtpg722pay name=pay0 pt=96 )");
+    } else if (strstr(caps_string, "audio/mpeg")) {
+        gst_rtsp_media_factory_set_launch(factory,
+                                          "( appsrc name=mysrc ! rtpmp4apay name=pay0 pt=96 )");
     } else {
         LOG_ERROR("Caps for rtsp server is wrong.");
         return FALSE;
@@ -206,10 +221,12 @@ rtsp_probe_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
     probe_context_t *ctx = (probe_context_t *)user_data;
     GstBuffer *buffer = gst_buffer_copy_deep(GST_PAD_PROBE_INFO_BUFFER(info));
-    GST_BUFFER_PTS(buffer) = ctx->timestamp;
-    GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND,
-                                  ctx->fps);
-    ctx->timestamp += GST_BUFFER_DURATION(buffer);
+    if(ctx->fps > 0) {
+        GST_BUFFER_PTS(buffer) = ctx->timestamp;
+        GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND,
+                ctx->fps);
+        ctx->timestamp += GST_BUFFER_DURATION(buffer);
+    }
     GstFlowReturn status;
     g_signal_emit_by_name(ctx->src, "push-buffer", buffer, &status);
     gst_buffer_unref(buffer);
@@ -311,7 +328,7 @@ message_process(mediapipe_t *mp, void *message)
     const  GstStructure *s;
     const gchar *ele_name_s;
     const gchar *r_caps_s;
-    int  fps;
+    int  fps = -1;
     const  gchar *mount_path;
     if (GST_MESSAGE_TYPE(m) != GST_MESSAGE_APPLICATION) {
         return MP_IGNORE;

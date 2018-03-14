@@ -23,6 +23,36 @@
                 "caps":"video/x-h265,stream-format=byte-stream,alignment=au",
                 "fps":30,
                 "mount_path":"/test2"
+            },
+            {
+                "enable":1,
+                "element":"enc5",
+                "caps":"audio/x-alaw,rate=8000,channels=1",
+                "mount_path":"/test5"
+            },
+            {
+                "enable":1,
+                "element":"enc6",
+                "caps":"audio/x-mulaw,rate=8000,channels=1",
+                "mount_path":"/test6"
+            },
+            {
+                "enable":1,
+                "element":"enc7",
+                "caps":"audio/x-adpcm,rate=8000,channels=1,layout=g726,bitrate=32000",
+                "mount_path":"/test7"
+            },
+            {
+                "enable":1,
+                "element":"enc8",
+                "caps":"audio/G722,rate=16000,channels=1",
+                "mount_path":"/test8"
+            },
+            {
+                "enable":1,
+                "element":"enc9",
+                "caps":"audio/mpeg,mpegversion=4,stream-format=raw,rate=16000,channels=1,base-profile=lc",
+                "mount_path":"/test9"
             }
         ],
         "rtsp_server_port": 1121 //1-65535
@@ -351,6 +381,38 @@
             {
                 "name":"scaler_display_caps",
                 "caps":"video/x-raw,format=xBGR,width=1920,height=1080"
+            },
+            {
+                "name":"enc5_caps",
+                "caps":"audio/x-alaw,rate=8000,channels=1"
+            },
+            {
+                "name":"enc6_caps",
+                "caps":"audio/x-mulaw,rate=8000,channels=1"
+            },
+            {
+                "name":"enc7",
+                "bitrate":32000
+            },
+            {
+                "name":"enc7_caps",
+                "caps":"audio/x-adpcm,rate=8000,channels=1,layout=g726"
+            },
+            {
+                "name":"enc8",
+                "bitrate":32000
+            },
+            {
+                "name":"enc8_caps",
+                "caps":"audio/G722,rate=16000"
+            },
+            {
+                "name":"enc9",
+                "bitrate":32000
+            },
+            {
+                "name":"enc9_caps",
+                "caps":"audio/mpeg,mpegversion=4,stream-format=raw,rate=16000,channels=1,base-profile=lc"
             }
     ]
 }

@@ -1,4 +1,4 @@
-icamerasrc                 name=src !
+videotestsrc                 name=src !
 capsfilter                 name=src_caps !
 queue !
 oclscale                   name=scale !
@@ -34,3 +34,40 @@ capsfilter                 name=videorate_caps !
     mfxh264enc             name=enc4 !
     capsfilter             name=enc4_caps !
     fakesink               name=sink4
+
+alsasrc !
+audioconvert !
+audioresample !
+tee name=audio_tt
+audio_tt. !
+queue !
+alawenc name = enc5 !
+capsfilter name=enc5_caps !
+fakesink
+audio_tt. !
+queue !
+mulawenc name = enc6 !
+capsfilter name=enc6_caps !
+fakesink
+audio_tt. !
+queue !
+avenc_g726 name=enc7 !
+capsfilter name=enc7_caps !
+fakesink
+audio_tt. !
+queue !
+audioresample !
+queue !
+avenc_g722 name=enc8 !
+capsfilter name=enc8_caps !
+fakesink
+audio_tt. !
+queue !
+audioconvert !
+queue !
+audioresample !
+audio/x-raw,format=F32LE,rate=16000,layout=interleaved !
+queue !
+avenc_aac  name=enc9 !
+capsfilter name=enc9_caps !
+fakesink
