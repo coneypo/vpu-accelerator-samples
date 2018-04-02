@@ -64,7 +64,7 @@
                 "mount_path":"/test10"
             }
         ],
-        "rtsp_server_port": 1121 //1-65535
+        "rtsp_server_port": 8554 //1-65535
     },
     "cvsdk_detection":
     {
