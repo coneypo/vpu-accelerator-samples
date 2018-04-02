@@ -53,6 +53,15 @@
                 "element":"enc9",
                 "caps":"audio/mpeg,mpegversion=4,stream-format=raw,rate=16000,channels=1,base-profile=lc",
                 "mount_path":"/test9"
+            },
+            {
+                "enable":1,
+                "merge_av":1,
+                "element":"enc0",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "element1":"enc5",
+                "caps1":"audio/x-alaw,rate=8000,channels=1",
+                "mount_path":"/test10"
             }
         ],
         "rtsp_server_port": 1121 //1-65535

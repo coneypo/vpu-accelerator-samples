@@ -16,8 +16,18 @@ static gboolean
 mediapipe_rtsp_server_new(mediapipe_t *mp, const char *element_name,
                           const char *caps_string, gint fps, const char *mount_path);
 
+static gboolean
+mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
+                          const char *element_name, const char *caps_string, gint fps,
+                          const char *element_name1, const char *caps_string1, gint fps1,
+                          const char *mount_path);
+
 static void
 media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
+                gpointer user_data);
+
+static void
+merge_av_media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
                 gpointer user_data);
 
 static void
@@ -28,6 +38,16 @@ json_new_rtsp_server(mediapipe_t *mp, struct json_object *rtsp_server);
 
 static  mp_int_t
 message_process(mediapipe_t *mp, void *message);
+
+typedef struct {
+    //just save the point for pass to callback, context is free by medipipe in _mediapip_destory
+    probe_context_t* probe_context_array[20];
+    gint probe_count;
+} rtsp_ctx_t;
+
+static rtsp_ctx_t rtsp_ctx = {
+    0, 0
+};
 
 static mp_command_t  mp_rtsp_commands[] = {
     {
@@ -73,14 +93,24 @@ mp_module_t  mp_rtsp_module = {
 static void
 json_new_rtsp_server(mediapipe_t *mp, struct json_object *rtsp_server)
 {
-    int fps = 30;
+    int fps = -1;
+    int fps1 = -1;
     const char *element, *caps, *mount_path = "/test0";
+    const char *element1, *caps1;
     RETURN_IF_FAIL(json_check_enable_state(rtsp_server, "enable"));
     RETURN_IF_FAIL(json_get_string(rtsp_server, "element", &element));
     RETURN_IF_FAIL(json_get_string(rtsp_server, "caps", &caps));
-    json_get_int(rtsp_server, "fps", &fps);
-    json_get_string(rtsp_server, "mount_path", &mount_path);
-    mediapipe_rtsp_server_new(mp, element, caps, fps, mount_path);
+    if(!json_check_enable_state(rtsp_server, "merge_av")){
+        json_get_int(rtsp_server, "fps", &fps);
+        json_get_string(rtsp_server, "mount_path", &mount_path);
+        mediapipe_rtsp_server_new(mp, element, caps, fps, mount_path);
+    } else{
+        RETURN_IF_FAIL(json_get_string(rtsp_server, "element1", &element1));
+        RETURN_IF_FAIL(json_get_string(rtsp_server, "caps1", &caps1));
+        json_get_int(rtsp_server, "fps1", &fps1);
+        json_get_string(rtsp_server, "mount_path", &mount_path);
+        mediapipe_merge_av_rtsp_server_new(mp, element, caps, fps, element1, caps1, fps1, mount_path);
+    }
 }
 
 /* --------------------------------------------------------------------------*/
@@ -115,6 +145,58 @@ media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     //g_object_set_data_full (G_OBJECT (media), "my-extra-data", ctx,
     //    (GDestroyNotify) g_free);
     add_probe_callback(rtsp_probe_callback, ctx);
+}
+
+
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis when there is a client connect ,this fuction set up stream
+ *
+ * @Param factory
+ * @Param media
+ * @Param user_data
+ */
+/* ----------------------------------------------------------------------------*/
+static void
+merge_av_media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
+                gpointer user_data)
+{
+    probe_context_t **ctx = (probe_context_t **)user_data;
+    GstElement *element, *appsrc;
+    GstCaps *caps;
+    element = gst_rtsp_media_get_element(media);
+    appsrc = gst_bin_get_by_name(GST_BIN(element), "mysrc");
+    gst_object_unref(element);
+    /* this instructs appsrc that we will be dealing with timed buffer */
+    //gst_util_set_object_arg (G_OBJECT (appsrc), "format", "time");
+    g_object_set(G_OBJECT(appsrc), "stream-type", 0, "format", GST_FORMAT_TIME,
+                 NULL);
+    caps = gst_caps_from_string(ctx[0]->caps_string);
+    g_object_set(G_OBJECT(appsrc), "caps", caps, NULL);
+    gst_caps_unref(caps);
+    ctx[0]->timestamp = 0;
+    ctx[0]->src = appsrc;
+    /* make sure the data is freed when the media is gone */
+    //g_object_set_data_full (G_OBJECT (media), "my-extra-data", ctx,
+    //    (GDestroyNotify) g_free);
+    add_probe_callback(rtsp_probe_callback, ctx[0]);
+
+    element = gst_rtsp_media_get_element(media);
+    appsrc = gst_bin_get_by_name(GST_BIN(element), "mysrc1");
+    gst_object_unref(element);
+    /* this instructs appsrc that we will be dealing with timed buffer */
+    //gst_util_set_object_arg (G_OBJECT (appsrc), "format", "time");
+    g_object_set(G_OBJECT(appsrc), "stream-type", 0, "format", GST_FORMAT_TIME,
+                 NULL);
+    caps = gst_caps_from_string(ctx[1]->caps_string);
+    g_object_set(G_OBJECT(appsrc), "caps", caps, NULL);
+    gst_caps_unref(caps);
+    ctx[1]->timestamp = 0;
+    ctx[1]->src = appsrc;
+    /* make sure the data is freed when the media is gone */
+    //g_object_set_data_full (G_OBJECT (media), "my-extra-data", ctx,
+    //    (GDestroyNotify) g_free);
+    add_probe_callback(rtsp_probe_callback, ctx[1]);
 }
 
 /**
@@ -190,6 +272,112 @@ mediapipe_rtsp_server_new(mediapipe_t *mp, const char *element_name,
     ctx->caps_string = caps_string;
     ctx->fps = fps;
     g_signal_connect(factory, "media-configure", (GCallback) media_configure, ctx);
+    gst_rtsp_mount_points_add_factory(mounts, mount_path, factory);
+    gst_object_unref(mounts);
+    gchar *sport = gst_rtsp_server_get_service(mp->rtsp_server);
+
+    if (sport != NULL) {
+        g_print("rtsp address: rtsp://%s:%s%s\n", get_local_ip_addr(), sport,
+                mount_path);
+        g_free(sport);
+    } else {
+        g_print("rtsp address: rtsp://%s:8554%s\n", get_local_ip_addr(), mount_path);
+    }
+
+    return TRUE;
+}
+
+/**
+  @brief Creat a rtsp server with video and audio.
+
+    @param mp Pointer to mediapipe.
+    @param element_name Name of encoder element in this video channel.
+    RTSP server will retrieve data from its source pad, then pack it with RTP protocol, send out through network.
+    @param caps_string The caps negotiation between encoder element and RTSP server.
+    @param fps The frame rate of video. This will impact the timestamp of frame that sended out.
+    @param mount_path The mount path of rtsp server such as "/test0". The rtsp url will be "rtsp://ip:port/test0".
+
+    @retval TRUE: Success
+    @retval FALSE: Fail
+*/
+static gboolean
+mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
+                          const char *element_name, const char *caps_string, gint fps,
+                          const char *element_name1, const char *caps_string1, gint fps1,
+                          const char *mount_path)
+{
+    GstRTSPServer *server;
+    GstRTSPMountPoints *mounts;
+    GstRTSPMediaFactory *factory;
+    probe_context_t **ctx = &rtsp_ctx.probe_context_array[rtsp_ctx.probe_count];
+    char launch[128];
+    g_assert(mp);
+    g_assert(element_name);
+    g_assert(caps_string);
+    g_assert(element_name1);
+    g_assert(caps_string1);
+    g_assert(mount_path);
+
+    memset(launch, 0, 128);
+
+    if (!mp->rtsp_server) {
+        mp->rtsp_server = gst_rtsp_server_new();
+    }
+
+    server = mp->rtsp_server;
+    mounts = gst_rtsp_server_get_mount_points(server);
+    factory = gst_rtsp_media_factory_new();
+    strcat(launch, "(");
+    if (strstr(caps_string, "h264")) {
+        strcat(launch,
+                " appsrc name=mysrc ! rtph264pay name=pay0 pt=96 ");
+    } else if (strstr(caps_string, "h265")) {
+        strcat(launch,
+                " appsrc name=mysrc ! rtph265pay name=pay0 pt=96 ");
+    } else if (strstr(caps_string, "jpeg")) {
+        strcat(launch,
+                " appsrc name=mysrc ! rtpjpegpay name=pay0 pt=96 ");
+    } else {
+        LOG_ERROR("Caps for rtsp server is wrong.");
+        return FALSE;
+    }
+
+    if (strstr(caps_string1, "alaw")) {
+        strcat(launch,
+                " appsrc name=mysrc1 ! rtppcmapay name=pay1 pt=96 ");
+    } else if (strstr(caps_string1, "mulaw")) {
+        strcat(launch,
+                " appsrc name=mysrc1 ! rtppcmupay name=pay1 pt=96 ");
+    } else if (strstr(caps_string1, "adpcm")) {
+        strcat(launch,
+                " appsrc name=mysrc1 ! rtpg726pay name=pay1 pt=96 ");
+    } else if (strstr(caps_string1, "G722")) {
+        strcat(launch,
+                " appsrc name=mysrc1 ! rtpg722pay name=pay1 pt=96 ");
+    } else if (strstr(caps_string1, "audio/mpeg")) {
+        strcat(launch,
+                " appsrc name=mysrc1 ! rtpmp4apay name=pay1 pt=96 ");
+    } else {
+        LOG_ERROR("Caps for rtsp server is wrong.");
+        return FALSE;
+    }
+    strcat(launch, ")");
+    gst_rtsp_media_factory_set_launch(factory, launch);
+
+    gst_rtsp_media_factory_set_shared(factory, TRUE);
+    ctx[0] = create_callback_context(mp, element_name, "src");
+    ctx[1] = create_callback_context(mp, element_name1, "src");
+    rtsp_ctx.probe_count += 2;
+
+    if (!ctx[0] || !ctx[1]) {
+        return FALSE;
+    }
+
+    ctx[0]->caps_string = caps_string;
+    ctx[0]->fps = fps;
+    ctx[1]->caps_string = caps_string1;
+    ctx[1]->fps = fps1;
+    g_signal_connect(factory, "media-configure", (GCallback)merge_av_media_configure, ctx);
     gst_rtsp_mount_points_add_factory(mounts, mount_path, factory);
     gst_object_unref(mounts);
     gchar *sport = gst_rtsp_server_get_service(mp->rtsp_server);

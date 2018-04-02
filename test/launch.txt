@@ -1,4 +1,4 @@
-videotestsrc  name=src !
+videotestsrc is-live=true  name=src !
 capsfilter                 name=src_caps !
 vaapipostproc !
 queue !
