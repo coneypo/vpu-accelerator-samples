@@ -11,7 +11,7 @@ include_directories(${GSTOCL_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_LIST_DIR}/meta)
 
 #define  modules
-set(ADDON_MODULES mix cvsdk encoder idr longterm changeformat channel slice crop snapshot)
+set(ADDON_MODULES mix cvsdk encoder idr longterm changeformat channel slice crop snapshot onvif)
 
 #add mbqp module
 list(APPEND ADDON_MODULES mbqp)
