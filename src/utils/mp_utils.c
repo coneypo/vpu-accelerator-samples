@@ -7,8 +7,56 @@
 #include <net/if.h>
 #include <math.h>
 #include <gst/base/gstbitreader.h>
+#include <ctype.h>
 
 #include "mp_utils.h"
+
+void
+convert_from_byte_to_hex(const unsigned char* source, char* dest, int sourceLen)
+{
+    short i;
+    unsigned char highbyte, lowbyte;
+
+    for (i = 0; i < sourceLen; i++) {
+        highbyte = source[i] >> 4;
+        lowbyte = source[i] & 0x0f ;
+        highbyte += 0x30;
+        if (highbyte > 0x39)
+            dest[i * 2] = highbyte + 0x07;
+        else
+            dest[i * 2] = highbyte;
+        lowbyte += 0x30;
+        if (lowbyte > 0x39)
+            dest[i * 2 + 1] = lowbyte + 0x07;
+        else
+            dest[i * 2 + 1] = lowbyte;
+    }
+    return ;
+}
+
+void
+convert_from_hex_to_byte(const char* source, unsigned char* dest, int sourceLen)
+{
+    short i;
+    unsigned char highbyte, lowbyte;
+
+    for (i = 0; i < sourceLen; i += 2) {
+        highbyte = toupper(source[i]);
+        lowbyte  = toupper(source[i + 1]);
+        if (highbyte > 0x39)
+            highbyte -= 0x37;
+        else
+            highbyte -= 0x30;
+
+        if (lowbyte > 0x39)
+            lowbyte -= 0x37;
+        else
+            lowbyte -= 0x30;
+
+        dest[i / 2] = (highbyte << 4) | lowbyte;
+    }
+    return ;
+}
 
 gchar *
 read_file(const char *filename)

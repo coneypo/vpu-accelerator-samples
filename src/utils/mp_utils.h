@@ -17,6 +17,10 @@ typedef enum {
     SLICE_TYPE_SI,
 } slice_type_t;
 
+void convert_from_byte_to_hex(const unsigned char* source, char* dest, int sourceLen);
+
+void convert_from_hex_to_byte(const char* source, unsigned char* dest, int sourceLen);
+
 gchar *read_file(const char *filename);
 
 gchar *fakebuff_create(guint32 color, gint width, gint height);

@@ -8,6 +8,9 @@
                 "element":"enc0",
                 "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
                 "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
                 "mount_path":"/test0"
             },
             {
@@ -22,12 +25,18 @@
                 "element":"enc2",
                 "caps":"video/x-h265,stream-format=byte-stream,alignment=au",
                 "fps":30,
+                "srtp_enable":0,
+                "key":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc":1356955625,
                 "mount_path":"/test2"
             },
             {
                 "enable":1,
                 "element":"enc5",
                 "caps":"audio/x-alaw,rate=8000,channels=1",
+                "srtp_enable":0,
+                "key":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc":1356955625,
                 "mount_path":"/test5"
             },
             {
