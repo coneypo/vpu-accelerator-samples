@@ -338,8 +338,8 @@ json_setup_oclmix_element(mediapipe_t *mp, const gchar *elem_name)
     RETURN_VAL_IF_FAIL(mp != NULL, FALSE);
     RETURN_VAL_IF_FAIL(mp->config != NULL, FALSE);
     RETURN_VAL_IF_FAIL(elem_name != NULL, FALSE);
-    RETURN_VAL_IF_FAIL(json_object_object_get_ex(mp->config, "mix",
-                   &mix_root),FALSE);
+    RETURN_VAL_IF_FAIL(json_object_object_get_ex(mp->config, elem_name,
+                   &mix_root), FALSE);
     GstElement *element = gst_bin_get_by_name(GST_BIN(mp->pipeline), elem_name);
 
     if (!element) {
@@ -505,7 +505,14 @@ osd_flow_text_update(OclMixParam *param)
 static char *
 mp_mix_block(mediapipe_t *mp, mp_command_t *cmd)
 {
-    json_setup_oclmix_element(mp, "mix");
+    if(mp->config == NULL) {
+      return (char*) MP_CONF_ERROR;
+    };
+    json_object_object_foreach(mp->config, key, val) {
+        if(NULL!= strstr(key,"mix")){
+            json_setup_oclmix_element(mp, key);
+        }
+    }
     return MP_CONF_OK;
 }
 
