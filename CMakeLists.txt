@@ -63,6 +63,8 @@ list(APPEND SRC_LIST ${modulecfile})
 #copy config.json and launch.txt into make dir
 configure_file(./test/config.json  ${CMAKE_BINARY_DIR}/config.json COPYONLY)
 configure_file(./test/launch.txt  ${CMAKE_BINARY_DIR}/launch.txt COPYONLY)
+configure_file(./test/multi_mix_cvsdk_config.json  ${CMAKE_BINARY_DIR}/multi_mix_cvsdk_config.json COPYONLY)
+configure_file(./test/multi_mix_cvsdk_launch.txt  ${CMAKE_BINARY_DIR}/multi_mix_cvsdk_launch.txt COPYONLY)
 
 ADD_EXECUTABLE(mediapipe2 ${SRC_LIST} )
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=gnu99 -Wno-deprecated-declarations -Werror")

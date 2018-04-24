@@ -1,5 +1,4 @@
 #include "mediapipe_com.h"
-#include <gstocl/oclcommon.h>
 
 #define CVSDK_BASE_TRACKID 1024
 #define MAX_BUF_SIZE 512
@@ -29,11 +28,28 @@ typedef struct {
     GstClockTime min_pts;
 } cvsdk_branch_t;
 
+typedef int (*message_process_fun)(const char *message_name,
+                                   const char *subscribe_name, GstMessage *message);
+
+typedef struct {
+    const char *message_name;
+    const char *subscriber_name;
+    message_process_fun fun;
+} message_ctx;
+
 typedef struct {
     cvsdk_branch_t cv_branch[BRANCH_TYPE_MAX_NUM];
     GstClockTime delay;
     mediapipe_t *mp;
+    GHashTable  *msg_hst;
 } cvsdk_ctx_t;
+
+static mp_int_t
+subscribe_message(const char *message_name,
+                  const char *subscriber_name, message_process_fun fun);
+static mp_int_t
+unsubscribe_message(const char *message_name,
+                    const char *subscriber_name, message_process_fun fun);
 
 
 static mp_int_t
@@ -61,6 +77,9 @@ push_buffer_to_cvsdk_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
 
 static void
 exit_master(void);
+
+static  mp_int_t
+message_process(mediapipe_t *mp, void *message);
 
 static gboolean
 mix_sink_callback(mediapipe_t *mp, GstBuffer *buffer, guint8 *data, gsize size,
@@ -100,7 +119,7 @@ mp_module_t  mp_cvsdk_module = {
     NULL,                              /* init master */
     NULL,                              /* init module */
     NULL,                              /* keyshot_process*/
-    NULL,                              /* message_process */
+    message_process,                              /* message_process */
     init_callback,                              /* init_callback */
     NULL,                              /* netcommand_process */
     exit_master,                       /* exit master */
@@ -173,11 +192,48 @@ mp_cvsdk_block(mediapipe_t *mp, mp_command_t *cmd)
 static gboolean
 cvsdk_branch_bus_callback(GstBus *bus, GstMessage *message, gpointer data)
 {
+    const GstStructure *root;
+    GstStructure *boxed;
+    const GValue *vlist, *item;
+    GList *msg_pro_list;
+    guint nsize, x, y, width, height;
+    GList *l;
     if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_ELEMENT) {
         cvsdk_branch_t *branch = (cvsdk_branch_t *) data;
-        g_queue_push_tail(branch->smt_queue, gst_message_ref(message));
+        if (NULL == ctx.msg_hst) {
+            return TRUE;
+        }
+        msg_pro_list = (GList *) g_hash_table_lookup(ctx.msg_hst, branch->item_name);
+        if (NULL != msg_pro_list) {
+            //scale widht and height to origin width and height
+            root = gst_message_get_structure(message);
+            vlist = gst_structure_get_value(root, branch->item_name);
+            nsize = gst_value_list_get_size(vlist);
+            for (int i = 0; i < nsize; ++i) {
+                item = gst_value_list_get_value(vlist, i);
+                boxed = (GstStructure *) g_value_get_boxed(item);
+                if (gst_structure_get_uint(boxed, "x", &x)
+                    && gst_structure_get_uint(boxed, "y", &y)
+                    && gst_structure_get_uint(boxed, "width", &width)
+                    && gst_structure_get_uint(boxed, "height", &height)) {
+                    gst_structure_set(boxed,
+                                      "x", G_TYPE_UINT, x * branch->mp_branch.input_width / branch->scale_w,
+                                      "y", G_TYPE_UINT, y * branch->mp_branch.input_height / branch->scale_h,
+                                      "width", G_TYPE_UINT, width * branch->mp_branch.input_width / branch->scale_w,
+                                      "height", G_TYPE_UINT, height * branch->mp_branch.input_height /
+                                      branch->scale_h, NULL);
+                }
+            }
+            //let subscriber process the message
+            l = msg_pro_list;
+            message_ctx *t_ctx;
+            while (l != NULL) {
+                t_ctx  = (message_ctx *) l->data;
+                t_ctx->fun(t_ctx->message_name, t_ctx->subscriber_name, message);
+                l = l->next;
+            }
+        }
     }
-
     return TRUE;
 }
 
@@ -282,14 +338,11 @@ static void
 json_setup_cvsdk_branch(mediapipe_t *mp, struct json_object *root)
 {
     struct json_object *object;
-    char *fetching_element = NULL;
     gboolean load_success = FALSE;
     int i=0;
     RETURN_IF_FAIL(mp != NULL);
     RETURN_IF_FAIL(mp->state != STATE_NOT_CREATE);
     RETURN_IF_FAIL(json_object_object_get_ex(root, "cvsdk_detection", &object));
-    json_get_string(object, "fetching_element", (const char **) &fetching_element);
-    RETURN_IF_FAIL(fetching_element != NULL);
     ctx.cv_branch[CVSDK_MD_BRANCH_TYPE].branch_enable
         = json_check_enable_state(object, "enable_motion_detection");
     ctx.cv_branch[CVSDK_FD_BRANCH_TYPE].branch_enable
@@ -329,123 +382,14 @@ exit_master(void)
                           (GDestroyNotify) gst_message_unref);
         g_mutex_clear(&ctx.cv_branch[i].lock);
     }
-}
-
-
-/* --------------------------------------------------------------------------*/
-/**
- * @Synopsis get data from gst_messge and conert to meta , add into mix element
- *
- * @Param mp
- * @Param buffer
- * @Param data
- * @Param size
- * @Param user_data
- *
- * @Returns
- */
-/* ----------------------------------------------------------------------------*/
-static gboolean
-mix_sink_callback(mediapipe_t *mp, GstBuffer *buffer, guint8 *data, gsize size,
-                  gpointer user_data)
-{
-    const char *name = (const char *) user_data;
-    GstElement *element = gst_bin_get_by_name(GST_BIN(mp->pipeline), name);
-    GList *list= NULL;
-    gint i;
-
-    for (i = 0; i<BRANCH_TYPE_MAX_NUM; i++) {
-        if (ctx.cv_branch[i].branch_enable) {
-            ocl_mix_meta_list_remove(element,
-                                     ctx.cv_branch[i].branch_type + CVSDK_BASE_TRACKID, OCL_MIX_WIREFRAME);
-            list =  query_cvsdk_udpate_branch_result(&ctx.cv_branch[i], buffer);
-
-            if (list !=NULL) {
-                ocl_mix_meta_list_append(element, list, OCL_MIX_WIREFRAME);
-            }
-        }
+    GList *l = g_hash_table_get_values(ctx.msg_hst);
+    GList *p = l;
+    while (p != NULL) {
+        g_list_free_full(p->data, (GDestroyNotify)g_free);
+        p = p->next;
     }
-
-    gst_object_unref(element);
-    return TRUE;
-}
-
-static GList *
-query_cvsdk_udpate_branch_result(cvsdk_branch_t *branch, GstBuffer *buffer)
-{
-    GList *ret = NULL;
-    guint mp_ret = 0;
-    GstClockTime msg_pts;
-    GstClockTime offset = 300000000;
-    const GstStructure *root, *boxed;
-    guint nsize;
-    GstMessage *walk;
-    const GValue *vlist, *item;
-    guint x,y,width,height;
-    guint i;
-    GstClockTime desired = GST_BUFFER_PTS(buffer);
-    g_mutex_lock(&branch->lock);
-    walk = (GstMessage *) g_queue_peek_head(branch->smt_queue);
-
-    while (walk) {
-        root = gst_message_get_structure(walk);
-        gst_structure_get_clock_time(root, "timestamp", &msg_pts);
-
-        if (msg_pts > desired) {
-            walk = NULL;
-            break;
-        } else if (msg_pts == desired) {
-            g_queue_pop_head(branch->smt_queue);
-            break;
-        } else {
-            if (ctx.delay < desired - msg_pts) {
-                ctx.delay = desired - msg_pts;
-                MEDIAPIPE_SET_PROPERTY(mp_ret, ctx.mp, "queue_mix", "min-threshold-time",
-                                       ctx.delay + offset, NULL);
-                MEDIAPIPE_SET_PROPERTY(mp_ret, ctx.mp, "queue_mix", "max-size-buffers", 0,
-                                       NULL);
-                MEDIAPIPE_SET_PROPERTY(mp_ret, ctx.mp, "queue_mix", "max-size-time",
-                                       ctx.delay + offset, NULL);
-                MEDIAPIPE_SET_PROPERTY(mp_ret, ctx.mp, "queue_mix", "max-size-bytes", 0, NULL);
-            }
-
-            g_queue_pop_head(branch->smt_queue);
-            gst_message_unref(walk);
-            walk = (GstMessage *) g_queue_peek_head(branch->smt_queue);
-        }
-    }
-
-    g_mutex_unlock(&branch->lock);
-
-    if (walk != NULL) {
-        vlist = gst_structure_get_value(root, branch->item_name);
-        nsize = gst_value_list_get_size(vlist);
-
-        for (i = 0; i < nsize; ++i) {
-            item = gst_value_list_get_value(vlist, i);
-            boxed =(GstStructure *) g_value_get_boxed(item);
-
-            if (gst_structure_get_uint(boxed, "x", &x)
-                && gst_structure_get_uint(boxed, "y", &y)
-                && gst_structure_get_uint(boxed, "width", &width)
-                && gst_structure_get_uint(boxed, "height", &height)) {
-                OclMixParam *param = ocl_mix_meta_new();
-                param->track_id = branch->branch_type + CVSDK_BASE_TRACKID;
-                param->rect.x = (guint)(branch->mp_branch.input_width/branch->scale_w * x);
-                param->rect.y = (guint)(branch->mp_branch.input_height/branch->scale_h * y);
-                param->rect.width = (guint)(branch->mp_branch.input_width/branch->scale_w *
-                                            width);
-                param->rect.height = (guint)(branch->mp_branch.input_height/branch->scale_h *
-                                             height);
-                param->flag = OCL_MIX_WIREFRAME;
-                ret = g_list_append(ret, param);
-            }
-        }
-
-        gst_message_unref(walk);
-    }
-
-    return ret;
+    g_list_free(l);
+    g_hash_table_unref(ctx.msg_hst);
 }
 
 
@@ -473,7 +417,105 @@ push_buffer_to_cvsdk_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
 static mp_int_t
 init_callback(mediapipe_t *mp)
 {
-    mediapipe_set_user_callback(mp, "mix", "sink", mix_sink_callback, (void*)"mix");
     return MP_OK;
 }
 
+static mp_int_t
+subscribe_message(const char *message_name,
+                  const char *subscriber_name, message_process_fun fun)
+{
+    if (NULL == ctx.msg_hst) {
+        ctx.msg_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                            (GDestroyNotify)g_free, NULL);
+        g_hash_table_insert(ctx.msg_hst, g_strdup("faces"), NULL);
+        g_hash_table_insert(ctx.msg_hst, g_strdup("motions"), NULL);
+        g_hash_table_insert(ctx.msg_hst, g_strdup("icvs"), NULL);
+    }
+    GList *msg_list = (GList *) g_hash_table_lookup(ctx.msg_hst, message_name);
+    GList *l = msg_list;
+    message_ctx *t_ctx;
+    gboolean find = FALSE;
+    while (l != NULL) {
+        t_ctx  = (message_ctx *) l->data;
+        if (0 == g_strcmp0(t_ctx->message_name, message_name)
+            && 0 == g_strcmp0(t_ctx->subscriber_name, subscriber_name)
+            && fun ==  t_ctx->fun) {
+            find = TRUE;
+            break;
+        }
+        l = l->next;
+    }
+    if (!find) {
+        t_ctx = g_new0(message_ctx, 1);
+        t_ctx->message_name = message_name;
+        t_ctx->subscriber_name = subscriber_name;
+        t_ctx->fun = fun;
+        msg_list = g_list_append(msg_list, t_ctx);
+        g_hash_table_replace(ctx.msg_hst, g_strdup(message_name), (gpointer)msg_list);
+    }
+}
+
+static mp_int_t
+unsubscribe_message(const char *message_name,
+                    const char *subscriber_name, message_process_fun fun)
+{
+    if (NULL == ctx.msg_hst) {
+        return MP_ERROR;
+    }
+    GList *msg_list = (GList *) g_hash_table_lookup(ctx.msg_hst, message_name);
+    GList *l = msg_list;
+    message_ctx *t_ctx;
+    gboolean find = FALSE;
+    while (l != NULL) {
+        t_ctx  = (message_ctx *) l->data;
+        if (0 == g_strcmp0(t_ctx->message_name, message_name)
+            && 0 == g_strcmp0(t_ctx->subscriber_name, subscriber_name)
+            && fun ==  t_ctx->fun) {
+            find = TRUE;
+            break;
+        }
+        l = l->next;
+    }
+    if (find) {
+        msg_list = g_list_remove_link(msg_list, l);
+        g_free(l->data);
+        g_list_free(l);
+        g_hash_table_replace(ctx.msg_hst, g_strdup(message_name), (gpointer)msg_list);
+    }
+    return MP_OK;
+}
+
+static  mp_int_t
+message_process(mediapipe_t *mp, void *message)
+{
+    GstMessage *m = (GstMessage *) message;
+    const  GstStructure *s;
+    const gchar *msg_name_s;
+    const gchar *subscriber_name;
+    void *func = NULL;
+    if (GST_MESSAGE_TYPE(m) != GST_MESSAGE_APPLICATION) {
+        return MP_IGNORE;
+    }
+    s = gst_message_get_structure(m);
+    const gchar *name = gst_structure_get_name(s);
+    if (0 == g_strcmp0(name, "subscribe_message")) {
+        if (gst_structure_get(s,
+                              "message_name", G_TYPE_STRING, &msg_name_s,
+                              "subscriber_name", G_TYPE_STRING, &subscriber_name,
+                              "message_process_fun", G_TYPE_POINTER, &func,
+                              NULL)) {
+            subscribe_message(msg_name_s, subscriber_name, (message_process_fun) func);
+        }
+        return MP_OK;
+    } else if (0 == g_strcmp0(name, "unsubscribe_message")) {
+        if (gst_structure_get(s,
+                              "message_name", G_TYPE_STRING, &msg_name_s,
+                              "subscriber_name", G_TYPE_STRING, &subscriber_name,
+                              "message_process_fun", G_TYPE_POINTER, &func,
+                              NULL)) {
+            unsubscribe_message(msg_name_s, subscriber_name, (message_process_fun) func);
+        }
+        return MP_OK;
+    }
+    return MP_IGNORE;
+}

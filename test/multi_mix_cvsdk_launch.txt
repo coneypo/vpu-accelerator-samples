@@ -1,0 +1,33 @@
+v4l2src !
+video/x-raw,format=YUY2,width=640,height=480 !
+autovideoconvert !
+oclscale                   name=src !
+capsfilter                 name=src_scale_caps !
+tee                        name=tt
+tt. !
+    queue                  name=4k_queue !
+    oclscale               name=4k_scale !
+    capsfilter             name=4k_scale_caps !
+    oclmix                 name=4k_mix !
+    capsfilter             name=4k_mix_caps !
+    mfxh264enc             name=4k_enc !
+    capsfilter             name=4k_enc_caps !
+    fakesink               name=4k_sink
+tt. !
+    queue                  name=1080p_queue !
+    oclscale               name=1080p_scale !
+    capsfilter             name=1080p_scale_caps !
+    oclmix                 name=1080p_mix !
+    capsfilter             name=1080p_mix_caps !
+    mfxh264enc             name=1080p_enc !
+    capsfilter             name=1080p_enc_caps !
+    fakesink               name=1080p_sink
+tt. !
+    queue                  name=720p_queue !
+    oclscale               name=720p_scale !
+    capsfilter             name=720p_scale_caps !
+    oclmix                 name=720p_mix !
+    capsfilter             name=720p_mix_caps !
+    mfxh264enc             name=720p_enc !
+    capsfilter             name=720p_enc_caps !
+    fakesink               name=720p_sink

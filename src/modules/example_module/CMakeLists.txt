@@ -32,8 +32,8 @@ ENDFOREACH(_module)
 
 
 #opencl oclcommon.h didn't not add  extern c heard, so there is some problem
-#let mp_crop.c mp_mix.c mp_cvsdk.c compiled by CXX
-SET_SOURCE_FILES_PROPERTIES( ${CMAKE_CURRENT_LIST_DIR}/mp_crop.c ${CMAKE_CURRENT_LIST_DIR}/mp_mix.c ${CMAKE_CURRENT_LIST_DIR}/mp_cvsdk.c PROPERTIES LANGUAGE CXX )
+#let mp_crop.c mp_mix.c compiled by CXX
+SET_SOURCE_FILES_PROPERTIES( ${CMAKE_CURRENT_LIST_DIR}/mp_crop.c ${CMAKE_CURRENT_LIST_DIR}/mp_mix.c  PROPERTIES LANGUAGE CXX )
 
 list(APPEND MP_MODULES ${ADDON_MODULES})
 list(APPEND ADDON_MODULES_DEP_LIBS  ${GSTOCL_LIBRARIES})

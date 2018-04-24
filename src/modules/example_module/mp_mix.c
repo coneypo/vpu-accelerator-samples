@@ -2,9 +2,6 @@
 #include "font.h"
 
 #include "gstocl/oclcommon.h"
-
-
-
 #define ONE_BILLON_NANO_SECONDS 1000000000
 
 typedef enum {
@@ -25,6 +22,43 @@ typedef struct {
 
 static time_stamp_t osd_timestamp_ctx;
 
+#define MESSAGE_CTX_MAX_NUM 10
+typedef struct {
+    const char *elem_name;
+    const char *message_name;
+    void *pro_fun;
+    GQueue *message_queue;
+    GMutex lock;
+    guint delay;
+    const char* delay_queue_name;
+    guint elem_video_width;
+    guint elem_video_height;
+} cvsdk_message_ctx;
+
+typedef struct {
+    GHashTable *msg_pro_fun_hst;
+    cvsdk_message_ctx msg_ctxs[MESSAGE_CTX_MAX_NUM];
+    guint msg_ctx_num;
+} mix_ctx;
+
+
+static mix_ctx ctx = {0};
+
+static gboolean
+mix_sink_callback(mediapipe_t *mp, GstBuffer *buffer, guint8 *data, gsize size,
+                  gpointer user_data);
+
+static mp_int_t
+setup_subscribe_message(mediapipe_t *mp, struct json_object *mix_root,
+                        const char *elem_name);
+
+static GstMessage *
+query_message_about_buffer(mediapipe_t *mp, cvsdk_message_ctx *msg_ctx,
+                            GstBuffer *buffer);
+
+static GList *
+create_mix_param_list_from_message(GstMessage *walk,
+                                   cvsdk_message_ctx *mgs_ctx);
 
 static gpointer
 create_logo_param(struct json_object *object);
@@ -40,6 +74,26 @@ create_osd_param(struct json_object *object);
 
 static gpointer
 create_wireframe_param(struct json_object *object);
+
+static mp_int_t
+queue_message_from_observer(const char *message_name,
+                            const char *subscribe_name, GstMessage *message);
+
+static mp_int_t
+process_face_message(const char *message_name,
+                     const  char *subscribe_name, GstMessage *message);
+
+static mp_int_t
+process_motion_message(char *message_name,
+                       char *subscribe_name, GstMessage *message);
+
+static mp_int_t
+process_ice_message(char *message_name,
+                    char *subscribe_name, GstMessage *message);
+
+static mp_int_t
+setup_subscribe_message(mediapipe_t *mp, struct json_object *mix_root,
+                        const char *elem_name);
 
 static gchar *
 get_osd_timestamp_string();
@@ -347,6 +401,10 @@ json_setup_oclmix_element(mediapipe_t *mp, const gchar *elem_name)
         return FALSE;
     }
 
+    if (MP_OK == setup_subscribe_message(mp, mix_root, elem_name)) {
+        mediapipe_set_user_callback(mp, elem_name, "sink", mix_sink_callback,
+                (void *)elem_name);
+    }
     logo_list = json_parse_config(mix_root, "logo", create_logo_param);
 
     if (logo_list != NULL) {
@@ -519,6 +577,263 @@ mp_mix_block(mediapipe_t *mp, mp_command_t *cmd)
 static void
 exit_master(void)
 {
+    for (int i = 0; i < ctx.msg_ctx_num; i++) {
+        g_queue_free_full(ctx.msg_ctxs[i].message_queue,
+                          (GDestroyNotify)gst_message_unref);
+        g_mutex_clear(&ctx.msg_ctxs[i].lock);
+    }
+    g_hash_table_unref(ctx.msg_pro_fun_hst);
+}
+
+static mp_int_t
+queue_message_from_observer(const char *message_name,
+                     const char *subscribe_name, GstMessage *message)
+{
+    for (int i = 0; i < MESSAGE_CTX_MAX_NUM; i++) {
+        if (0 == g_strcmp0(message_name, ctx.msg_ctxs[i].message_name)
+            && 0 == g_strcmp0(subscribe_name, ctx.msg_ctxs[i].elem_name)) {
+            g_mutex_lock(&ctx.msg_ctxs[i].lock);
+            g_queue_push_tail(ctx.msg_ctxs[i].message_queue,
+                              gst_message_ref(message));
+            g_mutex_unlock(&ctx.msg_ctxs[i].lock);
+        }
+    }
+    return MP_OK;
+}
+
+static mp_int_t
+process_face_message(const char *message_name,
+                     const char *subscribe_name, GstMessage *message)
+{
+    return queue_message_from_observer(message_name, subscribe_name,
+                                       message);
+}
+
+static mp_int_t
+process_motion_message(char *message_name,
+                       char *subscribe_name, GstMessage *message)
+{
+    return queue_message_from_observer(message_name, subscribe_name,
+                                       message);
+}
+
+static mp_int_t
+process_icv_message(char *message_name,
+                    char *subscribe_name, GstMessage *message)
+{
+    return queue_message_from_observer(message_name, subscribe_name,
+                                       message);
+}
+
+static mp_int_t
+setup_subscribe_message(mediapipe_t *mp, struct json_object *mix_root,
+                        const char *elem_name)
+{
+    //init message process fun hash table
+    if (NULL == ctx.msg_pro_fun_hst) {
+        ctx.msg_pro_fun_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
+                              (GDestroyNotify)g_free, NULL);
+        g_hash_table_insert(ctx.msg_pro_fun_hst, g_strdup("faces"),
+                            (gpointer) process_face_message);
+        g_hash_table_insert(ctx.msg_pro_fun_hst, g_strdup("motions"),
+                            (gpointer) process_motion_message);
+        g_hash_table_insert(ctx.msg_pro_fun_hst, g_strdup("icv"),
+                            (gpointer) process_icv_message);
+    }
+    GstElement *element = gst_bin_get_by_name(GST_BIN(mp->pipeline),
+                          elem_name);
+    if (!element) {
+        g_print("mix moudle get element:%s failed\n", elem_name);
+        return MP_ERROR;
+    }
+    GstPad *pad = gst_element_get_static_pad(element, "sink");
+    GstCaps *caps = gst_pad_get_allowed_caps(pad);
+    gint width = 0, height = 0;
+    get_resolution_from_caps(caps, &width, &height);
+    if (width <= 0 ||  height <= 0) {
+        g_print("mix moudle get sink width and height failed\n");
+        gst_object_unref(element);
+        gst_object_unref(pad);
+        gst_caps_unref(caps);
+        return MP_ERROR;
+    }
+    gst_object_unref(element);
+    gst_object_unref(pad);
+    gst_caps_unref(caps);
+    struct json_object *array = NULL;
+    struct json_object *message_obj = NULL;
+    const char *message_name;
+    const char *delay_queue_name;
+    gboolean find = FALSE;
+    if (json_object_object_get_ex(mix_root, "subscribe_message", &array)) {
+        if (!json_get_string(mix_root, "delay_queue", &delay_queue_name)) {
+            delay_queue_name = "queue_mix";
+        }
+        guint  num_values = json_object_array_length(array);
+        for (guint i = 0; i < num_values; i++) {
+            message_obj = json_object_array_get_idx(array, i);
+            message_name = json_object_get_string(message_obj);
+            //gpointer  fun = g_hash_table_lookup(ctx.msg_pro_fun_hst, message_name);
+            gpointer  fun = g_hash_table_lookup(ctx.msg_pro_fun_hst, message_name);
+            if (NULL != fun) {
+                find = TRUE;
+                ctx.msg_ctxs[ctx.msg_ctx_num].elem_name = elem_name;
+                ctx.msg_ctxs[ctx.msg_ctx_num].message_name = message_name;
+                ctx.msg_ctxs[ctx.msg_ctx_num].pro_fun = fun;
+                ctx.msg_ctxs[ctx.msg_ctx_num].message_queue = g_queue_new();
+                ctx.msg_ctxs[ctx.msg_ctx_num].delay_queue_name = delay_queue_name;
+                ctx.msg_ctxs[ctx.msg_ctx_num].elem_video_width = width;
+                ctx.msg_ctxs[ctx.msg_ctx_num].elem_video_height = height;
+                g_mutex_init(&ctx.msg_ctxs[ctx.msg_ctx_num].lock);
+                ctx.msg_ctx_num++;
+                //register subscriber to cvsdk
+                GstMessage *m;
+                GstStructure *s;
+                GstBus *bus = gst_element_get_bus(mp->pipeline);
+                s = gst_structure_new("subscribe_message",
+                                      "message_name", G_TYPE_STRING, message_name,
+                                      "subscriber_name", G_TYPE_STRING, elem_name,
+                                      "message_process_fun", G_TYPE_POINTER, fun,
+                                      NULL);
+                m = gst_message_new_application(NULL, s);
+                gst_bus_post(bus, m);
+                gst_object_unref(bus);
+            } else {
+                find = find || FALSE;
+            }
+        }
+        if (find) {
+            return MP_OK;
+        } else {
+            return MP_ERROR;
+        }
+    }
+    return MP_ERROR;
 }
 
 
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis get data from gst_messge and conert to meta , add into mix element
+ *
+ * @Param mp
+ * @Param buffer
+ * @Param data
+ * @Param size
+ * @Param user_data
+ *
+ * @Returns
+ */
+/* ----------------------------------------------------------------------------*/
+static gboolean
+mix_sink_callback(mediapipe_t *mp, GstBuffer *buffer, guint8 *data, gsize size,
+                  gpointer user_data)
+{
+    const char *name = (const char *) user_data;
+    GstElement *element = gst_bin_get_by_name(GST_BIN(mp->pipeline), name);
+    GList *list = NULL;
+    GList *l = NULL;
+    gint i;
+    GstMessage *walk;
+    GList *hst_list = (GList *) g_hash_table_get_values(ctx.msg_pro_fun_hst);
+    l = hst_list;
+    while (l != NULL) {
+        ocl_mix_meta_list_remove(element,
+                                 GPOINTER_TO_UINT(l->data) + 1024, OCL_MIX_WIREFRAME);
+        l = l->next;
+    }
+    g_list_free(hst_list);
+    for (i = 0; i < MESSAGE_CTX_MAX_NUM; i++) {
+        if (0 == g_strcmp0(ctx.msg_ctxs[i].elem_name, name)) {
+            walk = query_message_about_buffer(mp, &ctx.msg_ctxs[i],
+                                              buffer);
+            list =  create_mix_param_list_from_message(walk, &ctx.msg_ctxs[i]);
+            if (list != NULL) {
+                ocl_mix_meta_list_append(element, list, OCL_MIX_WIREFRAME);
+            }
+        }
+    }
+    gst_object_unref(element);
+    return TRUE;
+}
+
+static GstMessage *
+query_message_about_buffer(mediapipe_t *mp, cvsdk_message_ctx *msg_ctx,
+                           GstBuffer *buffer)
+{
+    GstMessage *walk;
+    guint mp_ret = 0;
+    GstClockTime msg_pts;
+    GstClockTime offset = 300000000;
+    GstClockTime desired = GST_BUFFER_PTS(buffer);
+    const GstStructure *root, *boxed;
+    g_mutex_lock(&msg_ctx->lock);
+    walk = (GstMessage *) g_queue_peek_head(msg_ctx->message_queue);
+    while (walk) {
+        root = gst_message_get_structure(walk);
+        gst_structure_get_clock_time(root, "timestamp", &msg_pts);
+        if (msg_pts > desired) {
+            walk = NULL;
+            break;
+        } else if (msg_pts == desired) {
+            g_queue_pop_head(msg_ctx->message_queue);
+            break;
+        } else {
+            if (msg_ctx->delay < desired - msg_pts) {
+                msg_ctx->delay = desired - msg_pts;
+                //g_print("===delay=%d",msg_ctx->delay);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name,
+                                       "min-threshold-time",
+                                       msg_ctx->delay + offset, NULL);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name,
+                                       "max-size-buffers", 0,
+                                       NULL);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name, "max-size-time",
+                                       msg_ctx->delay + offset, NULL);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name, "max-size-bytes",
+                                       0, NULL);
+            }
+            g_queue_pop_head(msg_ctx->message_queue);
+            gst_message_unref(walk);
+            walk = (GstMessage *) g_queue_peek_head(msg_ctx->message_queue);
+        }
+    }
+    g_mutex_unlock(&msg_ctx->lock);
+    return walk;
+}
+
+static GList *
+create_mix_param_list_from_message(GstMessage *walk, cvsdk_message_ctx *msg_ctx)
+{
+    GList *ret = NULL;
+    const GValue *vlist, *item;
+    const GstStructure *root, *boxed;
+    guint nsize;
+    guint x, y, width, height;
+    guint i;
+    if (walk != NULL) {
+        root = gst_message_get_structure(walk);
+        vlist = gst_structure_get_value(root, msg_ctx->message_name);
+        nsize = gst_value_list_get_size(vlist);
+        for (i = 0; i < nsize; ++i) {
+            item = gst_value_list_get_value(vlist, i);
+            boxed = (GstStructure *) g_value_get_boxed(item);
+            if (gst_structure_get_uint(boxed, "x", &x)
+                && gst_structure_get_uint(boxed, "y", &y)
+                && gst_structure_get_uint(boxed, "width", &width)
+                && gst_structure_get_uint(boxed, "height", &height)) {
+                OclMixParam *param = ocl_mix_meta_new();
+                param->track_id = GPOINTER_TO_UINT(msg_ctx->pro_fun) + 1024;
+                //later maybe get the src resolutin , now use the const 1920x1080
+                param->rect.x = x * msg_ctx->elem_video_width / 1920;
+                param->rect.y = y * msg_ctx->elem_video_height / 1080;
+                param->rect.width = width * msg_ctx->elem_video_width / 1920;
+                param->rect.height = height * msg_ctx->elem_video_height / 1080;
+                param->flag = OCL_MIX_WIREFRAME;
+                ret = g_list_append(ret, param);
+            }
+        }
+        gst_message_unref(walk);
+    }
+    return ret;
+}
