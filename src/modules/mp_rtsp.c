@@ -24,7 +24,7 @@ static gboolean
 mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
                           const char *element_name, const char *caps_string, gint fps,
                           const char *element_name1, const char *caps_string1, gint fps1,
-                          const char *mount_path);
+                          const char *mount_path, srtp_key *srtp_conf);
 
 static void
 media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
@@ -43,14 +43,21 @@ json_new_rtsp_server(mediapipe_t *mp, struct json_object *rtsp_server);
 static  mp_int_t
 message_process(mediapipe_t *mp, void *message);
 
+static void
+exit_master();
+
+static char *
+srtp_key_check(char *key);
+
 typedef struct {
     //just save the point for pass to callback, context is free by medipipe in _mediapip_destory
     probe_context_t* probe_context_array[20];
     gint probe_count;
+    GList *key_list;
 } rtsp_ctx_t;
 
 static rtsp_ctx_t rtsp_ctx = {
-    0, 0
+    0, 0, NULL
 };
 
 static mp_command_t  mp_rtsp_commands[] = {
@@ -82,9 +89,36 @@ mp_module_t  mp_rtsp_module = {
     message_process,            /* message_process */
     NULL,                      /* init_callback */
     NULL,                               /* netcommand_process */
-    NULL,                               /* exit master */
+    exit_master,                               /* exit master */
     MP_MODULE_V1_PADDING
 };
+
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis Make sure the key is hexadecimal
+ *                     Make sure the length of the key is 60
+ * @Param key
+ * @Param srtp_key
+ */
+/* ----------------------------------------------------------------------------*/
+static char *
+srtp_key_check(char *key)
+{
+    if(!key)
+        return NULL;
+    for (gint i = 0 ; i < strlen(key) ; i++) {
+        if ( !(('0' <= key[i] && key[i] <= '9') || ('a' <= key[i] && key[i] <= 'f')
+           || ('A' <= key[i] && key[i] <= 'F'))) {
+           LOG_ERROR("Expected master key is in hexadecimal !!!");
+           return NULL;
+        }
+    }
+    if (60 != strlen(key)) {
+        LOG_ERROR("Expected master key of 60 bytes, but received [%d] bytes!!", (int)strlen(key));
+        return NULL;;
+    }
+    return key;
+}
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -99,42 +133,34 @@ json_new_rtsp_server(mediapipe_t *mp, struct json_object *rtsp_server)
 {
     int fps = -1;
     int fps1 = -1;
-    srtp_key srtp_conf = { NULL, 0 };
-    gboolean count = TRUE ;
+    srtp_key srtp_conf[2] = { {NULL, 0}, {NULL, 0} };
     const char *element, *caps, *srtp_enable, *key=NULL, *mount_path = "/test0";
-    const char *element1, *caps1;
+    const char *element1, *caps1, *key1;
     RETURN_IF_FAIL(json_check_enable_state(rtsp_server, "enable"));
     RETURN_IF_FAIL(json_get_string(rtsp_server, "element", &element));
     RETURN_IF_FAIL(json_get_string(rtsp_server, "caps", &caps));
+    if (json_check_enable_state(rtsp_server, "srtp_enable")) {
+        RETURN_IF_FAIL(json_get_uint(rtsp_server,"ssrc", &srtp_conf[0].ssrc));
+        RETURN_IF_FAIL(json_get_string(rtsp_server, "key", &key));
+        srtp_conf[0].key = srtp_key_check((char *)key);
+        g_print("====key_video=[%s]\n", srtp_conf[0].key );
+    }
     if(!json_check_enable_state(rtsp_server, "merge_av")){
-        if (json_check_enable_state(rtsp_server, "srtp_enable")) {
-            RETURN_IF_FAIL(json_get_uint(rtsp_server,"ssrc", &srtp_conf.ssrc));
-            RETURN_IF_FAIL(json_get_string(rtsp_server, "key", &key));
-            g_print("key=[%s]\n",key);
-            for (gint i = 0 ; i < strlen(key) ; i++) {
-                if ( !(('0' <= key[i] && key[i] <= '9') || ('a' <= key[i] && key[i] <= 'f')
-                   || ('A' <= key[i] && key[i] <= 'F'))) {
-                   LOG_ERROR("Expected master key is in hexadecimal !!!");
-                   count = FALSE;
-                }
-            }
-            if (60 != strlen(key)) {
-                LOG_ERROR("Expected master key of 60 bytes, but received [%d] bytes!!", strlen(key));
-                count = FALSE;
-            }
-            if(count) {
-                srtp_conf.key = (char *)key;
-            }
-        }
         json_get_int(rtsp_server, "fps", &fps);
         json_get_string(rtsp_server, "mount_path", &mount_path);
-        mediapipe_rtsp_server_new(mp, element, caps, fps, mount_path, &srtp_conf);
+        mediapipe_rtsp_server_new(mp, element, caps, fps, mount_path, &srtp_conf[0]);
     } else{
         RETURN_IF_FAIL(json_get_string(rtsp_server, "element1", &element1));
         RETURN_IF_FAIL(json_get_string(rtsp_server, "caps1", &caps1));
+        if (json_check_enable_state(rtsp_server, "srtp_enable1")) {
+            RETURN_IF_FAIL(json_get_uint(rtsp_server,"ssrc1", &srtp_conf[1].ssrc));
+            RETURN_IF_FAIL(json_get_string(rtsp_server, "key1", &key1));
+            srtp_conf[1].key = srtp_key_check((char *)key1);
+            g_print("====key_audio=[%s]\n", srtp_conf[1].key );
+        }
         json_get_int(rtsp_server, "fps1", &fps1);
         json_get_string(rtsp_server, "mount_path", &mount_path);
-        mediapipe_merge_av_rtsp_server_new(mp, element, caps, fps, element1, caps1, fps1, mount_path);
+        mediapipe_merge_av_rtsp_server_new(mp, element, caps, fps, element1, caps1, fps1, mount_path, srtp_conf);
     }
 }
 
@@ -173,6 +199,7 @@ media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
         char *key = (char *)ctx->user_data;
         convert_from_hex_to_byte(key, srtp_buff, strlen(key));
         key_buf = gst_buffer_new_wrapped(srtp_buff, strlen(srtp_buff));
+        rtsp_ctx.key_list = g_list_append(rtsp_ctx.key_list, key_buf);
         g_object_set(G_OBJECT(srtpenc), "key", key_buf, NULL);
     }
     ctx->timestamp = 0;
@@ -198,8 +225,11 @@ merge_av_media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
                 gpointer user_data)
 {
     probe_context_t **ctx = (probe_context_t **)user_data;
-    GstElement *element, *appsrc;
+    GstElement *element, *appsrc, *srtpenc, *srtpenc1;
     GstCaps *caps;
+    GstBuffer *key_buf = NULL;
+    char* srtp_buff = g_new0(char, 64);
+    char* srtp_buff1 = g_new0(char, 64);
     element = gst_rtsp_media_get_element(media);
     appsrc = gst_bin_get_by_name(GST_BIN(element), "mysrc");
     gst_object_unref(element);
@@ -210,6 +240,16 @@ merge_av_media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     caps = gst_caps_from_string(ctx[0]->caps_string);
     g_object_set(G_OBJECT(appsrc), "caps", caps, NULL);
     gst_caps_unref(caps);
+    element = gst_rtsp_media_get_element(media);
+    srtpenc = gst_bin_get_by_name(GST_BIN(element), "srtp0");
+    gst_object_unref(element);
+    if (NULL != srtpenc) {
+        char *key = (char *)ctx[0]->user_data;
+        convert_from_hex_to_byte(key, srtp_buff, strlen(key));
+        key_buf = gst_buffer_new_wrapped(srtp_buff, strlen(srtp_buff));
+        rtsp_ctx.key_list = g_list_append(rtsp_ctx.key_list, key_buf);
+        g_object_set(G_OBJECT(srtpenc), "key", key_buf, NULL);
+    }
     ctx[0]->timestamp = 0;
     ctx[0]->src = appsrc;
     /* make sure the data is freed when the media is gone */
@@ -227,6 +267,16 @@ merge_av_media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     caps = gst_caps_from_string(ctx[1]->caps_string);
     g_object_set(G_OBJECT(appsrc), "caps", caps, NULL);
     gst_caps_unref(caps);
+    element = gst_rtsp_media_get_element(media);
+    srtpenc1 = gst_bin_get_by_name(GST_BIN(element), "srtp1");
+    gst_object_unref(element);
+    if (NULL != srtpenc1) {
+        char *key = (char *)ctx[1]->user_data;
+        convert_from_hex_to_byte(key, srtp_buff1, strlen(key));
+        key_buf = gst_buffer_new_wrapped(srtp_buff1, strlen(srtp_buff1));
+        rtsp_ctx.key_list = g_list_append(rtsp_ctx.key_list, key_buf);
+        g_object_set(G_OBJECT(srtpenc1), "key", key_buf, NULL);
+    }
     ctx[1]->timestamp = 0;
     ctx[1]->src = appsrc;
     /* make sure the data is freed when the media is gone */
@@ -346,13 +396,15 @@ static gboolean
 mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
                           const char *element_name, const char *caps_string, gint fps,
                           const char *element_name1, const char *caps_string1, gint fps1,
-                          const char *mount_path)
+                          const char *mount_path, srtp_key *srtp_conf)
 {
     GstRTSPServer *server;
     GstRTSPMountPoints *mounts;
     GstRTSPMediaFactory *factory;
+    gboolean srtp_count = TRUE;
     probe_context_t **ctx = &rtsp_ctx.probe_context_array[rtsp_ctx.probe_count];
-    char launch[128];
+    char launch[200];
+    char srtp_buff [128] = {'\0'};
     g_assert(mp);
     g_assert(element_name);
     g_assert(caps_string);
@@ -360,7 +412,11 @@ mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
     g_assert(caps_string1);
     g_assert(mount_path);
 
-    memset(launch, 0, 128);
+    memset(launch, 0, 200);
+
+    if(srtp_conf == NULL || srtp_conf[0].ssrc == 0 || srtp_conf[0].key == NULL
+            || srtp_conf[1].ssrc == 0 || srtp_conf[1].key == NULL)
+        srtp_count = FALSE;
 
     if (!mp->rtsp_server) {
         mp->rtsp_server = gst_rtsp_server_new();
@@ -369,43 +425,50 @@ mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
     server = mp->rtsp_server;
     mounts = gst_rtsp_server_get_mount_points(server);
     factory = gst_rtsp_media_factory_new();
+    if(srtp_count)
+        sprintf(srtp_buff, "ssrc=%d ! srtpenc name=srtp0 ! rtpgstpay name=pay0 ", srtp_conf[0].ssrc);
+    else
+        sprintf(srtp_buff, "name=pay0 ");
     strcat(launch, "(");
     if (strstr(caps_string, "h264")) {
-        strcat(launch,
-                " appsrc name=mysrc ! rtph264pay name=pay0 pt=96 ");
+        strcat(launch, " appsrc name=mysrc ! rtph264pay pt=96 ");
+        strcat(launch, srtp_buff);
     } else if (strstr(caps_string, "h265")) {
-        strcat(launch,
-                " appsrc name=mysrc ! rtph265pay name=pay0 pt=96 ");
+        strcat(launch, " appsrc name=mysrc ! rtph265pay pt=96 ");
+        strcat(launch, srtp_buff);
     } else if (strstr(caps_string, "jpeg")) {
-        strcat(launch,
-                " appsrc name=mysrc ! rtpjpegpay name=pay0 pt=96 ");
+        strcat(launch, " appsrc name=mysrc ! rtpjpegpay pt=96 ");
+        strcat(launch, srtp_buff);
     } else {
         LOG_ERROR("Caps for rtsp server is wrong.");
         return FALSE;
     }
 
+    if(srtp_count)
+        sprintf(srtp_buff, "ssrc=%d ! srtpenc name=srtp1 ! rtpgstpay name=pay1 ", srtp_conf[1].ssrc);
+    else
+        sprintf(srtp_buff, "name=pay1 ");
     if (strstr(caps_string1, "alaw")) {
-        strcat(launch,
-                " appsrc name=mysrc1 ! rtppcmapay name=pay1 pt=96 ");
+        strcat(launch, " appsrc name=mysrc1 ! rtppcmapay pt=96 ");
+        strcat(launch, srtp_buff);
     } else if (strstr(caps_string1, "mulaw")) {
-        strcat(launch,
-                " appsrc name=mysrc1 ! rtppcmupay name=pay1 pt=96 ");
+        strcat(launch, " appsrc name=mysrc1 ! rtppcmupay  pt=96 ");
+        strcat(launch, srtp_buff);
     } else if (strstr(caps_string1, "adpcm")) {
-        strcat(launch,
-                " appsrc name=mysrc1 ! rtpg726pay name=pay1 pt=96 ");
+        strcat(launch, " appsrc name=mysrc1 ! rtpg726pay pt=96 ");
+        strcat(launch, srtp_buff);
     } else if (strstr(caps_string1, "G722")) {
-        strcat(launch,
-                " appsrc name=mysrc1 ! rtpg722pay name=pay1 pt=96 ");
+        strcat(launch, " appsrc name=mysrc1 ! rtpg722pay pt=96 ");
+        strcat(launch, srtp_buff);
     } else if (strstr(caps_string1, "audio/mpeg")) {
-        strcat(launch,
-                " appsrc name=mysrc1 ! rtpmp4apay name=pay1 pt=96 ");
+        strcat(launch, " appsrc name=mysrc1 ! rtpmp4apay pt=96 ");
+        strcat(launch, srtp_buff);
     } else {
         LOG_ERROR("Caps for rtsp server is wrong.");
         return FALSE;
     }
     strcat(launch, ")");
     gst_rtsp_media_factory_set_launch(factory, launch);
-
     gst_rtsp_media_factory_set_shared(factory, TRUE);
     ctx[0] = create_callback_context(mp, element_name, "src");
     ctx[1] = create_callback_context(mp, element_name1, "src");
@@ -417,8 +480,10 @@ mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
 
     ctx[0]->caps_string = caps_string;
     ctx[0]->fps = fps;
+    ctx[0]->user_data = srtp_conf[0].key;
     ctx[1]->caps_string = caps_string1;
     ctx[1]->fps = fps1;
+    ctx[1]->user_data = srtp_conf[1].key;
     g_signal_connect(factory, "media-configure", (GCallback)merge_av_media_configure, ctx);
     gst_rtsp_mount_points_add_factory(mounts, mount_path, factory);
     gst_object_unref(mounts);
@@ -578,4 +643,11 @@ message_process(mediapipe_t *mp, void *message)
         return MP_OK;
     }
     return MP_IGNORE;
+}
+
+static void
+exit_master()
+{
+    g_list_free_full (rtsp_ctx.key_list, (GDestroyNotify) gst_buffer_unref);
+    return;
 }
