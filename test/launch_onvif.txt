@@ -1,0 +1,36 @@
+icamerasrc                 name=src !
+capsfilter                 name=src_caps !
+queue !
+oclscale                   name=scale !
+capsfilter                 name=scale_caps !
+queue !
+oclmix                     name=mix !
+capsfilter                 name=mix_caps !
+queue !
+videorate                  name=videorate !
+capsfilter                 name=videorate_caps !
+    tee                    name=tt
+    tt. !
+    queue                  name=q0 !
+    oclscale               name=scale0 !
+    capsfilter             name=scale0_mfx_caps !
+    queue !
+    mfxh264enc             name=enc0 !
+    capsfilter             name=enc0_caps !
+    filesink               name=sink0
+    tt. !
+    queue                  name=q3 !
+    oclrotate              name=rotate !
+    capsfilter             name=rotate_mfx_caps !
+    queue                  name=qfc !
+    mfxh264enc             name=enc3 !
+    capsfilter             name=enc3_caps !
+    fakesink               name=sink3
+    tt. !
+    queue                  name=q4 !
+    oclscale               name=scale4 !
+    capsfilter             name=scale4_mfx_caps !
+    queue !
+    mfxh264enc             name=enc4 !
+    capsfilter             name=enc4_caps !
+    fakesink               name=sink4
