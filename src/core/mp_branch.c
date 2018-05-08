@@ -150,7 +150,6 @@ mediapipe_branch_destroy_internal(mediapipe_branch_t *branch)
         g_source_remove(branch->bus_watch_id);
     }
 
-    g_free(branch);
     branch = NULL;
 }
 

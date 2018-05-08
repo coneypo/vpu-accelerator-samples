@@ -215,7 +215,7 @@ mp_modules_init_callback(mediapipe_t *mp)
         if (mp->modules[i]->init_callback) {
             if (mp->modules[i]->init_callback(mp) != MP_OK) {
                 printf("%s, init callback failed\n", mp->modules[i]->name);
-                return MP_ERROR;
+                continue;
             }
         }
     }
