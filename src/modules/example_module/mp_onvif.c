@@ -693,62 +693,38 @@ static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg
     int exposuretime_min = 0, exposuretime_max = 0;
     int iris_min = 0, iris_max = 0;
 
-    GParamSpec *param=NULL;
+    GParamSpec *param;
     GParamSpecInt *pint;
     GstElement *element = gst_bin_get_by_name(GST_BIN((mp)->pipeline), ("src"));
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "brightness");
-    if(NULL!=param)
-    {
-        pint = G_PARAM_SPEC_INT(param);
-        brightness_min = pint->minimum;
-        brightness_max = pint->maximum;
-	param=NULL;
-    }
+    pint = G_PARAM_SPEC_INT(param);
+    brightness_min = pint->minimum;
+    brightness_max = pint->maximum;
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "saturation");
-    if(NULL!=param)
-    {
-        pint = G_PARAM_SPEC_INT(param);
-        colorsaturation_min = pint->minimum;
-        colorsaturation_max = pint->maximum;
-	param=NULL;
-    }
+    pint = G_PARAM_SPEC_INT(param);
+    colorsaturation_min = pint->minimum;
+    colorsaturation_max = pint->maximum;
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element), "contrast");
-    if(NULL!=param)
-    {
-        pint = G_PARAM_SPEC_INT(param);
-        contrast_min = pint->minimum;
-        contrast_max = pint->maximum;
-	param=NULL;
-    }
+    pint = G_PARAM_SPEC_INT(param);
+    contrast_min = pint->minimum;
+    contrast_max = pint->maximum;
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "sharpness");
-    if(NULL!=param)
-    {
-        pint = G_PARAM_SPEC_INT(param);
-        sharpness_min = pint->minimum;
-        sharpness_max = pint->maximum;
-	param=NULL;
-    }
+    pint = G_PARAM_SPEC_INT(param);
+    sharpness_min = pint->minimum;
+    sharpness_max = pint->maximum;
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "exposure-time");
-    if(NULL!=param)
-    {
-        pint = G_PARAM_SPEC_INT(param);
-        exposuretime_min = pint->minimum;
-        exposuretime_max = pint->maximum;
-	param=NULL;
-    }
+    pint = G_PARAM_SPEC_INT(param);
+    exposuretime_min = pint->minimum;
+    exposuretime_max = pint->maximum;
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "iris-level");
-    if(NULL!=param)
-    {
-        pint = G_PARAM_SPEC_INT(param);
-        iris_min = pint->minimum;
-        iris_max = pint->maximum;
-	param=NULL;
-    }
+    pint = G_PARAM_SPEC_INT(param);
+    iris_min = pint->minimum;
+    iris_max = pint->maximum;
     json_object_object_add(obj, "brightness_min",
                            json_object_new_int(brightness_min));
     json_object_object_add(obj, "brightness_max",
