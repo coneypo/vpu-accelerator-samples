@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 #define SERVER_PORT 8889
 #define BUF_LEN 1024
@@ -15,9 +16,13 @@
 #define DEFAULT_HEIGHT "1080"
 #define DEFAULT_FRAMERATE "30/1"
 #define DEFAULT_ELEFORMAT "H264"
+#define MAX_MESSAGE_LEN 1024
+
+
 static char *file_path = "/etc/mediapipe/launch.txt";
 static char elem_format[20] = {'\0'};
 static char enc_name[20] = {'\0'};
+static GHashTable *client_table = NULL;
 
 typedef void (*func)(struct json_object *, int *res_status, gchar **res_msg,
                      gpointer data);
@@ -25,6 +30,12 @@ struct route {
     char *name;
     func fun;
 };
+
+//hash_table client data struct
+typedef struct {
+    gsize dataLenNeedHandle;/*the data length of need to handle*/
+    gchar pData[MAX_MESSAGE_LEN];/*the container of client data*/
+} ClientData;
 
 typedef struct {
     mediapipe_t *mp;
@@ -79,6 +90,16 @@ mp_module_t  mp_onvif_module = {
     exit_master,                               /* exit master */
     MP_MODULE_V1_PADDING
 };
+
+static gboolean is_need_copy_res(const char *res)
+{
+    if (strstr(res, "get_videoenc_config")
+            || strstr(res, "get_image_config") || strstr(res, "get_range")
+            || strstr(res, "get_stream_uri")) {
+        return TRUE;
+    }
+    return FALSE;
+}
 
 static int get_enc_num(char *str, char *delim)
 {
@@ -907,7 +928,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
     GIOStatus ret;
     GError *err = NULL;
     gchar *msg = NULL;
-    gsize len;
+    gsize read_len;
     char res[256] = {'\0'};
 
     gchar *res_msg = NULL;
@@ -918,52 +939,88 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
         return TRUE;
     }
 
-    ret = g_io_channel_read_line(gio, &msg, &len, NULL, &err);
+    //get client fd
+    gint client_socket_fd = g_io_channel_unix_get_fd(gio);
 
-    if(len == 0) {
-        return FALSE;
-    }
-    char _msg[512] = {'\0'};
-    strcpy(_msg, msg);
-    g_free(msg);
+    //find client fd in hashtable
+    ClientData *pClientData = (ClientData *)g_hash_table_lookup(client_table,
+                          &client_socket_fd);
 
-    if(ret == G_IO_STATUS_ERROR) {
-        printf("Error reading: %s\n", err->message);
-        g_io_channel_shutdown(gio, TRUE, &err);
-        return FALSE;
-    } else if(ret == G_IO_STATUS_EOF) {
-        g_io_channel_shutdown(gio, TRUE, &err);
-        return FALSE;
-    } else {
-        handle(gio, _msg, &res_status, &res_msg, data, res);
+    //not find
+    if (NULL == pClientData) {
+       gint *pClient_socket_fd = g_new0(gint, 1);
+       *pClient_socket_fd = client_socket_fd;
+       pClientData = g_new0(ClientData, 1);
+       pClientData->dataLenNeedHandle = 0;
+       g_hash_table_insert(client_table, pClient_socket_fd, pClientData);
+   }
 
-        GIOStatus ret;
-        GError *err = NULL;
-        gsize len;
+    //move to end
+   gchar *pEndOfBuff = NULL;
 
-        char ret_msg[1024];
-        if(res_status != 1) {
-            strcpy(ret_msg, "error@");
-            if(res_msg != NULL)
-                 strcat(ret_msg, res_msg);
-        } else {
-            if(strstr(res, "get_videoenc_config") != NULL
-               || strstr(res, "get_image_config") || strstr(res, "get_range")
-               || strstr(res, "get_stream_uri")) {
-                strcpy(ret_msg, res);
-            } else {
-                strcpy(ret_msg, "success@");
-                if(res_msg != NULL)
-                    strcat(ret_msg, res_msg);
-            }
-        }
+    //read and handle
+   while (1) {
+       pEndOfBuff = pClientData->pData + pClientData->dataLenNeedHandle;
+       //read
+       ret = g_io_channel_read_chars(gio, pEndOfBuff,
+                                     MAX_MESSAGE_LEN - pClientData->dataLenNeedHandle, &read_len, &err);
+       //judge return value
+       if (ret == G_IO_STATUS_ERROR || ret == G_IO_STATUS_EOF) {
+           //close and remove client_socket_fd from hash table
+           g_io_channel_shutdown(gio, TRUE, &err);
+           close(client_socket_fd);
+           g_hash_table_remove(client_table, &client_socket_fd);
+           return FALSE;
+       } else {
+           //have readed all
+           if (read_len == 0) {
+               break;
+           }
+           //judge if the data contains the '\n'
+           gchar *pHeadOfData = pClientData->pData;
+           gchar *pointer = pClientData->pData + pClientData->dataLenNeedHandle;
+           gchar *pHeadOfNewReadData = pointer;
 
-        int insock = g_io_channel_unix_get_fd(gio);
-        send(insock, ret_msg, strlen(ret_msg), 0);
-
-        g_free(res_msg);
-    }
-
+           while (pointer - pHeadOfNewReadData < read_len) {
+               if ((*pointer) == '\n') {
+                   char _msg[MAX_MESSAGE_LEN] = {'\0'};
+                   memcpy(_msg, pHeadOfData, (pointer - pHeadOfData + 1));
+                   //handle command
+                   handle(gio, _msg, &res_status, &res_msg, data, res);
+                   GIOStatus ret;
+                   GError *err = NULL;
+                   gsize len;
+                   char ret_msg[1024];
+                   if (res_status != 1) {
+                       strcpy(ret_msg, "error@");
+                       if(res_msg != NULL)
+                           strcat(ret_msg, res_msg);
+                   } else if (is_need_copy_res(res)) {
+                           strcpy(ret_msg, res);
+                   } else {
+                           strcpy(ret_msg, "success@");
+                           if(res_msg != NULL)
+                               strcat(ret_msg, res_msg);
+                   }
+                   send(client_socket_fd, ret_msg, strlen(ret_msg), 0);
+                   g_free(res_msg);
+                   pHeadOfData = pointer + 1;
+               }
+               pointer ++;
+           }
+           pClientData->dataLenNeedHandle = pointer - pHeadOfData;
+           if (pClientData->dataLenNeedHandle == MAX_MESSAGE_LEN) {
+               //The data has exceed the maximum length of one ONVIF frame. Drop it.
+               pClientData->dataLenNeedHandle = 0;
+           } else if(pClientData->pData == pHeadOfData) {
+               //have no '\n',read again.
+               continue;
+           } else {
+               //move the remain data of no contain '\n' to head of container.
+               memmove(pClientData->pData,  pHeadOfData, pClientData->dataLenNeedHandle);
+           }
+       }
+   }
     return TRUE;
 }
 
@@ -992,6 +1049,11 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
     }
 
     client_channel = g_io_channel_unix_new(client_socket);
+
+    //set client socket none block #addFlag#
+    int flags = fcntl(client_socket, F_GETFL, 0);
+    fcntl(client_socket, F_SETFL, flags | O_NONBLOCK);
+
     // GIOCondition cond = ((GIOCondition) G_IO_IN|G_IO_HUP);
     GIOCondition cond = G_IO_IN;
     g_io_add_watch(client_channel, cond, (GIOFunc) gio_client_read_in_hanlder,
@@ -1044,6 +1106,10 @@ static void onvif_server_start(mediapipe_t *mp)
         g_error("Cannot create new Communication server GIOChannel!\n");
         exit(1);
     }
+    //new client hash table use to contain client info
+    if (NULL == client_table) {
+        client_table = g_hash_table_new_full(g_int_hash, g_int_equal, g_free, g_free);
+    }
     GIOCondition cond = G_IO_IN;
     g_io_add_watch(gio_socket_channel, cond, (GIOFunc) gio_client_in_handle, ctx);
     g_io_channel_unref(gio_socket_channel);
@@ -1061,5 +1127,6 @@ init_module(mediapipe_t *mp)
 static void
 exit_master(void)
 {
+    g_hash_table_unref(client_table);
     destroy_context(&onvif_ctx);
 }
