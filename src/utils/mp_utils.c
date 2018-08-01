@@ -10,6 +10,7 @@
 #include <ctype.h>
 
 #include "mp_utils.h"
+#include "local_debug.h"
 
 void
 convert_from_byte_to_hex(const unsigned char* source, char* dest, int sourceLen)
@@ -607,4 +608,13 @@ h265_get_slice_type(guint8 *data, gsize size)
     offset += size;
 #endif
     return slice_type;
+}
+void check_config_value(char *data, const char *value)
+{
+    if(data[0] == '\0') {
+        if(value != NULL) {
+            strcpy(data, value);
+            LOG_WARNING("fail to get value, use default value \"%s\"", data);
+        }
+    }
 }
