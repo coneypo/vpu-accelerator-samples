@@ -63,8 +63,6 @@ list(APPEND SRC_LIST ${modulecfile})
 #copy config.json and launch.txt into make dir
 configure_file(./test/config.json  ${CMAKE_BINARY_DIR}/config.json COPYONLY)
 configure_file(./test/launch.txt  ${CMAKE_BINARY_DIR}/launch.txt COPYONLY)
-configure_file(./test/config_onvif.json  ${CMAKE_BINARY_DIR}/config_onvif.json COPYONLY)
-configure_file(./test/launch_onvif.txt  ${CMAKE_BINARY_DIR}/launch_onvif.txt COPYONLY)
 configure_file(./test/multi_mix_cvsdk_config.json  ${CMAKE_BINARY_DIR}/multi_mix_cvsdk_config.json COPYONLY)
 configure_file(./test/multi_mix_cvsdk_launch.txt  ${CMAKE_BINARY_DIR}/multi_mix_cvsdk_launch.txt COPYONLY)
 
@@ -126,8 +124,6 @@ message("${ADDON_MODULES_DEP_LIBS}")
 install(TARGETS mediapipe2 DESTINATION /usr/bin)
 install(FILES ./test/config.json DESTINATION /etc/mediapipe2)
 install(FILES ./test/launch.txt DESTINATION /etc/mediapipe2)
-install(FILES ./test/config_onvif.json DESTINATION /etc/mediapipe2)
-install(FILES ./test/launch_onvif.txt DESTINATION /etc/mediapipe2)
 
 
 
