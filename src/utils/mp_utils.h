@@ -31,8 +31,6 @@ slice_type_t h264_get_slice_type(guint8 *data, gsize size);
 
 slice_type_t h265_get_slice_type(guint8 *data, gsize size);
 
-void check_config_value(char *data, const char *value);
-
 #define FILE_EXIST(file) (file && !access (file, F_OK))
 
 #define confirm_file(file0, file1, file2) \
