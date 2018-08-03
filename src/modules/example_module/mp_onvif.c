@@ -12,6 +12,10 @@
 
 #define SERVER_PORT 8889
 #define BUF_LEN 1024
+#define DEFAULT_WIDTH "1920"
+#define DEFAULT_HEIGHT "1080"
+#define DEFAULT_FRAMERATE "30/1"
+#define DEFAULT_ELEFORMAT "H264"
 static char *file_path = "/etc/mediapipe/launch.txt";
 static char elem_format[20] = {'\0'};
 static char enc_name[20] = {'\0'};
@@ -619,10 +623,36 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     sprintf(capsfilter, "scale%d_mfx_caps", get_enc_num(enc_name, "c"));
     MEDIAPIPE_GET_PROPERTY(ret, mp, capsfilter, "caps", &caps_tmp, NULL);
     caps_type = gst_caps_to_string(caps_tmp);
-    char width[10] = {'\0'};
-    char height[10] = {'\0'};
-    char framerate[10] = {'\0'};
-    str_to_k(caps_type , width, height, framerate);
+
+    gchar width[10] = {DEFAULT_WIDTH};
+    gchar height[10] = {DEFAULT_HEIGHT};
+    gchar framerate[10] = {DEFAULT_FRAMERATE};
+    GstStructure *s = gst_caps_get_structure (caps_tmp, 0);
+
+    gint _width = 0;
+    gboolean ret2 = gst_structure_get_int (s,"width", &_width);
+    if(!ret2) {
+        LOG_WARNING("fail to get value, use default value \"%s\"", width);
+    } else {
+        sprintf(width, "%d", _width);
+    }
+    gint _height = 0;
+    ret2 = gst_structure_get_int(s, "height", &_height);
+    if(!ret2) {
+        LOG_WARNING("fail to get value, use default value \"%s\"", height);
+    } else {
+        sprintf(height, "%d", _height);
+    }
+
+    gint numerator = 0;
+    gint denominator = 0;
+    ret2 = gst_structure_get_fraction(s, "framerate", &numerator, &denominator);
+    if(!ret2) {
+        LOG_WARNING("fail to get value, use default value \"%s\"", framerate);
+    } else {
+        sprintf(framerate, "%d/%d", numerator, denominator);
+    }
+    check_config_value(elem_format, DEFAULT_ELEFORMAT);
 
     json_object_object_add(obj, "quality", json_object_new_int(quality));
     json_object_object_add(obj, "bitrate", json_object_new_int(bitrate));
@@ -694,53 +724,71 @@ static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg
     int iris_min = 0, iris_max = 0;
 
     GParamSpec *param = NULL;
-    GParamSpecInt *pint;
+    GParamSpecInt *pint = NULL;
     GstElement *element = gst_bin_get_by_name(GST_BIN((mp)->pipeline), ("src"));
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "brightness");
     if(param != NULL) {
         pint = G_PARAM_SPEC_INT(param);
-        brightness_min = pint->minimum;
-        brightness_max = pint->maximum;
+        if(pint != NULL) {
+            brightness_min = pint->minimum;
+            brightness_max = pint->maximum;
+            pint = NULL;
+        }
         param = NULL;
     }
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "saturation");
     if(param != NULL) {
         pint = G_PARAM_SPEC_INT(param);
-        colorsaturation_min = pint->minimum;
-        colorsaturation_max = pint->maximum;
+        if(pint != NULL) {
+            colorsaturation_min = pint->minimum;
+            colorsaturation_max = pint->maximum;
+            pint = NULL;
+        }
         param = NULL;
     }
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element), "contrast");
     if(param != NULL) {
         pint = G_PARAM_SPEC_INT(param);
-        contrast_min = pint->minimum;
-        contrast_max = pint->maximum;
+        if(pint != NULL) {
+            contrast_min = pint->minimum;
+            contrast_max = pint->maximum;
+            pint = NULL;
+        }
         param = NULL;
     }
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "sharpness");
     if(param != NULL) {
         pint = G_PARAM_SPEC_INT(param);
-        sharpness_min = pint->minimum;
-        sharpness_max = pint->maximum;
+        if(pint != NULL) {
+            sharpness_min = pint->minimum;
+            sharpness_max = pint->maximum;
+            pint = NULL;
+        }
         param = NULL;
     }
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "exposure-time");
     if(param != NULL) {
         pint = G_PARAM_SPEC_INT(param);
-        exposuretime_min = pint->minimum;
-        exposuretime_max = pint->maximum;
+        if(pint != NULL) {
+            exposuretime_min = pint->minimum;
+            exposuretime_max = pint->maximum;
+            pint = NULL;
+        }
         param = NULL;
     }
     param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
                                          "iris-level");
     if(param != NULL) {
         pint = G_PARAM_SPEC_INT(param);
-        iris_min = pint->minimum;
-        iris_max = pint->maximum;
+        if(pint != NULL) {
+            iris_min = pint->minimum;
+            iris_max = pint->maximum;
+            pint = NULL;
+        }
         param = NULL;
     }
     json_object_object_add(obj, "brightness_min",
@@ -859,11 +907,11 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
 {
     GIOStatus ret;
     GError *err = NULL;
-    gchar *msg;
+    gchar *msg = NULL;
     gsize len;
     char res[256] = {'\0'};
 
-    gchar *res_msg;
+    gchar *res_msg = NULL;
     int res_status;
 
     if(condition & G_IO_HUP) {
@@ -897,7 +945,8 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
         char ret_msg[1024];
         if(res_status != 1) {
             strcpy(ret_msg, "error@");
-            strcat(ret_msg, res_msg);
+            if(res_msg != NULL)
+                 strcat(ret_msg, res_msg);
         } else {
             if(strstr(res, "get_videoenc_config") != NULL
                || strstr(res, "get_image_config") || strstr(res, "get_range")
@@ -905,7 +954,8 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
                 strcpy(ret_msg, res);
             } else {
                 strcpy(ret_msg, "success@");
-                strcat(ret_msg, res_msg);
+                if(res_msg != NULL)
+                    strcat(ret_msg, res_msg);
             }
         }
 
