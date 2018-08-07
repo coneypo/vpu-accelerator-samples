@@ -1,0 +1,7 @@
+filesrc name=src !
+queue !
+h264parse name=parse !
+vaapih264dec name=dec0 !
+capsfilter name=dec0_caps !
+queue !
+fakesink

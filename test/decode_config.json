@@ -1,0 +1,22 @@
+{
+    "element":
+    [
+        //---------src---------
+        {
+            "name":"src",
+            "location":"test0.264",
+        },
+        {
+            "name":"dec0"
+        },
+        {
+            "name":"dec0_caps",
+            "caps":"video/x-raw,format=NV12,width=1920,height=1080,framrate=30/1"
+        },
+        {
+            "name":"sink0",
+            "location":"test0.nv12"
+        }
+    ]
+
+}

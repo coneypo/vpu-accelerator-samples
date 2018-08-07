@@ -67,6 +67,8 @@ configure_file(./test/config_onvif.json  ${CMAKE_BINARY_DIR}/config_onvif.json C
 configure_file(./test/launch_onvif.txt  ${CMAKE_BINARY_DIR}/launch_onvif.txt COPYONLY)
 configure_file(./test/multi_mix_cvsdk_config.json  ${CMAKE_BINARY_DIR}/multi_mix_cvsdk_config.json COPYONLY)
 configure_file(./test/multi_mix_cvsdk_launch.txt  ${CMAKE_BINARY_DIR}/multi_mix_cvsdk_launch.txt COPYONLY)
+configure_file(./test/decode_config.json  ${CMAKE_BINARY_DIR}/decode_config.json COPYONLY)
+configure_file(./test/decode_launch.txt  ${CMAKE_BINARY_DIR}/decode_launch.txt COPYONLY)
 
 ADD_EXECUTABLE(mediapipe2 ${SRC_LIST} )
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=gnu99 -Wno-deprecated-declarations -Werror")
