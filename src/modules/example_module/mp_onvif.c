@@ -1088,6 +1088,18 @@ static void onvif_server_start(mediapipe_t *mp)
     server_sockaddr.sin_port = htons(SERVER_PORT);
     server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
+    int reuse = 1;
+    if (setsockopt(server_sockfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse,
+                sizeof(reuse)) < 0) {
+        perror("setsockopt(SO_REUSEADDR) failed");
+    }
+
+#ifdef SO_REUSEPORT
+    if (setsockopt(server_sockfd, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse,
+                sizeof(reuse)) < 0) {
+        perror("setsockopt(SO_REUSEPORT) failed");
+    }
+#endif
 
     if(bind(server_sockfd, (struct sockaddr *) &server_sockaddr,
             sizeof(server_sockaddr)) == -1) {
