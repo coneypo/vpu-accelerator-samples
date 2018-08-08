@@ -129,5 +129,7 @@ install(FILES ./test/launch.txt DESTINATION /etc/mediapipe2)
 install(FILES ./test/config_onvif.json DESTINATION /etc/mediapipe2)
 install(FILES ./test/launch_onvif.txt DESTINATION /etc/mediapipe2)
 
-
+if(CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_definitions(-DDEBUG)
+endif()
 
