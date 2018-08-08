@@ -8,7 +8,6 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <pthread.h>
-#include "gstocl/oclcommon.h"
 
 #define SERVER_PORT 8889
 #define BUF_LEN 1024
