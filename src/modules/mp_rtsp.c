@@ -362,7 +362,10 @@ mediapipe_rtsp_server_new(mediapipe_t *mp, const char *element_name,
 
     ctx->caps_string = caps_string;
     ctx->fps = fps;
-    ctx->user_data = srtp_conf->key;
+    if(srtp_conf == NULL || srtp_conf->ssrc == 0 || srtp_conf->key == NULL)
+        ctx->user_data = NULL;
+    else
+        ctx->user_data = srtp_conf->key;
     g_signal_connect(factory, "media-configure", (GCallback) media_configure, ctx);
     gst_rtsp_mount_points_add_factory(mounts, mount_path, factory);
     gst_object_unref(mounts);
