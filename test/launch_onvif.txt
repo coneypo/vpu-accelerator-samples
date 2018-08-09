@@ -14,7 +14,7 @@ capsfilter                 name=videorate_caps !
     queue                  name=q0 !
     oclscale               name=scale0 !
     capsfilter             name=scale0_mfx_caps !
-    queue !
+    queue                  name=qfc0 !
     mfxh264enc             name=enc0 !
     capsfilter             name=enc0_caps !
     filesink               name=sink0
