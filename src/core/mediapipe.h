@@ -72,30 +72,43 @@ mediapipe_set_user_callback(mediapipe_t *mp,
                             const gchar *element_name, const gchar *pad_name,
                             user_callback_t user_callback, gpointer user_data);
 
-#define MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ...) \
+#define MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, property_name,  ...) \
     do { \
         GstElement *element =  \
                                gst_bin_get_by_name (GST_BIN((mp)->pipeline), (element_name)); \
         if (NULL != element) { \
-            g_object_set (element, __VA_ARGS__); \
-            gst_object_unref (element); \
+        GParamSpec* ele_param =  \
+            g_object_class_find_property(G_OBJECT_GET_CLASS(element), (property_name)); \
+        if (NULL != ele_param) { \
+            g_object_set(element, property_name, __VA_ARGS__); \
             ret = 0; \
         } else { \
-            g_print ("### Can not find element '%s' ###\n", element_name); \
+            LOG_WARNING ("### set propety failed Can not find property '%s' , element '%s' ###\n", (property_name) , (element_name)); \
+            ret = -1; \
+        } \
+        gst_object_unref(element); \
+        } else { \
+            LOG_WARNING ("### set propety failed Can not find element '%s' ###\n", (element_name)); \
             ret = -1; \
         } \
     } while (0)
 
-#define MEDIAPIPE_GET_PROPERTY(ret, mp, element_name, ...) \
+#define MEDIAPIPE_GET_PROPERTY(ret, mp, element_name, property_name,  ...) \
     do { \
         GstElement *element =  \
                                gst_bin_get_by_name (GST_BIN((mp)->pipeline), (element_name)); \
         if (NULL != element) { \
-            g_object_get (element, __VA_ARGS__); \
-            gst_object_unref (element); \
+        GParamSpec* ele_param = g_object_class_find_property(G_OBJECT_GET_CLASS(element), (property_name)); \
+        if (NULL != ele_param) { \
+            g_object_get(element, property_name, __VA_ARGS__); \
             ret = 0; \
         } else { \
-            g_print ("### Can not find element '%s' ###\n", element_name); \
+            LOG_WARNING ("### get propety failed, Can not  find property '%s' , element '%s' ###\n", (property_name) , (element_name)); \
+            ret = -1; \
+        } \
+        gst_object_unref(element); \
+        } else { \
+            LOG_WARNING ("### get propety failed, Can not find element '%s' ###\n", (element_name)); \
             ret = -1; \
         } \
     } while (0)

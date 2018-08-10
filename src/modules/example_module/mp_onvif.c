@@ -31,6 +31,14 @@ struct route {
     func fun;
 };
 
+enum {
+    RET_SUCESS = 0,
+    RET_LENTH_EXCEEDING = -1,
+    RET_COMMAND_ERROR = -2,
+    RET_PARAM_JSON_ERROR = -3,
+    RET_FAILED = -4
+};
+
 //hash_table client data struct
 typedef struct {
     gsize dataLenNeedHandle;/*the data length of need to handle*/
@@ -91,15 +99,9 @@ mp_module_t  mp_onvif_module = {
     MP_MODULE_V1_PADDING
 };
 
-static gboolean is_need_copy_res(const char *res)
-{
-    if (strstr(res, "get_videoenc_config")
-            || strstr(res, "get_image_config") || strstr(res, "get_range")
-            || strstr(res, "get_stream_uri")) {
-        return TRUE;
-    }
-    return FALSE;
-}
+
+
+
 
 static int get_enc_num(char *str, char *delim)
 {
@@ -477,105 +479,79 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
 
 
 
-    *res_status = 1;
-    *res_msg = strdup("_set_videoenc_config success\n");
+    *res_status = 0;
 }
 
 static void _set_image_config(struct json_object *obj, int *res_status,
                        gchar **res_msg, gpointer data)
 {
+    g_assert(obj != NULL);
+    g_assert(res_status != NULL);
+    g_assert(res_msg != NULL);
+    g_assert(data != NULL);
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
+    *res_status = 0;
     int ret = 0;
+#define param_num  8
+    const gchar *param[param_num] = {
+        "brightness",
+        "contrast",
+        "colorsaturation",
+        "sharpness",
+        "exposuretime",
+        "exposuremode",
+        "irismode",
+        "irislevel"
+    };
+    const gchar *property[param_num] = {
+        "brightness",
+        "contrast",
+        "saturation",
+        "sharpness",
+        "exposure-time",
+        "exp-priority",
+        "iris-mode",
+        "iris-level"
+    };
 
-    json_object *brightness = NULL;
-    json_object *contrast = NULL;
-    json_object *colorsaturation = NULL;
-    json_object *sharpness = NULL;
-    json_object *exposuretime = NULL;
-    json_object *exposuremode = NULL;
-    json_object *irismode = NULL;
-    json_object *irislevel = NULL;
-
-    if(!json_object_object_get_ex(obj, "brightness", &brightness)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
+    const char *_value = NULL;
+    char *end = NULL;
+    int default_value = -999999;
+    int param_value[param_num] = {0};
+    struct json_object *res_json_obj = json_object_new_object();
+    struct json_object  *tmp_obj = NULL;
+    gboolean param_status = TRUE;
+    for (int i = 0 ; i < param_num; i++)
+    {
+        param_status = TRUE;
+        param_value[i] = default_value;
+        if (json_object_object_get_ex(obj, param[i], &tmp_obj)) {
+            _value = json_object_get_string(tmp_obj);
+            param_value[i] = g_ascii_strtoll(_value, &end, 10) ;
+            if (_value == end && 0 == param_value[i]) {  // convert failed
+                param_status = FALSE;
+            } else {
+                MEDIAPIPE_SET_PROPERTY(ret, mp, "src", property[i], param_value[i], NULL);
+                if (ret != 0) {
+                    param_status = FALSE;
+                }
+            }
+        } else {
+            LOG_WARNING("param don't have '%s' \n", param[i]);
+            param_status = FALSE;
+        }
+        if (!param_status) {
+            param_value[i] = default_value;
+            *res_status = RET_FAILED;
+            json_object_object_add(res_json_obj, param[i],
+                                   json_object_new_int(param_value[i]));
+        }
     }
-    if(!json_object_object_get_ex(obj, "contrast", &contrast)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "colorsaturation", &colorsaturation)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "sharpness", &sharpness)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "exposuretime", &exposuretime)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "exposuremode", &exposuremode)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "irismode", &irismode)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "irislevel", &irislevel)) {
-        printf("param error, no has element name \n");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-
-    const char *_brightness = json_object_get_string(brightness);
-    const char *_contrast = json_object_get_string(contrast);
-    const char *_colorsaturation = json_object_get_string(colorsaturation);
-    const char *_sharpness = json_object_get_string(sharpness);
-    const char *_exposuretime = json_object_get_string(exposuretime);
-    const char *_exposuremode = json_object_get_string(exposuremode);
-    const char *_irismode = json_object_get_string(irismode);
-    const char *_irislevel = json_object_get_string(irislevel);
-
-    int Brightness = atoi(_brightness);
-    int Contrast = atoi(_contrast);
-    int ColorSaturation = atoi(_colorsaturation);
-    int Sharpness = atoi(_sharpness);
-    int Exposuretime = atoi(_exposuretime);
-    int ExposureMode = atoi(_exposuremode);
-    int IrisMode = atoi(_irismode);
-    int IrisLevel = atoi(_irislevel);
-
-
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "brightness", Brightness, NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "contrast", Contrast, NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "saturation", ColorSaturation, NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "sharpness", Sharpness, NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "exposure-time", Exposuretime, NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "exp-priority", ExposureMode, NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "iris-mode", IrisMode, NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "iris-level", IrisLevel, NULL);
-
-    *res_status = 1;
-    *res_msg = strdup("_set_image_config success\n");
+    const char *str = json_object_to_json_string(res_json_obj);
+    g_assert(strlen(str) <= MAX_MESSAGE_LEN);
+    sprintf(*res_msg, "%s", str);
+    json_object_put(res_json_obj);
 }
 
 static int str_to_k(char *str, char *width, char *height, char *framerate)
@@ -603,6 +579,10 @@ static int str_to_k(char *str, char *width, char *height, char *framerate)
 static void _get_videoenc_config(struct json_object *obj, int *res_status,
                           gchar **res_msg, gpointer data)
 {
+    g_assert(obj != NULL);
+    g_assert(res_status != NULL);
+    g_assert(res_msg != NULL);
+    g_assert(data != NULL);
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
 
@@ -683,14 +663,17 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     json_object_object_add(obj, "encoder", json_object_new_string(elem_format));
 
 
-    *res_status = 1;
-    *res_msg = strdup("set mediapipe property success\n");
+    *res_status = 0;
 
 }
 
 static void _get_image_config(struct json_object *obj, int *res_status,
                        gchar **res_msg, gpointer data)
 {
+    g_assert(obj != NULL);
+    g_assert(res_status != NULL);
+    g_assert(res_msg != NULL);
+    g_assert(data != NULL);
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
 
@@ -725,13 +708,16 @@ static void _get_image_config(struct json_object *obj, int *res_status,
     json_object_object_add(obj, "irismode", json_object_new_int(irismode));
     json_object_object_add(obj, "irislevel", json_object_new_int(irislevel));
 
-    *res_status = 1;
-    *res_msg = strdup("set mediapipe property success\n");
+    *res_status = 0;
 }
 
 static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg,
                 gpointer data)
 {
+    g_assert(obj != NULL);
+    g_assert(res_status != NULL);
+    g_assert(res_msg != NULL);
+    g_assert(data != NULL);
 
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
@@ -746,70 +732,87 @@ static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg
     GParamSpec *param = NULL;
     GParamSpecInt *pint = NULL;
     GstElement *element = gst_bin_get_by_name(GST_BIN((mp)->pipeline), ("src"));
-    param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
-                                         "brightness");
-    if(param != NULL) {
-        pint = G_PARAM_SPEC_INT(param);
-        if(pint != NULL) {
-            brightness_min = pint->minimum;
-            brightness_max = pint->maximum;
-            pint = NULL;
+    if (NULL == element) {
+        LOG_WARNING("get_range : can't find src element");
+    } else {
+        param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
+                "brightness");
+        if (param != NULL) {
+            pint = G_PARAM_SPEC_INT(param);
+            if (pint != NULL) {
+                brightness_min = pint->minimum;
+                brightness_max = pint->maximum;
+                pint = NULL;
+            }
+            param = NULL;
+        } else {
+            LOG_WARNING("get_range brightness failed");
         }
-        param = NULL;
-    }
-    param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
-                                         "saturation");
-    if(param != NULL) {
-        pint = G_PARAM_SPEC_INT(param);
-        if(pint != NULL) {
-            colorsaturation_min = pint->minimum;
-            colorsaturation_max = pint->maximum;
-            pint = NULL;
+        param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
+                "saturation");
+        if (param != NULL) {
+            pint = G_PARAM_SPEC_INT(param);
+            if (pint != NULL) {
+                colorsaturation_min = pint->minimum;
+                colorsaturation_max = pint->maximum;
+                pint = NULL;
+            }
+            param = NULL;
+        } else {
+            LOG_WARNING("get_range saturation failed");
         }
-        param = NULL;
-    }
-    param = g_object_class_find_property(G_OBJECT_GET_CLASS(element), "contrast");
-    if(param != NULL) {
-        pint = G_PARAM_SPEC_INT(param);
-        if(pint != NULL) {
-            contrast_min = pint->minimum;
-            contrast_max = pint->maximum;
-            pint = NULL;
+        param = g_object_class_find_property(G_OBJECT_GET_CLASS(element), "contrast");
+        if (param != NULL) {
+            pint = G_PARAM_SPEC_INT(param);
+            if (pint != NULL) {
+                contrast_min = pint->minimum;
+                contrast_max = pint->maximum;
+                pint = NULL;
+            }
+            param = NULL;
+        } else {
+            LOG_WARNING("get_range contrast failed");
         }
-        param = NULL;
-    }
-    param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
-                                         "sharpness");
-    if(param != NULL) {
-        pint = G_PARAM_SPEC_INT(param);
-        if(pint != NULL) {
-            sharpness_min = pint->minimum;
-            sharpness_max = pint->maximum;
-            pint = NULL;
+        param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
+                "sharpness");
+        if (param != NULL) {
+            pint = G_PARAM_SPEC_INT(param);
+            if (pint != NULL) {
+                sharpness_min = pint->minimum;
+                sharpness_max = pint->maximum;
+                pint = NULL;
+            }
+            param = NULL;
+        } else {
+            LOG_WARNING("get_range sharpness failed");
         }
-        param = NULL;
-    }
-    param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
-                                         "exposure-time");
-    if(param != NULL) {
-        pint = G_PARAM_SPEC_INT(param);
-        if(pint != NULL) {
-            exposuretime_min = pint->minimum;
-            exposuretime_max = pint->maximum;
-            pint = NULL;
+        param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
+                "exposure-time");
+        if (param != NULL) {
+            pint = G_PARAM_SPEC_INT(param);
+            if (pint != NULL) {
+                exposuretime_min = pint->minimum;
+                exposuretime_max = pint->maximum;
+                pint = NULL;
+            }
+            param = NULL;
+        } else {
+            LOG_WARNING("get_range exposure-time failed");
         }
-        param = NULL;
-    }
-    param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
-                                         "iris-level");
-    if(param != NULL) {
-        pint = G_PARAM_SPEC_INT(param);
-        if(pint != NULL) {
-            iris_min = pint->minimum;
-            iris_max = pint->maximum;
-            pint = NULL;
+        param = g_object_class_find_property(G_OBJECT_GET_CLASS(element),
+                "iris-level");
+        if (param != NULL) {
+            pint = G_PARAM_SPEC_INT(param);
+            if (pint != NULL) {
+                iris_min = pint->minimum;
+                iris_max = pint->maximum;
+                pint = NULL;
+            }
+            param = NULL;
+        } else {
+            LOG_WARNING("get_range iris-level failed");
         }
-        param = NULL;
+        gst_object_unref(element);
     }
     json_object_object_add(obj, "brightness_min",
                            json_object_new_int(brightness_min));
@@ -835,20 +838,22 @@ static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg
     json_object_object_add(obj, "iris_max", json_object_new_int(iris_max));
 
 
-    *res_status = 1;
-    *res_msg = strdup("set mediapipe property success\n");
+    *res_status = 0;
 }
 
 
 static void _get_stream_uri(struct json_object *obj, int *res_status, gchar **res_msg,
                      gpointer data)
 {
+    g_assert(obj != NULL);
+    g_assert(res_status != NULL);
+    g_assert(res_msg != NULL);
+    g_assert(data != NULL);
     char streamuri[20] = {'\0'};
     sprintf(streamuri, "test%d", get_enc_num(enc_name, "c"));
     json_object_object_add(obj, "streamuri", json_object_new_string(streamuri));
 
-    *res_status = 1;
-    *res_msg = strdup("get streamuri success\n");
+    *res_status = 0;
 }
 
 
@@ -870,56 +875,79 @@ static func get_func(char *name)
             return routes[i].fun;
         }
     }
+    return NULL;
 }
 
-
-static void _handler(GIOChannel *gio, char *operation, struct json_object *param,
-              int *res_status, gchar **res_msg, gpointer data)
+static int parse(char *s, char *ope, struct json_object **param)
 {
-    func f = get_func(operation);
-    f(param, res_status, res_msg, data);
-}
-
-static int parse(char *s, char **operation, struct json_object **param)
-{
-    char ope[1024];
-    strcpy(ope, s);
+    g_assert(s != NULL);
+    g_assert(ope != NULL);
+    g_assert(param != NULL);
     const char *needle = "@";
-    char *p = strstr(ope, needle);
-
-    if(p == NULL) {
-        return -1;
+    char *p = strstr(s, needle);
+    if (p == NULL) {
+        return RET_COMMAND_ERROR;
     }
-
-    p[0] = '\0';
-    p = p + strlen(needle);
-
-    *operation = ope;
+    memcpy(ope, s, p - s);
+    *(ope + (p - s)) = '\0';
+    p++;
     *param = json_tokener_parse(p);
-    if(*param == NULL) {
-        return 0;
+    if (*param == NULL) {
+        return RET_PARAM_JSON_ERROR;
     }
-
-    return 1;
-
+    return 0;
 }
 
-static void handle(GIOChannel *gio, char *s, int *res_status, gchar **res_msg,
-            gpointer data, char *res)
+static void handle(GIOChannel *gio, char *s, gpointer data)
 {
+    g_assert(gio != NULL);
+    g_assert(s != NULL);
+    g_assert(data != NULL);
     //    char *param;
-    char *operation;
-    struct json_object *param;
-
-    if(parse(s, &operation, &param) == 1) {
-        strcpy(res, operation);
-        strcat(res, "@");
-        _handler(gio, operation, param, res_status, res_msg, data);
-        strcat(res, json_object_to_json_string(param));
-    } else {
-        *res_status = -1;
-        *res_msg = strdup("parse param error\n");
+    char operation[100] = {'\0'};
+    gchar res[MAX_MESSAGE_LEN + 50] = {'\0'};
+    gchar detail_res[MAX_MESSAGE_LEN] = {'\0'};
+    gchar *detail_res_pointer = detail_res;
+    struct json_object *param = NULL;
+    int ret = parse(s, operation, &param);
+    if (ret == 0) {
+        func f = get_func(operation);
+        if (f == NULL) {
+            ret = RET_COMMAND_ERROR;
+        } else {
+            f(param, &ret, &detail_res_pointer, data);
+        }
     }
+    switch (ret) {
+        case RET_SUCESS: { //success
+            if (strstr(operation, "get")) {
+                sprintf(res, "%s@%s\n", operation, json_object_to_json_string(param));
+            } else {
+                /* sprintf(res, "success@%d@%ld@%s", ret,  strlen(s), s); */
+                sprintf(res, "success@%d\n", ret);
+            }
+            break;
+        }
+        case RET_FAILED: // failed
+            sprintf(res, "error@%d@%ld@%s", ret, strlen(s), s);
+            res[strlen(res) - 1] = '\0';
+            sprintf(res + strlen(res), "@%s\n",  detail_res);
+            break;
+        case RET_COMMAND_ERROR:   // command is not right
+        case RET_PARAM_JSON_ERROR:   // param json format is not right
+            sprintf(res, "error@%d@%ld@%s", ret, strlen(s), s);
+            break;
+        default:
+            LOG_WARNING("unknow ret:%d input_command:%s\n", ret , s);
+            break;
+    }
+    if (param != NULL) {
+        json_object_put(param);
+    }
+
+    gint socket_fd = g_io_channel_unix_get_fd(gio);
+    send(socket_fd, res, strlen(res), 0);
+    return ;
 }
 
 static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition condition,
@@ -927,12 +955,8 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
 {
     GIOStatus ret;
     GError *err = NULL;
-    gchar *msg = NULL;
     gsize read_len;
-    char res[256] = {'\0'};
-
-    gchar *res_msg = NULL;
-    int res_status;
+    char res[MAX_MESSAGE_LEN + 50] = {'\0'};
 
     if(condition & G_IO_HUP) {
         printf("client Read end of pipe died!\n");
@@ -986,24 +1010,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
                    char _msg[MAX_MESSAGE_LEN] = {'\0'};
                    memcpy(_msg, pHeadOfData, (pointer - pHeadOfData + 1));
                    //handle command
-                   handle(gio, _msg, &res_status, &res_msg, data, res);
-                   GIOStatus ret;
-                   GError *err = NULL;
-                   gsize len;
-                   char ret_msg[1024];
-                   if (res_status != 1) {
-                       strcpy(ret_msg, "error@");
-                       if(res_msg != NULL)
-                           strcat(ret_msg, res_msg);
-                   } else if (is_need_copy_res(res)) {
-                           strcpy(ret_msg, res);
-                   } else {
-                           strcpy(ret_msg, "success@");
-                           if(res_msg != NULL)
-                               strcat(ret_msg, res_msg);
-                   }
-                   send(client_socket_fd, ret_msg, strlen(ret_msg), 0);
-                   g_free(res_msg);
+                   handle(gio, _msg, data);
                    pHeadOfData = pointer + 1;
                }
                pointer ++;
@@ -1011,6 +1018,13 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
            pClientData->dataLenNeedHandle = pointer - pHeadOfData;
            if (pClientData->dataLenNeedHandle == MAX_MESSAGE_LEN) {
                //The data has exceed the maximum length of one ONVIF frame. Drop it.
+               sprintf(res, "error@%d@%d@", RET_LENTH_EXCEEDING, MAX_MESSAGE_LEN);
+               int send_num = strlen(res);
+               memcpy(res + strlen(res), pClientData->pData, MAX_MESSAGE_LEN);
+               send_num += MAX_MESSAGE_LEN;
+               res[send_num] = '\n';
+               send_num++;
+               send(client_socket_fd, res, send_num, 0);
                pClientData->dataLenNeedHandle = 0;
            } else if(pClientData->pData == pHeadOfData) {
                //have no '\n',read again.
