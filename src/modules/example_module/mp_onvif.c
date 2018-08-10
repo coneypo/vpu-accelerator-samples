@@ -152,7 +152,7 @@ static int _read_write_file(char *file_path, char *element, char *elem_name,
 
     FILE *fp = fopen(file_path, "rt+");
     if(fp == NULL) {
-        printf("open error");
+        LOG_ERROR("open %s error!", file_path);
         return -1;
     }
 
@@ -366,31 +366,31 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
     json_object *quality = NULL;
 
     if(!json_object_object_get_ex(obj, "encoder", &encoder)) {
-        printf("param error, no has element name \n");
+        LOG_ERROR("param error, has no \"encoder\" element !");
         *res_status = -1;
         *res_msg = strdup("param error, no has element name\n");
         return ;
     }
     if(!json_object_object_get_ex(obj, "width", &width)) {
-        printf("param error, no has element name \n");
+        LOG_ERROR("param error, has no \"width\" element !");
         *res_status = -1;
         *res_msg = strdup("param error, no has element name\n");
         return ;
     }
     if(!json_object_object_get_ex(obj, "height", &height)) {
-        printf("param error, no has element name \n");
+        LOG_ERROR("param error, has no \"height\" element !");
         *res_status = -1;
         *res_msg = strdup("param error, no has element name\n");
         return ;
     }
     if(!json_object_object_get_ex(obj, "framerate", &framerate)) {
-        printf("param error, no has element name \n");
+        LOG_ERROR("param error, has no \"framerate\" element !");
     }
     if(!json_object_object_get_ex(obj, "quality", &quality)) {
-        printf("param error, no has element name \n");
+        LOG_ERROR("param error, has no \"quality\" element !");
     }
     if(!json_object_object_get_ex(obj, "bitrate", &bitrate)) {
-        printf("param error, no has element name \n");
+        LOG_ERROR("param error, has no \"bitrate\" element !");
     }
 
     const char *_encoder = json_object_get_string(encoder);
@@ -602,13 +602,13 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
         } else if(strstr(caps_type, "jpeg")) {
             strcpy(elem_format, "JPEG");
         } else {
-            printf("Can't get the required channel!!!\n");
+            LOG_ERROR("Can't get the required channel !");
             return ;
         }
 
     } else {
         if(_read_write_file(file_path, elem_format, enc_name, 0)) {
-            printf("Can't get the required channel!!!\n");
+            LOG_ERROR("Can't get the required channel !");
             return ;
         }
     }
@@ -947,6 +947,7 @@ static void handle(GIOChannel *gio, char *s, gpointer data)
 
     gint socket_fd = g_io_channel_unix_get_fd(gio);
     send(socket_fd, res, strlen(res), 0);
+    LOG_DEBUG("Client %d: send data:%s", socket_fd, res);
     return ;
 }
 
@@ -959,7 +960,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
     char res[MAX_MESSAGE_LEN + 50] = {'\0'};
 
     if(condition & G_IO_HUP) {
-        printf("client Read end of pipe died!\n");
+        LOG_INFO("client Read end of pipe died !");
         return TRUE;
     }
 
@@ -977,6 +978,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
        pClientData = g_new0(ClientData, 1);
        pClientData->dataLenNeedHandle = 0;
        g_hash_table_insert(client_table, pClient_socket_fd, pClientData);
+       LOG_DEBUG("A new client:%d", client_socket_fd);
    }
 
     //move to end
@@ -994,12 +996,16 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
            g_io_channel_shutdown(gio, TRUE, &err);
            close(client_socket_fd);
            g_hash_table_remove(client_table, &client_socket_fd);
+           LOG_DEBUG("Client %d: receive EOF or IO_STATUS_ERROR!", client_socket_fd);
            return FALSE;
        } else {
            //have readed all
            if (read_len == 0) {
                break;
            }
+           char msg_temp[MAX_MESSAGE_LEN + 1] = {'\0'};
+           memcpy(msg_temp, pEndOfBuff, read_len);
+           LOG_DEBUG("Client %d: read_data: %s", client_socket_fd, msg_temp);
            //judge if the data contains the '\n'
            gchar *pHeadOfData = pClientData->pData;
            gchar *pointer = pClientData->pData + pClientData->dataLenNeedHandle;
@@ -1009,6 +1015,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
                if ((*pointer) == '\n') {
                    char _msg[MAX_MESSAGE_LEN] = {'\0'};
                    memcpy(_msg, pHeadOfData, (pointer - pHeadOfData + 1));
+                   LOG_DEBUG("Client %d: Handle_Info: %s", client_socket_fd, _msg);
                    //handle command
                    handle(gio, _msg, data);
                    pHeadOfData = pointer + 1;
@@ -1026,6 +1033,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
                send_num++;
                send(client_socket_fd, res, send_num, 0);
                pClientData->dataLenNeedHandle = 0;
+               LOG_DEBUG("Client %d: Hash buff is full!:%s", client_socket_fd, res);
            } else if(pClientData->pData == pHeadOfData) {
                //have no '\n',read again.
                continue;
@@ -1049,7 +1057,7 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
     gint socket_fd = g_io_channel_unix_get_fd(gio);
 
     if(condition & G_IO_HUP) {
-        printf("Unexpected Broken pipe error on socket_fd\n");
+        LOG_ERROR("Unexpected Broken pipe error on socket_fd !");
         close(socket_fd);
         return FALSE;
     }
@@ -1058,7 +1066,7 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
     client_socket = accept(socket_fd, NULL, NULL);
 
     if(client_socket < 0) {
-        printf("ERROR CLIENT_SOCKET VALUE!!!!!!!!!!!!!!!!!!!!\n");
+        LOG_ERROR("ERROR CLIENT_SOCKET VALUE !");
         return FALSE;
     }
 
@@ -1125,7 +1133,7 @@ static void onvif_server_start(mediapipe_t *mp)
         perror("Communication listen error");
         exit(1);
     }
-    printf("Communication server listen at: %d\n", SERVER_PORT);
+    LOG_INFO("Communication server listen at: %d", SERVER_PORT);
 
     gio_socket_channel = g_io_channel_unix_new(server_sockfd);
     if(!gio_socket_channel) {
