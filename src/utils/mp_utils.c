@@ -108,17 +108,39 @@ fakebuff_create(guint32 color, gint width, gint height)
     return buffer;
 }
 
+static void get_local_net_name(char *szCardName)
+{
+    FILE *f;
+    char line[100], *p, *c;
+    f = fopen("/proc/net/route" ,"r");
+    while(fgets(line, 100, f)) {
+        p = strtok(line, " \t");
+        c = strtok(NULL, " \t");
+
+        if(p != NULL && c != NULL)
+        {
+            if(strcmp(c, "00000000") == 0)
+            {
+                strcpy(szCardName, p);
+                break;
+            }
+        }
+    }
+    fclose(f);
+}
+
 const char *
 get_local_ip_addr()
 {
     int sock_fd;
     char *local_addr = NULL;
     struct sockaddr_in *addr;
-
+    char szCardName[30] = {'\0'};
     if ((sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) >= 0) {
         struct ifreq ifr_ip;
         memset(&ifr_ip, 0, sizeof(ifr_ip));
-        strncpy(ifr_ip.ifr_name, "enp1s0", sizeof(ifr_ip.ifr_name) - 1);
+        get_local_net_name(szCardName);
+        strncpy(ifr_ip.ifr_name, szCardName, sizeof(ifr_ip.ifr_name) - 1);
 
         if (ioctl(sock_fd, SIOCGIFADDR, &ifr_ip) >= 0) {
             addr = (struct sockaddr_in *)&ifr_ip.ifr_addr;

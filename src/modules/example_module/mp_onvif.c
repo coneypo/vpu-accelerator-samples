@@ -17,6 +17,7 @@
 #define DEFAULT_FRAMERATE "30/1"
 #define DEFAULT_ELEFORMAT "H264"
 #define MAX_MESSAGE_LEN 1024
+#define RTSP_LEN 60
 
 
 static char *file_path = "/etc/mediapipe/launch.txt";
@@ -945,15 +946,22 @@ static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg
 static void _get_stream_uri(struct json_object *obj, int *res_status, gchar **res_msg,
                      gpointer data)
 {
-    g_assert(obj != NULL);
-    g_assert(res_status != NULL);
-    g_assert(res_msg != NULL);
-    g_assert(data != NULL);
-    char streamuri[20] = {'\0'};
-    sprintf(streamuri, "test%d", get_enc_num(enc_name, "c"));
-    json_object_object_add(obj, "streamuri", json_object_new_string(streamuri));
-
-    *res_status = 0;
+    Context *ctx = (Context *) data;
+    mediapipe_t *mp = ctx->mp;
+    gchar szRtsp[RTSP_LEN] = {'\0'};
+    gint iRtspport = 8554;
+    struct json_object* root = mp->config;
+    struct json_object *rtsp;
+    RETURN_IF_FAIL(json_object_object_get_ex(root, "rtsp",
+                   &rtsp));
+    gboolean has_port = json_get_int(rtsp, "rtsp_server_port", &iRtspport);
+    if(! has_port) {
+         LOG_WARNING("fail to get value(rtsp_server_port), use default value \"%d\"\n", iRtspport);
+    }
+    snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d/test%d", get_local_ip_addr(), iRtspport, get_enc_num(enc_name, "c"));
+    json_object_object_add(obj,  "streamuri", json_object_new_string(szRtsp));
+    *res_status = 1;
+    *res_msg = strdup("get streamuri success\n");
 }
 
 
