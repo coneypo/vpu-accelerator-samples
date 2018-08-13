@@ -52,6 +52,9 @@ typedef struct {
 
 typedef struct {
     mediapipe_t *mp;
+    const char *video_element;
+    const char *image_element;
+    const char *stream_uri;
 } Context;
 
 static Context *onvif_ctx = NULL ;
@@ -66,11 +69,13 @@ init_module(mediapipe_t *mp);
 
 static void exit_master(void);
 
+static char *onvif_ctx_set(mediapipe_t *mp, mp_command_t *cmd);
+
 static mp_command_t  mp_onvif_commands[] = {
     {
         mp_string("onvif"),
         MP_MAIN_CONF,
-        NULL,
+        onvif_ctx_set,
         0,
         0,
         NULL
@@ -102,6 +107,27 @@ mp_module_t  mp_onvif_module = {
 
 
 
+
+static const char *get_element_name_from_mp_config(mediapipe_t *mp, const char *key_name)
+{
+     struct json_object *root = mp->config;
+     struct json_object *parent;
+     const char *value = NULL;
+
+     if(!json_object_object_get_ex(root, "onvif", &parent))
+     {
+         LOG_WARNING("Config file have no \"onvif\" json object!");
+         return NULL;
+     }
+     if(!json_get_string(parent, key_name, &value))
+     {
+        LOG_WARNING("Onvif json object of config file have no %s!",key_name);
+        return NULL;
+     }
+
+     LOG_DEBUG("%s:%s",key_name,value);
+     return value;
+}
 
 static int get_enc_num(char *str, char *delim)
 {
@@ -1094,6 +1120,17 @@ static Context *create_context(mediapipe_t *mp)
     return ctx;
 }
 
+static char *onvif_ctx_set(mediapipe_t *mp, mp_command_t *cmd)
+{
+    onvif_ctx = create_context(mp);
+
+    onvif_ctx->image_element = get_element_name_from_mp_config(mp, "image_element");
+    onvif_ctx->video_element = get_element_name_from_mp_config(mp, "video_element");
+    onvif_ctx->stream_uri = get_element_name_from_mp_config(mp, "stream_uri");
+
+    return MP_CONF_OK;
+}
+
 static void destroy_context(Context **ctx)
 {
     g_free(*ctx);
@@ -1101,8 +1138,6 @@ static void destroy_context(Context **ctx)
 
 static void onvif_server_start(mediapipe_t *mp)
 {
-    Context *ctx = create_context(mp);
-
     GIOChannel *gio_socket_channel;
     gint server_sockfd = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in server_sockaddr;
@@ -1145,9 +1180,8 @@ static void onvif_server_start(mediapipe_t *mp)
         client_table = g_hash_table_new_full(g_int_hash, g_int_equal, g_free, g_free);
     }
     GIOCondition cond = G_IO_IN;
-    g_io_add_watch(gio_socket_channel, cond, (GIOFunc) gio_client_in_handle, ctx);
+    g_io_add_watch(gio_socket_channel, cond, (GIOFunc) gio_client_in_handle, onvif_ctx);
     g_io_channel_unref(gio_socket_channel);
-    onvif_ctx = ctx;
 }
 
 
