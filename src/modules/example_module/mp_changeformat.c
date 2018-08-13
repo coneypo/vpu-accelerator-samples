@@ -1,6 +1,7 @@
 #include "mediapipe_com.h"
 
 typedef struct change_format_context_s change_format_context_t;
+typedef struct change_format_config_s change_format_config_t;
 
 typedef gboolean (*format_change_extra_func_t)(gpointer user_data);
 
@@ -14,6 +15,16 @@ struct change_format_context_s {
     format_change_extra_func_t  extra_fun;
     gpointer             user_data;
 };
+
+
+#define PLUGIN_NAME_MAX_SIZE 20
+struct change_format_config_s {
+    char                plugin_264_class_name[PLUGIN_NAME_MAX_SIZE];
+    char                plugin_265_class_name[PLUGIN_NAME_MAX_SIZE];
+    char                plugin_jpeg_class_name[PLUGIN_NAME_MAX_SIZE];
+};
+
+static change_format_config_t s_config = {'\0'};
 
 static mp_int_t
 keyshot_process(mediapipe_t *mp, void *userdata);
@@ -38,11 +49,14 @@ change_to264(gpointer user_data);
 static  mp_int_t
 message_process(mediapipe_t *mp, void *message);
 
+static char *
+mp_changeformat_block(mediapipe_t *mp, mp_command_t *cmd);
+
 static mp_command_t  mp_changeformat_commands[] = {
     {
         mp_string("changeformat"),
         MP_MAIN_CONF,
-        NULL,
+        mp_changeformat_block,
         0,
         0,
         NULL
@@ -250,11 +264,11 @@ change_format_event_probe_cb(GstPad *pad, GstPadProbeInfo *info,
     GstElement *new_elem = NULL;
 
     if (!strcmp(ctx->format_string, "H264")) {
-        new_elem = gst_element_factory_make("mfxh264enc", NULL);
+        new_elem = gst_element_factory_make(s_config.plugin_264_class_name, NULL);
     } else if (!strcmp(ctx->format_string, "H265")) {
-        new_elem = gst_element_factory_make("mfxhevcenc", NULL);
+        new_elem = gst_element_factory_make(s_config.plugin_265_class_name, NULL);
     } else if (!strcmp(ctx->format_string, "JPEG")||!strcmp(ctx->format_string, "jpeg")) {
-        new_elem = gst_element_factory_make("mfxjpegenc", NULL);
+        new_elem = gst_element_factory_make(s_config.plugin_jpeg_class_name, NULL);
     } else {
         g_print("unsupported format changing\n");
     }
@@ -345,4 +359,60 @@ message_process(mediapipe_t *mp, void *message)
         return MP_OK;
     }
     return MP_IGNORE;
+}
+
+static char *
+mp_changeformat_block(mediapipe_t *mp, mp_command_t *cmd)
+{
+    // set default plugin type name
+    sprintf(s_config.plugin_264_class_name, "mfxh264enc");
+    sprintf(s_config.plugin_265_class_name, "mfxhevcenc");
+    sprintf(s_config.plugin_jpeg_class_name, "mfxjpegenc");
+    //get plugin type name from config
+    struct json_object *parent;
+    struct json_object *root = mp->config;
+    const char *plugin_264_class_name = NULL;
+    const char *plugin_265_class_name = NULL;
+    const char *plugin_jpeg_class_name = NULL;
+
+    if (!json_object_object_get_ex(root, "changeformat", &parent)) {
+        LOG_WARNING("config json do not have changeformat block, use default 'mfxh264enc', 'mfxh265enc,', 'mfxjpegenc'");
+        return MP_CONF_OK;
+    };
+
+    if (!json_get_string(parent, "plugin_264_class_name", &plugin_264_class_name)) {
+        LOG_WARNING("change format config json do not have 264 plugin name, use default 'mfxh264enc'");
+    } else if (strlen(plugin_264_class_name) >= PLUGIN_NAME_MAX_SIZE) {
+        LOG_WARNING("264 plugin name too long. max:%d, '%s', usedefault mfxh264enc",
+                    PLUGIN_NAME_MAX_SIZE, plugin_264_class_name);
+    } else {
+        memset(s_config.plugin_264_class_name, 0, PLUGIN_NAME_MAX_SIZE);
+        sprintf(s_config.plugin_264_class_name, "%s", plugin_264_class_name);
+    }
+
+    if (!json_get_string(parent, "plugin_265_class_name", &plugin_265_class_name)) {
+        LOG_WARNING("change format config json do not have 265 plugin name, use default 'mfxhevcenc'");
+    } else if (strlen(plugin_265_class_name) >= PLUGIN_NAME_MAX_SIZE) {
+        LOG_WARNING("265 plugin name too long. max:%d, '%s', usedefault mfxh265enc",
+                    PLUGIN_NAME_MAX_SIZE, plugin_265_class_name);
+    } else {
+        memset(s_config.plugin_265_class_name, 0, PLUGIN_NAME_MAX_SIZE);
+        sprintf(s_config.plugin_265_class_name, "%s", plugin_265_class_name);
+    }
+
+    if (!json_get_string(parent, "plugin_jpeg_class_name",
+                         &plugin_jpeg_class_name)) {
+        LOG_WARNING("change format config json do not have jpeg plugin name, 'mfxjpegenc'");
+    } else if (strlen(plugin_jpeg_class_name) >= PLUGIN_NAME_MAX_SIZE) {
+        LOG_WARNING("jpeg plugin name too long. max:%d, '%s', usedefault mfxjpegenc",
+                    PLUGIN_NAME_MAX_SIZE, plugin_jpeg_class_name);
+    } else {
+        memset(s_config.plugin_jpeg_class_name, 0, PLUGIN_NAME_MAX_SIZE);
+        sprintf(s_config.plugin_jpeg_class_name, "%s", plugin_jpeg_class_name);
+    }
+
+    LOG_DEBUG("### change format plugin 264 name %s ###", s_config.plugin_264_class_name);
+    LOG_DEBUG("### change format plugin 265 name %s ###", s_config.plugin_265_class_name);
+    LOG_DEBUG("### change format plugin jpeg name %s ###", s_config.plugin_jpeg_class_name);
+    return MP_CONF_OK;
 }

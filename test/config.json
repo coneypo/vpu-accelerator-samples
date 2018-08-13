@@ -441,5 +441,12 @@
                 "name":"enc9_caps",
                 "caps":"audio/mpeg,mpegversion=4,stream-format=raw,rate=16000,channels=1,base-profile=lc"
             }
-    ]
+    ],
+    "changeformat":{
+        "plugin_264_class_name" : "vaapih264enc",
+        "plugin_265_class_name" : "vaapih265enc",
+        "plugin_jpeg_class_name" : "vaapijpegenc",
+
+    }
+
 }
