@@ -12,7 +12,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake/modu
 
 #define  modules
 #set(ADDON_MODULES mix cvsdk encoder idr longterm changeformat channel slice crop snapshot onvif)
-set(ADDON_MODULES onvif)
+set(ADDON_MODULES changeformat onvif)
 
 ##add mbqp module
 #list(APPEND ADDON_MODULES mbqp)
