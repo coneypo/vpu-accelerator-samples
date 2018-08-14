@@ -55,6 +55,7 @@ typedef struct {
     const char *video_element;
     const char *image_element;
     const char *stream_uri;
+    const char *videorate_capsfilter;
 } Context;
 
 static Context *onvif_ctx = NULL ;
@@ -557,8 +558,11 @@ static void _set_image_config(struct json_object *obj, int *res_status,
             param_value[i] = g_ascii_strtoll(_value, &end, 10) ;
             if (_value == end && 0 == param_value[i]) {  // convert failed
                 param_status = FALSE;
+            } else if (ctx->image_element == NULL) {
+                LOG_WARNING("set image config: but image element name is NULL");
             } else {
-                MEDIAPIPE_SET_PROPERTY(ret, mp, "src", property[i], param_value[i], NULL);
+                MEDIAPIPE_SET_PROPERTY(ret, mp, ctx->image_element, property[i],
+                           param_value[i], NULL);
                 if (ret != 0) {
                     param_status = FALSE;
                 }
@@ -603,7 +607,7 @@ static int str_to_k(char *str, char *width, char *height, char *framerate)
 }
 
 static void _get_videoenc_config(struct json_object *obj, int *res_status,
-                          gchar **res_msg, gpointer data)
+                                 gchar **res_msg, gpointer data)
 {
     g_assert(obj != NULL);
     g_assert(res_status != NULL);
@@ -611,86 +615,147 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     g_assert(data != NULL);
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
-
-    GstCaps *caps_tmp = NULL;
-    gchar *caps_type = NULL;
-    int  bitrate = 0;
     int  ret = 0;
-    int  quality = 50;
 
-    if(enc_name[0] != '\0') {
-        char caps_name[20] = {'\0'};
-        sprintf(caps_name, "%s_caps", enc_name);
-        MEDIAPIPE_GET_PROPERTY(ret, mp, caps_name, "caps", &caps_tmp, NULL);
-        caps_type = gst_caps_to_string(caps_tmp);
-        if(strstr(caps_type, "h264")) {
-            strcpy(elem_format, "H264");
-        } else if(strstr(caps_type, "jpeg")) {
-            strcpy(elem_format, "JPEG");
+    //get element
+    GstElement *enc_element = NULL;
+    if (ctx->video_element != NULL) {
+        enc_element = gst_bin_get_by_name(GST_BIN((mp)->pipeline),
+                                          ctx->video_element);
+    } else {
+        LOG_WARNING("get video config: video element name is NULL");
+    }
+
+    //get enc src and sink caps
+    GstPad *sink_pad = NULL;
+    GstPad *src_pad = NULL;
+    GstCaps *sink_caps = NULL;
+    GstCaps *src_caps = NULL;
+    if (enc_element != NULL) {
+        sink_pad = gst_element_get_static_pad(enc_element, "sink");
+        if (sink_pad == NULL) {
+            sink_pad = gst_element_get_request_pad(enc_element, "sink%d");
+        }
+        if (sink_pad != NULL) {
+            sink_caps = gst_pad_get_current_caps(sink_pad);
+            gst_object_unref(sink_pad);
+        }
+        src_pad = gst_element_get_static_pad(enc_element, "src");
+        if (src_pad == NULL) {
+            src_pad = gst_element_get_request_pad(enc_element, "src%d");
+        }
+        if (src_pad != NULL) {
+            src_caps = gst_pad_get_current_caps(src_pad);
+            gst_object_unref(src_pad);
+        }
+        gst_object_unref(enc_element);
+    } else {
+        LOG_WARNING("get video config: pipeline do not have element :%s ",
+                    ctx->video_element);
+    }
+
+    //get widht height
+    gint _width = 1920;
+    gint _height = 1080;
+    char width[10] = {"1920"};
+    char height[10] = {"1080"};
+    gboolean ret2 = FALSE;
+    GstVideoInfo sink_video_info;
+    if (sink_caps != NULL) {
+        ret2 = gst_video_info_from_caps(&sink_video_info, sink_caps);
+        if (ret2) {
+            _width = GST_VIDEO_INFO_WIDTH(&sink_video_info);
+            _height = GST_VIDEO_INFO_HEIGHT(&sink_video_info);
         } else {
-            LOG_ERROR("Can't get the required channel !");
-            return ;
+            LOG_WARNING("get video config:sink caps can not be parsed ");
         }
-
+        gst_caps_unref(sink_caps);
     } else {
-        if(_read_write_file(file_path, elem_format, enc_name, 0)) {
-            LOG_ERROR("Can't get the required channel !");
-            return ;
+        LOG_WARNING("get video config: sink caps is NULL");
+    }
+    sprintf(width, "%d", _width);
+    sprintf(height, "%d", _height);
+
+    //get format
+    char format[10] = {"H264"};
+    GstStructure *src_caps_structure = NULL;
+    if (src_caps != NULL) {
+        src_caps_structure = gst_caps_get_structure(src_caps, 0);
+        const char *name  = gst_structure_get_name(src_caps_structure);
+        if (strstr(name, "h264")) {
+            sprintf(format, "H264");
+        } else if (strstr(name, "h265")) {
+            sprintf(format, "H265");
+        } else if (strstr(name, "jpeg")) {
+            sprintf(format, "JPEG");
+        }
+        gst_caps_unref(src_caps);
+    } else {
+        LOG_WARNING("get video config: src caps is NULL");
+    }
+
+    //get quality or bitrate and bitratemode
+    int  bitrate = 0;
+    int  quality = 50;
+    int  _bitratemode = 1;
+    char bitratemode[10] = {"CBR"};
+    if (!strcmp(format, "JPEG")) {
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->video_element, "quality",
+                               &quality, NULL);
+    } else {
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->video_element, "bitrate",
+                               &bitrate, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->video_element, "rate-control",
+                               &_bitratemode, NULL);
+        switch (_bitratemode) {
+            case 1:
+                sprintf(bitratemode, "CBR");
+                break;
+            case 2:
+                sprintf(bitratemode, "VBR");
+                break;
+            case 3:
+                sprintf(bitratemode, "CQP");
+                break;
+            default:
+                sprintf(bitratemode, "CBR");
+                break;
         }
     }
 
-    if(!strcmp(elem_format, "JPEG")) {
-        MEDIAPIPE_GET_PROPERTY(ret, mp, enc_name, "quality", &quality, NULL);
-    } else {
-        MEDIAPIPE_GET_PROPERTY(ret, mp, enc_name, "bitrate", &bitrate, NULL);
+    //get framrate
+    GstCaps *rate_caps = NULL;
+    MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->videorate_capsfilter, "caps",
+                           &rate_caps, NULL);
+    GstStructure *rate_caps_stucture = NULL;
+    gint numerator = 30;
+    gint denominator = 1;
+    char framerate[10] = {"30/1"};
+    if (ret == 0) {
+        rate_caps_stucture = gst_caps_get_structure(rate_caps, 0);
+        ret2 = gst_structure_get_fraction(rate_caps_stucture, "framerate",
+                                          &numerator, &denominator);
+        if (!ret2) {
+            LOG_WARNING("fail to get value, use default value \"%s\"", framerate);
+        } else {
+            sprintf(framerate, "%d/%d", numerator, denominator);
+        }
+        gst_caps_ref(rate_caps);
     }
-
-    char capsfilter[20] = {'\0'};
-    sprintf(capsfilter, "scale%d_mfx_caps", get_enc_num(enc_name, "c"));
-    MEDIAPIPE_GET_PROPERTY(ret, mp, capsfilter, "caps", &caps_tmp, NULL);
-    caps_type = gst_caps_to_string(caps_tmp);
-
-    gchar width[10] = {DEFAULT_WIDTH};
-    gchar height[10] = {DEFAULT_HEIGHT};
-    gchar framerate[10] = {DEFAULT_FRAMERATE};
-    GstStructure *s = gst_caps_get_structure (caps_tmp, 0);
-
-    gint _width = 0;
-    gboolean ret2 = gst_structure_get_int (s,"width", &_width);
-    if(!ret2) {
-        LOG_WARNING("fail to get value, use default value \"%s\"", width);
-    } else {
-        sprintf(width, "%d", _width);
-    }
-    gint _height = 0;
-    ret2 = gst_structure_get_int(s, "height", &_height);
-    if(!ret2) {
-        LOG_WARNING("fail to get value, use default value \"%s\"", height);
-    } else {
-        sprintf(height, "%d", _height);
-    }
-
-    gint numerator = 0;
-    gint denominator = 0;
-    ret2 = gst_structure_get_fraction(s, "framerate", &numerator, &denominator);
-    if(!ret2) {
-        LOG_WARNING("fail to get value, use default value \"%s\"", framerate);
-    } else {
-        sprintf(framerate, "%d/%d", numerator, denominator);
-    }
-    check_config_value(elem_format, DEFAULT_ELEFORMAT);
-
     json_object_object_add(obj, "quality", json_object_new_int(quality));
     json_object_object_add(obj, "bitrate", json_object_new_int(bitrate));
-    json_object_object_add(obj, "bitratemode", json_object_new_string("BR"));
+    json_object_object_add(obj, "bitratemode", json_object_new_string(bitratemode));
     json_object_object_add(obj, "width", json_object_new_string(width));
     json_object_object_add(obj, "height", json_object_new_string(height));
     json_object_object_add(obj, "framerate", json_object_new_string(framerate));
-    json_object_object_add(obj, "encoder", json_object_new_string(elem_format));
-
-
+    json_object_object_add(obj, "encoder", json_object_new_string(format));
     *res_status = 0;
 
+    //this code will be delete later, just use for set video config temporary
+    sprintf(elem_format, "%s", format);
+    if (ctx->video_element != NULL) {
+        sprintf(enc_name, "%s", ctx->video_element);
+    }
 }
 
 static void _get_image_config(struct json_object *obj, int *res_status,
@@ -713,14 +778,18 @@ static void _get_image_config(struct json_object *obj, int *res_status,
     int irislevel = 0;
     int ret = 0;
 
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "brightness", &brightness, NULL);
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "contrast", &contrast, NULL);
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "saturation", &colorsaturation, NULL);
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "sharpness", &sharpness, NULL);
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "exposure-time", &exposuretime, NULL);
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "exp-priority", &exposuremode, NULL);
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "iris-mode", &irismode, NULL);
-    MEDIAPIPE_GET_PROPERTY(ret, mp, "src", "iris-level", &irislevel, NULL);
+    if(ctx->image_element !=NULL ){
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "brightness", &brightness, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "contrast", &contrast, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "saturation", &colorsaturation, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "sharpness", &sharpness, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "exposure-time", &exposuretime, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "exp-priority", &exposuremode, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "iris-mode", &irismode, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "iris-level", &irislevel, NULL);
+    }else {
+        LOG_WARNING("get image config: but image element name is NULL");
+    }
 
     json_object_object_add(obj, "brightness", json_object_new_int(brightness));
     json_object_object_add(obj, "colorsaturation",
@@ -757,7 +826,12 @@ static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg
 
     GParamSpec *param = NULL;
     GParamSpecInt *pint = NULL;
-    GstElement *element = gst_bin_get_by_name(GST_BIN((mp)->pipeline), ("src"));
+    GstElement *element = NULL;
+    if(ctx->image_element != NULL ){
+        element = gst_bin_get_by_name(GST_BIN((mp)->pipeline), ctx->image_element);
+    }else {
+        LOG_WARNING("get range: image element  name is NULL ");
+    }
     if (NULL == element) {
         LOG_WARNING("get_range : can't find src element");
     } else {
@@ -1127,6 +1201,8 @@ static char *onvif_ctx_set(mediapipe_t *mp, mp_command_t *cmd)
     onvif_ctx->image_element = get_element_name_from_mp_config(mp, "image_element");
     onvif_ctx->video_element = get_element_name_from_mp_config(mp, "video_element");
     onvif_ctx->stream_uri = get_element_name_from_mp_config(mp, "stream_uri");
+    onvif_ctx->videorate_capsfilter = get_element_name_from_mp_config(mp,
+            "videorate_capsfilter");
 
     return MP_CONF_OK;
 }

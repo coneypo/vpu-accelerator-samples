@@ -447,6 +447,12 @@
         "plugin_265_class_name" : "vaapih265enc",
         "plugin_jpeg_class_name" : "vaapijpegenc",
 
+    },
+    "onvif":{
+        "image_element": "src",
+        "video_element": "enc0",
+        "stream_uri": "/test0",
+        "videorate_capsfilter": "videorate_caps"
     }
 
 }
