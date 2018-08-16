@@ -955,12 +955,12 @@ static void _get_stream_uri(struct json_object *obj, int *res_status, gchar **re
     RETURN_IF_FAIL(json_object_object_get_ex(root, "rtsp",
                    &rtsp));
     gboolean has_port = json_get_int(rtsp, "rtsp_server_port", &iRtspport);
-    if(! has_port) {
+    if(!has_port) {
          LOG_WARNING("fail to get value(rtsp_server_port), use default value \"%d\"\n", iRtspport);
     }
     snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d/test%d", get_local_ip_addr(), iRtspport, get_enc_num(enc_name, "c"));
     json_object_object_add(obj,  "streamuri", json_object_new_string(szRtsp));
-    *res_status = 1;
+    *res_status = RET_SUCESS;
     *res_msg = strdup("get streamuri success\n");
 }
 
