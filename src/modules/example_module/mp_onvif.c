@@ -18,11 +18,9 @@
 #define DEFAULT_ELEFORMAT "H264"
 #define MAX_MESSAGE_LEN 1024
 #define RTSP_LEN 60
+#define PARAM_INT_FAILD -999999
+#define PARAM_STR_FAILD "FAILED"
 
-
-static char *file_path = "/etc/mediapipe/launch.txt";
-static char elem_format[20] = {'\0'};
-static char enc_name[20] = {'\0'};
 static GHashTable *client_table = NULL;
 
 typedef void (*func)(struct json_object *, int *res_status, gchar **res_msg,
@@ -40,6 +38,30 @@ enum {
     RET_FAILED = -4
 };
 
+typedef enum {
+    PARAM_STRING_TYPE = 0,
+    PARAM_INT_TYPE = 1
+} ParamType;
+
+enum VideoPARAM {
+    ENCODER = 0,
+    WIDTH   = 1,
+    HEIGHT,
+    BITRATE,
+    FRAMERATE,
+    QUALITY,
+    VIDEO_PARAM_MAX
+};
+
+#define PARAM_STR_MAX_LEN  20
+typedef struct {
+    ParamType type;
+    const char *name;
+    gchar value_str[PARAM_STR_MAX_LEN];
+    int value_int;
+    gboolean status;
+} Param;
+
 //hash_table client data struct
 typedef struct {
     gsize dataLenNeedHandle;/*the data length of need to handle*/
@@ -48,7 +70,14 @@ typedef struct {
 
 typedef struct {
     mediapipe_t *mp;
-    struct json_object *js_obj;
+    int quality;
+    int bitrate;
+    char *down_capsfilter_name;
+    char *down_sink_name;
+    int framerate;
+    gchar format[20];
+    int width;
+    int height;
 } MediapipeChForm;
 
 typedef struct {
@@ -65,6 +94,14 @@ typedef struct {
     gsize        buf_size;
     slice_type_t    slice_type;
 } EncodeMeta;
+
+static void check_param(Param *param, struct json_object *obj,
+                        const char *debug_str);
+
+static gboolean
+get_element_by_name_and_direction(GstElement *cur_element,
+                                  GstElement **ret_element,
+                                  const char *ret_element_factory_name, gboolean isup);
 
 static mp_int_t
 init_module(mediapipe_t *mp);
@@ -293,221 +330,297 @@ change_format_in_channel(gpointer user_data)
 {
     MediapipeChForm *mp_chform = (MediapipeChForm *) user_data;
     mediapipe_t *mp = mp_chform->mp;
-    struct json_object *js_obj = mp_chform->js_obj;
-    int ret = 1;
+    gchar *caps_name = mp_chform->down_capsfilter_name;
+    gchar *format_s = mp_chform->format;
+    int bitrate = mp_chform->bitrate;
+    int quality = mp_chform->quality;
+    int framerate = mp_chform->framerate;
+    const gchar *ele_name_s = onvif_ctx->video_element;
+    const gchar *mount_path = onvif_ctx->stream_uri;
+    gchar *sink_name = mp_chform->down_sink_name;
+    int width = mp_chform->width;
+    int height = mp_chform->height;
 
-    json_object *ele_name_obj = NULL;
-    json_object *e_caps_value_obj = NULL;
-    json_object *e_caps_name_obj = NULL;
-    json_object *mount_path_obj = NULL;
-    json_object *format_obj = NULL;
-    json_object *r_caps_obj = NULL;
-
-    if(!json_object_object_get_ex(js_obj, "ele_name", &ele_name_obj)) {
-        return 1;
+    //reset enc_caps and enc property
+    GstElement *enc_caps_element = gst_bin_get_by_name(GST_BIN((mp)->pipeline),
+                                   caps_name);
+    if (enc_caps_element == NULL) {
+        return FALSE;
     }
-    if(!json_object_object_get_ex(js_obj, "e_caps_value", &e_caps_value_obj)) {
-        return 1;
-    }
-    if(!json_object_object_get_ex(js_obj, "e_caps_name", &e_caps_name_obj)) {
-        return 1;
-    }
-    if(!json_object_object_get_ex(js_obj, "mount_path", &mount_path_obj)) {
-        return 1;
-    }
-    if(!json_object_object_get_ex(js_obj, "format", &format_obj)) {
-        return 1;
-    }
-    if(!json_object_object_get_ex(js_obj, "r_caps", &r_caps_obj)) {
-        return 1;
-    }
-
-    const char *ele_name_s = json_object_get_string(ele_name_obj);
-    const char *e_caps_value_s = json_object_get_string(e_caps_value_obj);
-    const char *e_caps_name_s = json_object_get_string(e_caps_name_obj);
-    const char *mount_path = json_object_get_string(mount_path_obj);
-    const char *format_s = json_object_get_string(format_obj);
-    const char *r_caps_s = json_object_get_string(r_caps_obj);
-
-    GstElement *enc_caps = gst_bin_get_by_name(GST_BIN((mp)->pipeline),
-                           e_caps_name_s);
-    GstCaps *caps = gst_caps_from_string(e_caps_value_s);
-    gst_element_set_state(enc_caps, GST_STATE_NULL);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, e_caps_name_s, "caps", caps, NULL);
-    if(!strcmp(format_s, "h265") || !strcmp(format_s, "H265")) {
+    GstCaps *caps = NULL;
+    GstCaps *new_caps = NULL;
+    GstStructure *structure = NULL;
+    int ret = 0;
+    gst_element_set_state(enc_caps_element, GST_STATE_NULL);
+    if (!strcmp(format_s, "h265") || !strcmp(format_s, "H265")) {
+        new_caps =
+            gst_caps_from_string("video/x-h265,stream-format=byte-stream,alignment=au");
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "preset", 6, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "idr-interval", 1, NULL);
-    } else if(!strcmp(format_s, "jpeg") || !strcmp(format_s, "JPEG")) {
-        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "quality", 50, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "bitrate", bitrate, NULL);
+    } else if (!strcmp(format_s, "jpeg") || !strcmp(format_s, "JPEG")) {
+        new_caps = gst_caps_from_string("image/jpeg");
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "quality", quality, NULL);
+    } else if (!strcmp(format_s, "h264") || !strcmp(format_s, "H264")) {
+        new_caps =
+            gst_caps_from_string("video/x-h264,stream-format=byte-stream,alignment=au");
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "bitrate", bitrate, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "rate-control", 1, NULL);
     }
-    gst_element_set_state(enc_caps, GST_STATE_PLAYING);
-    gst_caps_unref(caps);
-    gst_object_unref(enc_caps);
-
-    char sinK_pad[20] = {'\0'};
-    if(!strcmp(ele_name_s, "enc0")) {
-        strcpy(sinK_pad, "sink0");
-    } else if(!strcmp(ele_name_s, "enc1")) {
-        strcpy(sinK_pad, "sink1");
-    } else {
-        strcpy(sinK_pad, "sink2");
+    gst_object_unref(enc_caps_element);
+    if (caps != NULL) {
+        gst_caps_unref(caps);
     }
+    MEDIAPIPE_SET_PROPERTY(ret, mp, caps_name , "caps", new_caps, NULL);
+    if (ret != 0) {
+        if (new_caps != NULL) {
+            gst_caps_unref(caps);
+        }
+        return FALSE;
+    }
+    gst_element_set_state(enc_caps_element, GST_STATE_PLAYING);
 
-    GstElement *sink = gst_bin_get_by_name(GST_BIN((mp)->pipeline), sinK_pad);
+    //prepare caps str for rtsp appsrc
+    gchar r_caps_s[100] = {'\0'};
+    gchar *tmp_caps_str =  gst_caps_to_string(new_caps);
+    snprintf(r_caps_s, 100, "%s",  tmp_caps_str);
+    g_free(tmp_caps_str);
+    if (!strcmp(format_s, "jpeg") || !strcmp(format_s, "JPEG")) {
+        sprintf(r_caps_s, "image/jpeg,width=%d,height=%d", width, height);
+    }
+    gst_caps_unref(new_caps);
+    //reset sink
+    GstElement *sink = gst_bin_get_by_name(GST_BIN((mp)->pipeline), sink_name);
     gst_element_set_state(sink, GST_STATE_NULL);
+    if (sink == NULL) {
+        return FALSE;
+    }
     gst_element_set_state(sink, GST_STATE_PLAYING);
     gst_object_unref(sink);
 
+    LOG_DEBUG("ele_name_s:%s", ele_name_s);
+    LOG_DEBUG("r_caps_s:%s", r_caps_s);
+    LOG_DEBUG("framerate:%d", framerate);
+    LOG_DEBUG("mount_path:%s", mount_path);
     /*need send GstMessage*/
     /* mediapipe_remove_rtsp_mount_point(mp, mount_path); */
     /* mediapipe_rtsp_server_new (mp, ele_name_s, r_caps_s , 30, mount_path); */
-
     GstMessage *m;
     GstStructure *s;
-    GstBus * test_bus = gst_element_get_bus(mp->pipeline);
-
-    s = gst_structure_new ("rtsp_restart","ele_name_s", G_TYPE_STRING, ele_name_s,
-        "r_caps_s", G_TYPE_STRING, r_caps_s, "fps", G_TYPE_INT, 30,
-        "mount_path", G_TYPE_STRING, mount_path, NULL);
-    m = gst_message_new_application (NULL, s);
+    GstBus *test_bus = gst_element_get_bus(mp->pipeline);
+    s = gst_structure_new("rtsp_restart", "ele_name_s", G_TYPE_STRING, ele_name_s,
+                          "r_caps_s", G_TYPE_STRING, r_caps_s, "fps", G_TYPE_INT, framerate,
+                          "mount_path", G_TYPE_STRING, mount_path, NULL);
+    m = gst_message_new_application(NULL, s);
     gst_bus_post(test_bus, m);
     gst_object_unref(test_bus);
-
-    return (ret == 0);
+    g_free(mp_chform);
+    return TRUE;
 }
 
 static void _set_videoenc_config(struct json_object *obj, int *res_status,
-                          gchar **res_msg, gpointer data)
+                                 gchar **res_msg, gpointer data)
 {
-
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
-
-    GstCaps *caps;
+    Param param[VIDEO_PARAM_MAX] = {0};
+    param[ENCODER].type = PARAM_STRING_TYPE;
+    param[ENCODER].name = "encoder";
+    param[WIDTH].type = PARAM_INT_TYPE;
+    param[WIDTH].name = "width";
+    param[HEIGHT].type = PARAM_INT_TYPE;
+    param[HEIGHT].name = "height";
+    param[BITRATE].type = PARAM_INT_TYPE;
+    param[BITRATE].name = "bitrate";
+    param[FRAMERATE].type = PARAM_INT_TYPE;
+    param[FRAMERATE].name = "framerate";
+    param[QUALITY].type = PARAM_INT_TYPE;
+    param[QUALITY].name = "quality";
     int ret = 0;
+    *res_status = RET_SUCESS;
 
-    json_object *encoder = NULL;
-    json_object *width = NULL;
-    json_object *height = NULL;
-    json_object *bitrate = NULL;
-    json_object *framerate = NULL;
-    json_object *quality = NULL;
-
-    if(!json_object_object_get_ex(obj, "encoder", &encoder)) {
-        LOG_ERROR("param error, has no \"encoder\" element !");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "width", &width)) {
-        LOG_ERROR("param error, has no \"width\" element !");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "height", &height)) {
-        LOG_ERROR("param error, has no \"height\" element !");
-        *res_status = -1;
-        *res_msg = strdup("param error, no has element name\n");
-        return ;
-    }
-    if(!json_object_object_get_ex(obj, "framerate", &framerate)) {
-        LOG_ERROR("param error, has no \"framerate\" element !");
-    }
-    if(!json_object_object_get_ex(obj, "quality", &quality)) {
-        LOG_ERROR("param error, has no \"quality\" element !");
-    }
-    if(!json_object_object_get_ex(obj, "bitrate", &bitrate)) {
-        LOG_ERROR("param error, has no \"bitrate\" element !");
+    //check param exist
+    for (int i = 0; i < VIDEO_PARAM_MAX; i++) {
+        check_param(&param[i], obj, "set video config");
     }
 
-    const char *_encoder = json_object_get_string(encoder);
-    const char *_width = json_object_get_string(width);
-    const char *_height = json_object_get_string(height);
-    const char *_framerate = json_object_get_string(framerate);
-    const char *_quality = json_object_get_string(quality);
-    const char *_bitrate = json_object_get_string(bitrate);
-    char buf[BUF_LEN] = {'\0'};
-
-    if(!strcmp(elem_format, _encoder)) {
-        if(!strcmp(_encoder, "JPEG") || !strcmp(_encoder, "jpeg")) {
-            MEDIAPIPE_SET_PROPERTY(ret, mp, enc_name, "quality", atoi(_quality), NULL);
-        } else {
-            MEDIAPIPE_SET_PROPERTY(ret, mp, enc_name, "bitrate", atoi(_bitrate), NULL);
-        }
+    //get video element
+    GstElement *enc_element = NULL;
+    if (ctx->video_element != NULL) {
+        enc_element = gst_bin_get_by_name(GST_BIN((mp)->pipeline),
+                                          ctx->video_element);
     } else {
-
-        memset(elem_format, '\0', 20);
-        strcpy(elem_format, _encoder);
-
-        MediapipeChForm *mp_chform = g_new0(MediapipeChForm, 1);
-        struct json_object *js_obj = json_object_new_object();
-        mp_chform->mp = mp;
-
-        char caps_name[20] = {'\0'};
-        char mount_path[20] = {'\0'};
-        char queue_name[20] = {'\0'};
-
-        sprintf(caps_name, "%s_caps", enc_name);
-        sprintf(mount_path, "/test%d", get_enc_num(enc_name, "c"));
-        sprintf(queue_name, "qfc%d", get_enc_num(enc_name, "c"));
-
-        json_object_object_add(js_obj, "ele_name", json_object_new_string(enc_name));
-        json_object_object_add(js_obj, "format", json_object_new_string(_encoder));
-        json_object_object_add(js_obj, "mount_path",
-                               json_object_new_string(mount_path));
-        json_object_object_add(js_obj, "e_caps_name",
-                               json_object_new_string(caps_name));
-
-        if(!strcmp(_encoder, "JPEG") || !strcmp(_encoder, "jpeg")) {
-            memset(buf, '\0', sizeof(buf));
-            sprintf(buf, "image/jpeg,width=%s,height=%s", _width, _height);
-            json_object_object_add(js_obj, "e_caps_value",
-                                   json_object_new_string("image/jpeg"));
-            json_object_object_add(js_obj, "r_caps", json_object_new_string(buf));
-        } else {
-            json_object_object_add(js_obj, "e_caps_value",
-                                   json_object_new_string("video/x-h264,stream-format=byte-stream,profile=high"));
-            json_object_object_add(js_obj, "r_caps",
-                                   json_object_new_string("video/x-h264,stream-format=byte-stream,alignment=au"));
-        }
-
-        mp_chform->js_obj = js_obj;
-        /*need send GstMessage*/
-        /*mediapipe_change_format(mp, enc_name, queue_name, caps_name, _encoder,change_format_in_channel,mp_chform);*/
-        GstMessage *m;
-        GstStructure *s;
-        GstBus * test_bus = gst_element_get_bus(mp->pipeline);
-
-        s = gst_structure_new ("changeformat","enc_name", G_TYPE_STRING, enc_name, "queue_name",
-            G_TYPE_STRING, queue_name, "caps_name", G_TYPE_STRING, caps_name, "_encoder",
-            G_TYPE_STRING, _encoder, "change_format_in_channel", G_TYPE_POINTER,
-            change_format_in_channel, "mp_chform", G_TYPE_POINTER, mp_chform, NULL);
-        m = gst_message_new_application (NULL, s);
-        gst_bus_post(test_bus, m);
-        gst_object_unref(test_bus);
-
-        if(!strcmp(_encoder, "JPEG") || !strcmp(_encoder, "jpeg")) {
-            MEDIAPIPE_SET_PROPERTY(ret, mp, enc_name, "quality", atoi(_quality), NULL);
-        } else {
-            MEDIAPIPE_SET_PROPERTY(ret, mp, enc_name, "bitrate", atoi(_bitrate), NULL);
-        }
-
+        LOG_WARNING("set video config: video element name is NULL");
+        *res_status = RET_FAILED;
     }
 
-    memset(buf, '\0', sizeof(buf));
-    sprintf(buf,
-            "video/x-raw(memory:MFXSurface),format=NV12,width=%s,height=%s,framerate=%s/1",
-            _width, _height, _framerate);
-    char capsfilter[20] = {'\0'};
-    sprintf(capsfilter, "scale%d_mfx_caps", get_enc_num(enc_name, "c"));
-    caps = gst_caps_from_string(buf);
-    MEDIAPIPE_SET_PROPERTY(ret, mp, capsfilter, "caps", caps, NULL);
-    gst_caps_unref(caps);
+    //set width and height
+    if (param[WIDTH].status &&  param[WIDTH].value_int <= 0) {
+        param[WIDTH].status = FALSE;
+        *res_status = RET_FAILED;
+        LOG_WARNING("set video config: error width :%d", param[WIDTH].value_int);
+    }
+    if (param[HEIGHT].status &&  param[HEIGHT].value_int <= 0) {
+        param[HEIGHT].status = FALSE;
+        *res_status = RET_FAILED;
+        LOG_WARNING("set video config: error height :%d", param[HEIGHT].value_int);
+    }
+    GstElement *enc_up_casfilter_element =  NULL;
+    GstCaps *caps = NULL;
+    GstCaps *copy_caps = NULL;
+    GstStructure *structure = NULL;
+    GValue t_value = G_VALUE_INIT;
+    g_value_init(&t_value, G_TYPE_INT);
+    if (param[WIDTH].status && param[HEIGHT].status && enc_element != NULL) {
+        if (get_element_by_name_and_direction(enc_element,
+                                              &enc_up_casfilter_element, "capsfilter", TRUE)) {
+            g_object_get(enc_up_casfilter_element, "caps", &caps, NULL);
+            copy_caps = gst_caps_copy(caps);
+            structure = gst_caps_get_structure(copy_caps, 0);
+            g_value_set_int(&t_value, param[WIDTH].value_int);
+            gst_structure_set_value(structure, "width", &t_value);
+            g_value_set_int(&t_value, param[HEIGHT].value_int);
+            gst_structure_set_value(structure, "height", &t_value);
+            g_object_set(enc_up_casfilter_element, "caps", copy_caps, NULL);
+            gst_caps_unref(caps);
+            gst_caps_unref(copy_caps);
+        } else {
+            LOG_WARNING("set video config: can't find up capsfilter element");
+            param[WIDTH].status = FALSE;
+            param[HEIGHT].status = FALSE;
+            *res_status = RET_FAILED;
+        };
+    }
 
+    //set framerate
+    if (param[FRAMERATE].status &&  param[FRAMERATE].value_int <= 0) {
+        param[FRAMERATE].status = FALSE;
+        *res_status = RET_FAILED;
+        LOG_WARNING("set video config: error framerate :%d",
+                    param[FRAMERATE].value_int);
+    }
 
+    if (param[FRAMERATE].status) {
+        caps = NULL;
+        copy_caps = NULL;
+        structure = NULL;
+        GstElement *videorate_capsfilter_element = NULL;
+        g_value_unset(&t_value);
+        g_value_init(&t_value, GST_TYPE_FRACTION);
+        if (ctx->videorate_capsfilter != NULL) {
+            videorate_capsfilter_element =
+                gst_bin_get_by_name(GST_BIN((mp)->pipeline), ctx->videorate_capsfilter);
+            g_object_get(videorate_capsfilter_element, "caps", &caps, NULL);
+            copy_caps = gst_caps_copy(caps);
+            structure = gst_caps_get_structure(copy_caps, 0);
+            gst_value_set_fraction(&t_value, param[FRAMERATE].value_int, 1);
+            gst_structure_set_value(structure, "framerate", &t_value);
+            g_object_set(videorate_capsfilter_element, "caps", copy_caps, NULL);
+            gst_caps_unref(caps);
+            gst_caps_unref(copy_caps);
+        } else {
+            LOG_WARNING("set video config: videorate_capsfilter name is NULL");
+            param[FRAMERATE].status = FALSE;
+            *res_status = RET_FAILED;
+        }
+    }
 
-    *res_status = 0;
+    //change_encode;
+    /*need send GstMessage*/
+    /*mediapipe_change_format(mp, enc_name, queue_name, caps_name, _encoder,change_format_in_channel,mp_chform); */
+
+    if (param[BITRATE].status &&  param[BITRATE].value_int < 0) {
+        param[BITRATE].status = FALSE;
+        *res_status = RET_FAILED;
+        LOG_WARNING("set video config: error bitrate :%d", param[BITRATE].value_int);
+    }
+    if (param[QUALITY].status &&  param[QUALITY].value_int < 0) {
+        param[QUALITY].status = FALSE;
+        *res_status = RET_FAILED;
+        LOG_WARNING("set video config: error quality  :%d", param[QUALITY].value_int);
+    }
+    if (param[ENCODER].status) {
+        if (!strcmp(param[ENCODER].value_str, "JPEG")
+            || !strcmp(param[ENCODER].value_str, "H264")
+            || !strcmp(param[ENCODER].value_str, "H265")) {
+        } else {
+            param[ENCODER].status = FALSE;
+            *res_status = RET_FAILED;
+            LOG_WARNING("set video config: encoder error :%s", param[ENCODER].value_str);
+        }
+    }
+    MediapipeChForm *mp_chform = g_new0(MediapipeChForm, 1);
+    mp_chform->mp = mp;
+    mp_chform->bitrate = param[BITRATE].value_int;
+    mp_chform->quality = param[QUALITY].value_int;
+    mp_chform->framerate = param[FRAMERATE].value_int;
+    sprintf(mp_chform->format, "%s", param[ENCODER].value_str);
+    mp_chform->width = param[WIDTH].value_int;
+    mp_chform->height = param[HEIGHT].value_int;
+    GstElement  *sink = NULL;
+    if (*res_status == RET_SUCESS) {
+        if (get_element_by_name_and_direction(enc_element, &sink, "fakesink", FALSE)
+            || get_element_by_name_and_direction(enc_element, &sink, "filesink", FALSE)) {
+            g_object_get(sink, "name", &mp_chform->down_sink_name, NULL);
+        } else {
+            *res_status = RET_FAILED;
+            param[ENCODER].status = FALSE;
+        }
+    }
+
+    GstElement  *queue = NULL;
+    GstElement  *down_capsfilter = NULL;
+    if (*res_status == RET_SUCESS) {
+        //get queue name and down_capsfilter and change format
+        if (get_element_by_name_and_direction(enc_element, &queue, "queue", TRUE)
+            && get_element_by_name_and_direction(enc_element,
+                    &down_capsfilter, "capsfilter", FALSE)) {
+            gchar *queue_name = NULL;
+            gchar *caps_name = NULL;
+            g_object_get(queue, "name", &queue_name, NULL);
+            g_object_get(down_capsfilter, "name", &caps_name, NULL);
+            mp_chform->down_capsfilter_name = caps_name;
+            GstMessage *m;
+            GstStructure *s;
+            LOG_DEBUG("enc_name:%s", ctx->video_element);
+            LOG_DEBUG("queue_name:%s", queue_name);
+            LOG_DEBUG("caps_name:%s", caps_name);
+            LOG_DEBUG("_encoder:%s", param[ENCODER].value_str);
+            GstBus *test_bus = gst_element_get_bus(mp->pipeline);
+            s = gst_structure_new("changeformat", "enc_name", G_TYPE_STRING,
+                                  ctx->video_element, "queue_name",
+                                  G_TYPE_STRING, queue_name, "caps_name", G_TYPE_STRING, caps_name, "_encoder",
+                                  G_TYPE_STRING, param[ENCODER].value_str, "change_format_in_channel",
+                                  G_TYPE_POINTER,
+                                  change_format_in_channel, "mp_chform", G_TYPE_POINTER, mp_chform, NULL);
+            m = gst_message_new_application(NULL, s);
+            gst_bus_post(test_bus, m);
+            gst_object_unref(test_bus);
+        } else {
+            *res_status = RET_FAILED;
+            param[ENCODER].status = FALSE;
+        }
+    }
+
+    //param failed
+    if (*res_status == RET_FAILED) {
+        struct json_object *res_json_obj = json_object_new_object();
+        for (int i = 0; i < VIDEO_PARAM_MAX; i++) {
+            if (!param[i].status) {
+                if (param[i].type == PARAM_STRING_TYPE) {
+                    json_object_object_add(res_json_obj, param[i].name,
+                                           json_object_new_string(PARAM_STR_FAILD));
+                } else if (param[i].type == PARAM_INT_TYPE) {
+                    json_object_object_add(res_json_obj, param[i].name,
+                                           json_object_new_int(PARAM_INT_FAILD));
+                }
+            }
+        }
+        const char *str = json_object_to_json_string(res_json_obj);
+        g_assert(strlen(str) < MAX_MESSAGE_LEN);
+        sprintf(*res_msg, "%s", str);
+        json_object_put(res_json_obj);
+    }
 }
 
 static void _set_image_config(struct json_object *obj, int *res_status,
@@ -580,7 +693,7 @@ static void _set_image_config(struct json_object *obj, int *res_status,
         }
     }
     const char *str = json_object_to_json_string(res_json_obj);
-    g_assert(strlen(str) <= MAX_MESSAGE_LEN);
+    g_assert(strlen(str) < MAX_MESSAGE_LEN);
     sprintf(*res_msg, "%s", str);
     json_object_put(res_json_obj);
 }
@@ -752,11 +865,6 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     json_object_object_add(obj, "encoder", json_object_new_string(format));
     *res_status = 0;
 
-    //this code will be delete later, just use for set video config temporary
-    sprintf(elem_format, "%s", format);
-    if (ctx->video_element != NULL) {
-        sprintf(enc_name, "%s", ctx->video_element);
-    }
 }
 
 static void _get_image_config(struct json_object *obj, int *res_status,
@@ -958,10 +1066,15 @@ static void _get_stream_uri(struct json_object *obj, int *res_status, gchar **re
     if(!has_port) {
          LOG_WARNING("fail to get value(rtsp_server_port), use default value \"%d\"\n", iRtspport);
     }
-    snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d/test%d", get_local_ip_addr(), iRtspport, get_enc_num(enc_name, "c"));
+    if (ctx->stream_uri != NULL) {
+        snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d%s", get_local_ip_addr(),
+                 iRtspport, ctx->stream_uri);
+    } else {
+        snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d/test0", get_local_ip_addr(),
+                 iRtspport);
+    }
     json_object_object_add(obj,  "streamuri", json_object_new_string(szRtsp));
     *res_status = RET_SUCESS;
-    *res_msg = strdup("get streamuri success\n");
 }
 
 
@@ -1281,4 +1394,101 @@ exit_master(void)
 {
     g_hash_table_unref(client_table);
     destroy_context(&onvif_ctx);
+}
+
+static void check_param(Param *param, struct json_object *obj,
+                        const char *debug_str)
+{
+    g_assert(param != NULL);
+    g_assert(param->name != NULL);
+    g_assert(obj != NULL);
+    g_assert(debug_str != NULL);
+    struct json_object *param_obj = NULL;
+    const char *str = NULL;
+    char *end = NULL;
+    param->status = TRUE;
+    if (param->type == PARAM_INT_TYPE) {
+        if (!json_get_int(obj, param->name, &param->value_int)) {
+            LOG_WARNING("%s : param error, has no '%s' param or param type in not int !",
+                        debug_str, param->name);
+            param->status = FALSE;
+        }
+        return;
+    }
+    if (param->type == PARAM_STRING_TYPE) {
+        if (!json_get_string(obj, param->name, &str)) {
+            LOG_WARNING("%s : param error, has no '%s' param or param type in not string !",
+                        debug_str, param->name);
+            param->status = FALSE;
+            return;
+        }
+        if (strlen(str) >= PARAM_STR_MAX_LEN) {
+            LOG_WARNING("%s : param error, '%s' is too length,max: %d, now: %ld !",
+                        debug_str, param->name, PARAM_STR_MAX_LEN, strlen(str));
+            param->status = FALSE;
+            return;
+        } else {
+            sprintf(param->value_str, "%s", str);
+        }
+    }
+}
+
+static gboolean
+get_element_by_name_and_direction(GstElement *cur_element,
+                                  GstElement **ret_element,
+                                  const char *ret_element_factory_name, gboolean isup)
+{
+    g_assert(cur_element != NULL);
+    g_assert(ret_element_factory_name != NULL);
+    GstPad *other_pad = NULL;
+    GstElement *element = NULL;
+    gchar *element_name = NULL;
+    gboolean ret = FALSE;
+    GstPad *pad = NULL;
+    if (isup) {
+        pad = gst_element_get_static_pad(cur_element, "sink");
+    } else {
+        pad = gst_element_get_static_pad(cur_element, "src");
+    }
+    for (;;) {
+        other_pad = gst_pad_get_peer(pad);
+        gst_object_unref(pad);
+        if (!other_pad) {
+            break;
+        }
+        element = gst_pad_get_parent_element(other_pad);
+        gst_object_unref(other_pad);
+        if (!element) {
+            break;
+        }
+        element_name =
+            gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(gst_element_get_factory(
+                                            element)));
+        if (!element_name) {
+            break;
+        }
+        if (0 == strcmp(element_name, ret_element_factory_name)) {
+            ret = TRUE;
+            break;
+        } else  {
+            if (isup) {
+                pad = gst_element_get_static_pad(element, "sink");
+            } else {
+                pad = gst_element_get_static_pad(element, "src");
+            }
+            if (!pad) {
+                break;
+            }
+        }
+        element_name = NULL;
+        g_clear_object(&element);
+    }
+    if (ret) {
+        *ret_element = gst_object_ref(element);
+    } else {
+        LOG_WARNING("can't get element :%s, from  %s", ret_element_factory_name,
+                    isup ? "up" : "down");
+    }
+    g_clear_object(&element);
+    return ret;
 }
