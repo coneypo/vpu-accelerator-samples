@@ -23,7 +23,7 @@
 
 static GHashTable *client_table = NULL;
 
-typedef void (*func)(struct json_object *, int *res_status, gchar **res_msg,
+typedef void (*func)(struct json_object *, int *res_status, gchar *res_msg,
                      gpointer data);
 struct route {
     char *name;
@@ -419,7 +419,7 @@ change_format_in_channel(gpointer user_data)
 }
 
 static void _set_videoenc_config(struct json_object *obj, int *res_status,
-                                 gchar **res_msg, gpointer data)
+                                 gchar *res_msg, gpointer data)
 {
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
@@ -618,13 +618,13 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
         }
         const char *str = json_object_to_json_string(res_json_obj);
         g_assert(strlen(str) < MAX_MESSAGE_LEN);
-        sprintf(*res_msg, "%s", str);
+        sprintf(res_msg, "%s", str);
         json_object_put(res_json_obj);
     }
 }
 
 static void _set_image_config(struct json_object *obj, int *res_status,
-                       gchar **res_msg, gpointer data)
+                       gchar *res_msg, gpointer data)
 {
     g_assert(obj != NULL);
     g_assert(res_status != NULL);
@@ -694,7 +694,7 @@ static void _set_image_config(struct json_object *obj, int *res_status,
     }
     const char *str = json_object_to_json_string(res_json_obj);
     g_assert(strlen(str) < MAX_MESSAGE_LEN);
-    sprintf(*res_msg, "%s", str);
+    sprintf(res_msg, "%s", str);
     json_object_put(res_json_obj);
 }
 
@@ -721,7 +721,7 @@ static int str_to_k(char *str, char *width, char *height, char *framerate)
 }
 
 static void _get_videoenc_config(struct json_object *obj, int *res_status,
-                                 gchar **res_msg, gpointer data)
+                                 gchar *res_msg, gpointer data)
 {
     g_assert(obj != NULL);
     g_assert(res_status != NULL);
@@ -868,7 +868,7 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
 }
 
 static void _get_image_config(struct json_object *obj, int *res_status,
-                       gchar **res_msg, gpointer data)
+                       gchar *res_msg, gpointer data)
 {
     g_assert(obj != NULL);
     g_assert(res_status != NULL);
@@ -915,7 +915,7 @@ static void _get_image_config(struct json_object *obj, int *res_status,
     *res_status = 0;
 }
 
-static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg,
+static void _get_range(struct json_object *obj, int *res_status, gchar *res_msg,
                 gpointer data)
 {
     g_assert(obj != NULL);
@@ -1051,7 +1051,7 @@ static void _get_range(struct json_object *obj, int *res_status, gchar **res_msg
 }
 
 
-static void _get_stream_uri(struct json_object *obj, int *res_status, gchar **res_msg,
+static void _get_stream_uri(struct json_object *obj, int *res_status, gchar *res_msg,
                      gpointer data)
 {
     Context *ctx = (Context *) data;
@@ -1128,7 +1128,6 @@ static void handle(GIOChannel *gio, char *s, gpointer data)
     char operation[100] = {'\0'};
     gchar res[MAX_MESSAGE_LEN + 50] = {'\0'};
     gchar detail_res[MAX_MESSAGE_LEN] = {'\0'};
-    gchar *detail_res_pointer = detail_res;
     struct json_object *param = NULL;
     int ret = parse(s, operation, &param);
     if (ret == 0) {
@@ -1136,7 +1135,7 @@ static void handle(GIOChannel *gio, char *s, gpointer data)
         if (f == NULL) {
             ret = RET_COMMAND_ERROR;
         } else {
-            f(param, &ret, &detail_res_pointer, data);
+            f(param, &ret, detail_res, data);
         }
     }
     switch (ret) {
