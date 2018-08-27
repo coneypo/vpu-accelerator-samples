@@ -1,3 +1,21 @@
+ /*Return client info format instruction:
+  *1)SUCCESS return info format:
+  *@ if the command contains "get": command@info
+  *@ eg: get_image_config@{ "brightness": -79, "colorsaturation": 0, "contrast": 0, "sharpness": 63, "exposuretime": 90, "exposuremode": 0, "irismode": 0, "irislevel": 0  }\n
+  *@ else: success@0
+  *@ eg: success@0
+  *2)ERROR return info format: error@error_number@command_length@command@info
+  *@about error_number:
+  *@RET_LENTH_EXCEEDING: The command is too long and the data is discarded.
+  *@eg: error@-1@1620@ set_image_config@{ "brightness": -79, "colorsaturation": 0, "contrast": 0, "sharpness": 63, "exposuretime": 90, "exposuremode": 0, "irismode": 0, "irislevel": 0  }\n
+  *@RET_COMMAND_ERROR: The command can not be identified.
+  *@eg: error@-2@164@ set_image_config1@{ "brightness": -79, "colorsaturation": 0, "contrast": 0, "sharpness": 63, "exposuretime": 90, "exposuremode": 0, "irismode": 0, "irislevel": 0  }\n
+  *@RET_PARAM_JSON_ERROR: The parameter's format of json is not right.
+  *@eg: error@-3@164@ set_image_config1@{ "brightness": -79, "colorsaturation": 0, "contrast": 0, "sharpness": 63, "exposuretime": 90, "exposuremode": 0, "irismode": 0, "irislevel": 0  }\n
+  *@RET_FAILED: Set failure.
+  *@eg: error@-4@99@set_image_config@{ "brightness": 30, "contrast": 10, "colorsaturation": 20, "sharpness": 25, "exposuretime": 10, "exposuremode": 15, "irismode": 13, "irislevel": 16  }
+   @{ "brightness": -999999, "contrast": -999999}\n
+  */
 #include "mediapipe_com.h"
 #include <string.h>
 #include <stdio.h>
@@ -1138,23 +1156,55 @@ static void handle(GIOChannel *gio, char *s, gpointer data)
             f(param, &ret, detail_res, data);
         }
     }
+    /*return info format instruction:
+     *1)SUCCESS info format:
+     *@ if the command contains "get": command@info
+     *@ else : success@0
+     *2)ERROR info format: error@error_number@command_length@command@info
+     *@about error_number:
+     *@RET_COMMAND_ERROR: The command can not be identified.
+     *@RET_PARAM_JSON_ERROR: The parameter's format of json is not right.
+     *@RET_FAILED: Set failure.
+     */
     switch (ret) {
         case RET_SUCESS: { //success
+            /*eg:
+             get_image_config@{ "brightness": -79, "colorsaturation": 0,
+             "contrast": 0, "sharpness": 63, "exposuretime": 90,
+             "exposuremode": 0, "irismode": 0, "irislevel": 0  }\n
+            */
             if (strstr(operation, "get")) {
                 sprintf(res, "%s@%s\n", operation, json_object_to_json_string(param));
             } else {
+                //eg:success@0
                 /* sprintf(res, "success@%d@%ld@%s", ret,  strlen(s), s); */
                 sprintf(res, "success@%d\n", ret);
             }
             break;
         }
         case RET_FAILED: // failed
+            /* eg:
+              eg: error@-4@99@set_image_config@{ "brightness": 30, "contrast": 10,
+              "colorsaturation": 20, "sharpness": 25, "exposuretime": 10,
+              "exposuremode": 15, "irismode": 13, "irislevel": 16  }
+              @{ "brightness": -999999, "contrast": -999999}\n
+            */
             sprintf(res, "error@%d@%ld@%s", ret, strlen(s), s);
             res[strlen(res) - 1] = '\0';
             sprintf(res + strlen(res), "@%s\n",  detail_res);
             break;
         case RET_COMMAND_ERROR:   // command is not right
+            /* eg:
+              error@-2@164@ set_image_config1@{ "brightness":
+              -79, "colorsaturation": 0, "contrast": 0, "sharpness": 63,
+              "exposuretime": 90, "exposuremode": 0, "irismode": 0, "irislevel": 0  }\n
+            */
         case RET_PARAM_JSON_ERROR:   // param json format is not right
+            /* eg:
+              error@-3@164@ set_image_config1@{ "brightness": -79,
+              "colorsaturation": 0, "contrast": 0, "sharpness": 63,
+              "exposuretime": 90, "exposuremode": 0, "irismode": 0, "irislevel": 0  }\n
+            */
             sprintf(res, "error@%d@%ld@%s", ret, strlen(s), s);
             break;
         default:
@@ -1245,6 +1295,11 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
            pClientData->dataLenNeedHandle = pointer - pHeadOfData;
            if (pClientData->dataLenNeedHandle == MAX_MESSAGE_LEN) {
                //The data has exceed the maximum length of one ONVIF frame. Drop it.
+               /*eg:
+                error@-1@1620@ set_image_config@{ "brightness": -79, "colorsaturation": 0,
+                "contrast": 0, "sharpness": 63, "exposuretime": 90, "exposuremode": 0,
+                "irismode": 0, "irislevel": 0  }\n
+               */
                sprintf(res, "error@%d@%d@", RET_LENTH_EXCEEDING, MAX_MESSAGE_LEN);
                int send_num = strlen(res);
                memcpy(res + strlen(res), pClientData->pData, MAX_MESSAGE_LEN);
