@@ -261,6 +261,7 @@
                 //	    "gop-distance":8, // key frames period
                 "rate-control":1,  // CBR
                 "bitrate":4096,
+                "keyframe-period":30,
                 "enableMBQP":0,
                 "mbqp":[6,13,20,28,13,20,28,32,20,28,32,37,28,32,37,42]
             },

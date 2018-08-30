@@ -68,6 +68,7 @@ enum VideoPARAM {
     BITRATE,
     FRAMERATE,
     QUALITY,
+    GOVLEN,
     VIDEO_PARAM_MAX
 };
 
@@ -96,6 +97,7 @@ typedef struct {
     gchar format[20];
     int width;
     int height;
+    int govlen;
 } MediapipeChForm;
 
 typedef struct {
@@ -352,6 +354,7 @@ change_format_in_channel(gpointer user_data)
     gchar *format_s = mp_chform->format;
     int bitrate = mp_chform->bitrate;
     int quality = mp_chform->quality;
+    int govlen = mp_chform->govlen;
     int framerate = mp_chform->framerate;
     const gchar *ele_name_s = onvif_ctx->video_element;
     const gchar *mount_path = onvif_ctx->stream_uri;
@@ -376,6 +379,7 @@ change_format_in_channel(gpointer user_data)
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "preset", 6, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "idr-interval", 1, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "bitrate", bitrate, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "keyframe-period", govlen, NULL);
     } else if (!strcmp(format_s, "jpeg") || !strcmp(format_s, "JPEG")) {
         new_caps = gst_caps_from_string("image/jpeg");
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "quality", quality, NULL);
@@ -383,6 +387,7 @@ change_format_in_channel(gpointer user_data)
         new_caps =
             gst_caps_from_string("video/x-h264,stream-format=byte-stream,alignment=au");
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "bitrate", bitrate, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "keyframe-period", govlen, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "rate-control", 1, NULL);
     }
     gst_object_unref(enc_caps_element);
@@ -454,6 +459,8 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
     param[FRAMERATE].name = "framerate";
     param[QUALITY].type = PARAM_INT_TYPE;
     param[QUALITY].name = "quality";
+    param[GOVLEN].type = PARAM_INT_TYPE;
+    param[GOVLEN].name = "govlen";
     int ret = 0;
     *res_status = RET_SUCESS;
 
@@ -552,6 +559,11 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
         *res_status = RET_FAILED;
         LOG_WARNING("set video config: error bitrate :%d", param[BITRATE].value_int);
     }
+    if (param[GOVLEN].status &&  param[GOVLEN].value_int < 0) {
+        param[GOVLEN].status = FALSE;
+        *res_status = RET_FAILED;
+        LOG_WARNING("set video config: error govlen :%d", param[GOVLEN].value_int);
+    }
     if (param[QUALITY].status &&  param[QUALITY].value_int < 0) {
         param[QUALITY].status = FALSE;
         *res_status = RET_FAILED;
@@ -570,6 +582,7 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
     MediapipeChForm *mp_chform = g_new0(MediapipeChForm, 1);
     mp_chform->mp = mp;
     mp_chform->bitrate = param[BITRATE].value_int;
+    mp_chform->govlen = param[GOVLEN].value_int;
     mp_chform->quality = param[QUALITY].value_int;
     mp_chform->framerate = param[FRAMERATE].value_int;
     sprintf(mp_chform->format, "%s", param[ENCODER].value_str);
@@ -829,6 +842,7 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     //get quality or bitrate and bitratemode
     int  bitrate = 0;
     int  quality = 50;
+    int  govlen = 30;
     int  _bitratemode = 1;
     char bitratemode[10] = {"CBR"};
     if (!strcmp(format, "JPEG")) {
@@ -837,6 +851,8 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     } else {
         MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->video_element, "bitrate",
                                &bitrate, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->video_element, "keyframe-period",
+                               &govlen, NULL);
         MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->video_element, "rate-control",
                                &_bitratemode, NULL);
         switch (_bitratemode) {
@@ -876,6 +892,7 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     }
     json_object_object_add(obj, "quality", json_object_new_int(quality));
     json_object_object_add(obj, "bitrate", json_object_new_int(bitrate));
+    json_object_object_add(obj, "govlen", json_object_new_int(govlen));
     json_object_object_add(obj, "bitratemode", json_object_new_string(bitratemode));
     json_object_object_add(obj, "width", json_object_new_string(width));
     json_object_object_add(obj, "height", json_object_new_string(height));
