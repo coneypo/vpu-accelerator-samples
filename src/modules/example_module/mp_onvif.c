@@ -27,7 +27,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <fcntl.h>
-
+#include <arpa/inet.h>
 #define SERVER_PORT 8889
 #define BUF_LEN 1024
 #define DEFAULT_WIDTH "1920"
@@ -1354,9 +1354,7 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
         return FALSE;
     }
 
-
     client_socket = accept(socket_fd, NULL, NULL);
-
     if(client_socket < 0) {
         LOG_ERROR("ERROR CLIENT_SOCKET VALUE !");
         return FALSE;
@@ -1411,7 +1409,7 @@ static void onvif_server_start(mediapipe_t *mp)
     struct sockaddr_in server_sockaddr;
     server_sockaddr.sin_family = AF_INET;
     server_sockaddr.sin_port = htons(SERVER_PORT);
-    server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_sockaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     int reuse = 1;
     if (setsockopt(server_sockfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse,
