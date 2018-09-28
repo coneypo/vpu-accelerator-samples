@@ -72,6 +72,7 @@ configure_file(./test/decode_launch.txt  ${CMAKE_BINARY_DIR}/decode_launch.txt C
 
 ADD_EXECUTABLE(mediapipe2 ${SRC_LIST} )
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=gnu99 -Wno-deprecated-declarations -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -Wno-deprecated-declarations -Werror")
 
 
 find_package (Json-c REQUIRED)

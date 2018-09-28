@@ -1,0 +1,368 @@
+#include "mediapipe_com.h"
+
+#define MESSAGE_MIX2_MAX_NUM 10
+
+/*This struct is used to store
+ * info of A type message.
+ */
+typedef struct {
+    const char *elem_name;
+    const char *message_name;
+    void *pro_fun;
+    GQueue *message_queue;
+    GMutex lock;
+    guint delay;
+    const char *delay_queue_name;
+} mix2_message_ctx;
+
+/* This struct is used to store
+ * All message info、message
+ * process func and types of message
+ */
+typedef struct {
+    GHashTable *msg_pro_fun_hst;
+    mix2_message_ctx msg_ctxs[MESSAGE_MIX2_MAX_NUM];
+    guint msg_ctx_num;
+} mix2_mix_ctx;
+
+static mix2_mix_ctx mix2_ctx = {0};
+
+static gboolean
+mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
+                  gpointer user_data);
+static char *
+mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd);
+
+static void
+exit_master(void);
+
+static gboolean
+json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name);
+
+static mp_int_t
+process_vehicle_detection_message(const char *message_name,
+                                  const char *subscribe_name, GstMessage *message);
+static mp_int_t
+queue_message_from_observer(const char *message_name,
+                            const char *subscribe_name, GstMessage *message);
+static gboolean
+draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
+                       GstBuffer *buffer, const char *element_name);
+
+static mp_command_t  mp_mix2_commands[] = {
+    {
+        mp_string("mix2"),
+        MP_MAIN_CONF,
+        mp_mix2_block,
+        0,
+        0,
+        NULL
+    },
+    mp_null_command
+};
+
+static mp_core_module_t  mp_mix2_module_ctx = {
+    mp_string("mix2"),
+    NULL,
+    NULL
+};
+
+mp_module_t  mp_mix2_module = {
+    MP_MODULE_V1,
+    &mp_mix2_module_ctx,                /* module context */
+    mp_mix2_commands,                   /* module directives */
+    MP_CORE_MODULE,                    /* module type */
+    NULL,                               /* init master */
+    NULL,                               /* init module */
+    NULL,                    /* keyshot_process*/
+    NULL,                               /* message_process */
+    NULL,                      /* init_callback */
+    NULL,                               /* netcommand_process */
+    exit_master,                               /* exit master */
+    MP_MODULE_V1_PADDING
+};
+
+static mp_int_t
+queue_message_from_observer(const char *message_name,
+                            const char *subscribe_name, GstMessage *message)
+{
+    for (int i = 0; i < MESSAGE_MIX2_MAX_NUM; i++) {
+        if (0 == g_strcmp0(message_name, mix2_ctx.msg_ctxs[i].message_name)
+            && 0 == g_strcmp0(subscribe_name, mix2_ctx.msg_ctxs[i].elem_name)) {
+            g_mutex_lock(&mix2_ctx.msg_ctxs[i].lock);
+            g_queue_push_tail(mix2_ctx.msg_ctxs[i].message_queue,
+                              gst_message_ref(message));
+            g_mutex_unlock(&mix2_ctx.msg_ctxs[i].lock);
+        }
+    }
+    return MP_OK;
+}
+
+static mp_int_t
+process_vehicle_detection_message(const char *message_name,
+                                  const char *subscribe_name, GstMessage *message)
+{
+    return queue_message_from_observer(message_name, subscribe_name,
+                                       message);
+}
+
+static char *
+mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd)
+{
+    if (mp->config == NULL) {
+        return (char *) MP_CONF_ERROR;
+    };
+    json_object_object_foreach(mp->config, key, val) {
+        if (NULL != strstr(key, "mix2")) {
+            json_analyse_and_post_message(mp, key);
+        }
+    }
+    return MP_CONF_OK;
+}
+
+static void
+exit_master(void)
+{
+    for (int i = 0; i < mix2_ctx.msg_ctx_num; i++) {
+        g_queue_free_full(mix2_ctx.msg_ctxs[i].message_queue,
+                          (GDestroyNotify)gst_message_unref);
+        g_mutex_clear(&mix2_ctx.msg_ctxs[i].lock);
+    }
+    g_hash_table_unref(mix2_ctx.msg_pro_fun_hst);
+}
+
+static gint
+nv12_border(guint8 *pic, guint pic_w, guint pic_h, guint rect_x,
+            guint rect_y, guint rect_w, guint rect_h, int R, int G, int B)
+{
+    /* set up the rectangle border size */
+    const int border = 5;
+    /* RGB convert YUV */
+    int Y = 0, U, V;
+    Y =  0.299  * R + 0.587  * G + 0.114  * B;
+    U = -0.1687 * R + 0.3313 * G + 0.5    * B + 128;
+    V =  0.5    * R - 0.4187 * G - 0.0813 * B + 128;
+    /* Locking the scope of rectangle border range */
+    int j, k;
+    for (j = rect_y; j < rect_y + rect_h; j++) {
+        for (k = rect_x; k < rect_x + rect_w; k++) {
+            if (k < (rect_x + border) || k > (rect_x + rect_w - border) ||
+                j < (rect_y + border) || j > (rect_y + rect_h - border)) {
+                /* Components of YUV's storage address index */
+                int y_index = j * pic_w + k;
+                int u_index = (y_index / 2 - pic_w / 2 * ((j + 1) / 2)) * 2 + pic_w * pic_h;
+                int v_index = u_index + 1;
+                /* set up YUV's conponents value of rectangle border */
+                pic[y_index] =  Y ;
+                pic[u_index] =  U ;
+                pic[v_index] =  V ;
+            }
+        }
+    }
+    return 0;
+}
+
+static gboolean
+draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
+                       GstBuffer *buffer, const char *element_name)
+{
+    GstMessage *walk;
+    guint mp_ret = 0;
+    GstClockTime msg_pts;
+    GstClockTime offset = 300000000;
+    GstClockTime desired = GST_BUFFER_PTS(buffer);
+    const GstStructure *root, *boxed;
+    const GValue *vlist, *item;
+    guint nsize, i;
+    guint x, y, width, height;
+    GstMapInfo info;
+    GstElement *enc_element = NULL;
+    GstPad *src_pad = NULL;
+    GstCaps *src_caps = NULL;
+    //get element
+    enc_element = gst_bin_get_by_name(GST_BIN((mp)->pipeline), element_name);
+    if (enc_element != NULL) {
+        src_pad = gst_element_get_static_pad(enc_element, "src");
+        if (src_pad == NULL) {
+            src_pad = gst_element_get_request_pad(enc_element, "src%d");
+        }
+        if (src_pad != NULL) {
+            src_caps = gst_pad_get_current_caps(src_pad);
+            gst_object_unref(src_pad);
+        }
+        gst_object_unref(enc_element);
+    } else {
+        LOG_WARNING("mix2: Have no element named \"%s\"! ", element_name);
+    }
+    //get width height
+    gint _width;
+    gint _height;
+    gboolean ret2 = FALSE;
+    GstVideoInfo src_video_info;
+    if (src_caps != NULL) {
+        ret2 = gst_video_info_from_caps(&src_video_info, src_caps);
+        if (ret2) {
+            _width = GST_VIDEO_INFO_WIDTH(&src_video_info);
+            _height = GST_VIDEO_INFO_HEIGHT(&src_video_info);
+        } else {
+            LOG_ERROR("mix2: src caps can not be parsed !");
+            return FALSE;
+        }
+        gst_caps_unref(src_caps);
+    } else {
+        LOG_ERROR("mix2: src caps is NULL !");
+        return FALSE;
+    }
+    //analyze and handle timestamp
+    g_mutex_lock(&msg_ctx->lock);
+    walk = (GstMessage *) g_queue_peek_head(msg_ctx->message_queue);
+    while (walk) {
+        root = gst_message_get_structure(walk);
+        gst_structure_get_clock_time(root, "timestamp", &msg_pts);
+        if (msg_pts > desired) {
+            walk = NULL;
+            break;
+        } else if (msg_pts == desired) {
+            break;
+        } else {//handle the timestamp unnormal
+            if (msg_ctx->delay < desired - msg_pts) {
+                msg_ctx->delay = desired - msg_pts;
+                LOG_DEBUG("mix2:Delay:%u", msg_ctx->delay);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name,
+                                       "min-threshold-time",
+                                       msg_ctx->delay + offset, NULL);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name,
+                                       "max-size-buffers", 0,
+                                       NULL);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name, "max-size-time",
+                                       msg_ctx->delay + offset, NULL);
+                MEDIAPIPE_SET_PROPERTY(mp_ret, mp, msg_ctx->delay_queue_name, "max-size-bytes",
+                                       0, NULL);
+            }
+            g_queue_pop_head(msg_ctx->message_queue);
+            gst_message_unref(walk);
+            walk = (GstMessage *) g_queue_peek_head(msg_ctx->message_queue);
+        }
+    }
+    g_mutex_unlock(&msg_ctx->lock);
+    //draw info on buffer
+    if (walk != NULL) {
+        GstMapFlags mapFlag = GstMapFlags(GST_MAP_READ | GST_MAP_WRITE);
+        //map buf to info
+        if (! gst_buffer_map(buffer, &info, mapFlag)) {
+            LOG_ERROR("mix2: map buffer error!");
+            return FALSE;
+        }
+        guint8 *ptr = info.data;
+        vlist = gst_structure_get_value(root, msg_ctx->message_name);
+        nsize = gst_value_list_get_size(vlist);
+        for (i = 0; i < nsize; ++i) {
+            item = gst_value_list_get_value(vlist, i);
+            boxed = (GstStructure *) g_value_get_boxed(item);
+            if (gst_structure_get_uint(boxed, "x", &x)
+                && gst_structure_get_uint(boxed, "y", &y)
+                && gst_structure_get_uint(boxed, "width", &width)
+                && gst_structure_get_uint(boxed, "height", &height)) {
+                //draw a border
+                nv12_border(ptr, _width , _height, x, y, width, height, 0, 0, 255);
+            }
+        }
+        g_queue_pop_head(msg_ctx->message_queue);
+        gst_message_unref(walk);
+        gst_buffer_unmap(buffer, &info);
+    }
+    return TRUE;
+}
+
+static gboolean
+json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
+{
+    //find mix2 json object
+    struct json_object *mix_root;
+    RETURN_VAL_IF_FAIL(json_object_object_get_ex(mp->config, elem_name,
+                       &mix_root), FALSE);
+    //init message process fun hash table
+    if (NULL == mix2_ctx.msg_pro_fun_hst) {
+        mix2_ctx.msg_pro_fun_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                   (GDestroyNotify)g_free, NULL);
+        g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("vehicle_detection"),
+                            (gpointer) process_vehicle_detection_message);
+    }
+    //analyze config , post message , add callback
+    struct json_object *array = NULL;
+    struct json_object *message_obj = NULL;
+    const char *message_name;
+    const char *delay_queue_name;
+    const char *element_name;
+    gboolean find = FALSE;
+    //judge if has specific element named element_name
+    if (!json_get_string(mix_root, "element_name", &element_name)) {
+        element_name = "proc_src";
+    }
+    GstElement *element = gst_bin_get_by_name(GST_BIN(mp->pipeline), element_name);
+    if (!element) {
+        LOG_WARNING("Add callback failed, can not find element \"%s\"", element_name);
+        return FALSE;
+    }
+    gst_object_unref(element);
+    //combine message info
+    if (json_object_object_get_ex(mix_root, "subscribe_message", &array)) {
+        if (!json_get_string(mix_root, "delay_queue", &delay_queue_name)) {
+            delay_queue_name = "mix2_queue";
+        }
+        guint  num_values = json_object_array_length(array);
+        for (guint i = 0; i < num_values; i++) {
+            message_obj = json_object_array_get_idx(array, i);
+            message_name = json_object_get_string(message_obj);
+            gpointer  fun = g_hash_table_lookup(mix2_ctx.msg_pro_fun_hst, message_name);
+            if (NULL != fun) {
+                find = TRUE;
+                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].elem_name = element_name;
+                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].message_name = message_name;
+                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].pro_fun = fun;
+                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].message_queue = g_queue_new();
+                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].delay_queue_name = delay_queue_name;
+                g_mutex_init(&mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].lock);
+                mix2_ctx.msg_ctx_num++;
+                GstMessage *m;
+                GstStructure *s;
+                GstBus *bus = gst_element_get_bus(mp->pipeline);
+                s = gst_structure_new("subscribe_message",
+                                      "message_name", G_TYPE_STRING, message_name,
+                                      "subscriber_name", G_TYPE_STRING, element_name,
+                                      "message_process_fun", G_TYPE_POINTER, fun,
+                                      NULL);
+                m = gst_message_new_application(NULL, s);
+                LOG_DEBUG("mix2: message_name: %s", message_name);
+                LOG_DEBUG("mix2: element_name: %s", element_name);
+                LOG_DEBUG("mix2: delay_queue_name: %s", delay_queue_name);
+                gst_bus_post(bus, m);
+                gst_object_unref(bus);
+            }
+        }
+        if (find) {
+            mediapipe_set_user_callback(mp, element_name, "src", mix2_src_callback,
+                                        (void *)element_name);
+            return TRUE;
+        } else {
+            return FALSE;
+        }
+    }
+    return FALSE;
+}
+
+static gboolean
+mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
+                  gpointer user_data)
+{
+    const char *name = (const char *) user_data;
+    gint i;
+    for (i = 0; i < MESSAGE_MIX2_MAX_NUM; i++) {
+        if (0 == g_strcmp0(mix2_ctx.msg_ctxs[i].elem_name, name)) {
+            draw_buffer_by_message(mp, &mix2_ctx.msg_ctxs[i],
+                                   buf, name);
+        }
+    }
+    return TRUE;
+}
+
