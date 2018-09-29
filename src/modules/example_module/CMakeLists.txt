@@ -12,7 +12,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake/modu
 
 #define  modules
 #set(ADDON_MODULES mix cvsdk encoder idr longterm changeformat channel slice crop snapshot onvif)
-set(ADDON_MODULES changeformat onvif encoder)
+set(ADDON_MODULES changeformat onvif openvino mix2 encoder)
 
 ##add mbqp module
 #list(APPEND ADDON_MODULES mbqp)
@@ -33,8 +33,10 @@ ENDFOREACH(_module)
 
 
 #opencl oclcommon.h didn't not add  extern c heard, so there is some problem
-#let mp_crop.c mp_mix.c compiled by CXX
-SET_SOURCE_FILES_PROPERTIES( ${CMAKE_CURRENT_LIST_DIR}/mp_crop.c ${CMAKE_CURRENT_LIST_DIR}/mp_mix.c  PROPERTIES LANGUAGE CXX )
+
+#let mp_crop.c mp_mix.c mp_mix2.c mp_openvino.c compiled by CXX
+SET_SOURCE_FILES_PROPERTIES( ${CMAKE_CURRENT_LIST_DIR}/mp_crop.c ${CMAKE_CURRENT_LIST_DIR}/mp_mix.c  ${CMAKE_CURRENT_LIST_DIR}/mp_mix2.c PROPERTIES LANGUAGE CXX )
+SET_SOURCE_FILES_PROPERTIES( ${CMAKE_CURRENT_LIST_DIR}/mp_openvino.c PROPERTIES LANGUAGE CXX )
 
 list(APPEND MP_MODULES ${ADDON_MODULES})
 #list(APPEND ADDON_MODULES_DEP_LIBS  ${GSTOCL_LIBRARIES})

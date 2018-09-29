@@ -1,0 +1,17 @@
+filesrc location=cars_1920x1080.h264  !
+h264parse !
+vaapidecode !
+video/x-raw,format=I420,width=1920,height=1088 !
+queue !
+vaapipostproc name=src !
+capsfilter                 name=scale_caps !
+queue name=mix2_queue !
+vaapipostproc name=proc_src !
+capsfilter             name=scale0_caps !
+queue !
+vaapih264enc           name=enc0 !
+capsfilter             name=enc0_caps !
+filesink               name=sink0
+
+
+
