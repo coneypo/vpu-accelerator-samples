@@ -48,12 +48,12 @@ keyshot_process(mediapipe_t *mp, void *userdata)
     char *key = (char *) userdata;
 
     if (key[0]=='?') {
-        printf(" ===== 'r' : switch resolution between 1080p and 720o    =====\n");
-        printf(" ===== 's' : switch rotation dynamically                 =====\n");
+//        printf(" ===== 'r' : switch resolution between 1080p and 720o    =====\n");
+//        printf(" ===== 's' : switch rotation dynamically                 =====\n");
         printf(" ===== 'b' : switch bitrate between 5120000 and 10240000 =====\n");
         printf(" ===== 'f' : switch framerate between 30fps and 10fps    =====\n");
         printf(" ===== 'v' : switch br between cbr and vbr               =====\n");
-        printf(" ===== 'p' : switch qp between 10 and 40 when using CQP  =====\n");
+//        printf(" ===== 'p' : switch qp between 10 and 40 when using CQP  =====\n");
         printf(" ===== 'o' : switch gop between 128 and 90               =====\n");
         return MP_IGNORE;
     }
@@ -129,10 +129,14 @@ keyshot_process(mediapipe_t *mp, void *userdata)
         MEDIAPIPE_GET_PROPERTY(ret, mp, "enc0", "rate-control", &br_mode, NULL);
 
         if (br_mode != 0) {
-            if (1 == br_mode) {
+            if (4 == br_mode) {
                 MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "rate-control", 2, NULL);
+                printf("INFO:VBR switches to CBR !!\n");
             } else if (2 == br_mode) {
-                MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "rate-control", 1, NULL);
+                MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "rate-control", 4, NULL);
+                printf("INFO:CBR switches to VBR !!\n");
+            } else {
+                printf("ERROR:Features only apply to CBR/VBR !!\n");
             }
         }
     } else if (key[0] == 'p') {
@@ -150,7 +154,7 @@ keyshot_process(mediapipe_t *mp, void *userdata)
     } else if (key[0] == 'o') {
         static unsigned int gop = 128;
         gop = (gop == 128) ? 90 : 128;
-        MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "gop-size", gop, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "keyframe-period", gop, NULL);
     } else if (key[0] == 'h') {
         MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "custom-aic-param",
                                "1,1,1,1,1,1,1,1,20,", NULL);
