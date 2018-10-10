@@ -30,6 +30,10 @@ static mix2_mix_ctx mix2_ctx = {0};
 static gboolean
 mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data);
+static gboolean
+mix2_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
+        int width, int height,const gchar *text);
+
 static char *
 mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd);
 
@@ -267,9 +271,30 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
                 nv12_border(ptr, _width , _height, x, y, width, height, 0, 0, 255);
             }
         }
+        gst_buffer_unmap(buffer, &info);
+
+#ifdef DEBUG
+        //test code for draw text
+        // mix2_draw_text will map buffer,so can't be used after gst_buffer_map
+        char text[20];
+        for (i = 0; i < nsize; ++i) {
+            item = gst_value_list_get_value(vlist, i);
+            boxed = (GstStructure *) g_value_get_boxed(item);
+            if (gst_structure_get_uint(boxed, "x", &x)
+                && gst_structure_get_uint(boxed, "y", &y)
+                && gst_structure_get_uint(boxed, "width", &width)
+                && gst_structure_get_uint(boxed, "height", &height)) {
+                //draw text
+                sprintf(text, "car%d", i);
+                if (!mix2_draw_text(buffer, &src_video_info, x + 5, y + 5, width, height,
+                                    text)) {
+                    LOG_WARNING("draw text:%s failed\n", text);
+                }
+            }
+        }
+#endif
         g_queue_pop_head(msg_ctx->message_queue);
         gst_message_unref(walk);
-        gst_buffer_unmap(buffer, &info);
     }
     return TRUE;
 }
@@ -364,5 +389,56 @@ mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
         }
     }
     return TRUE;
+}
+
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis  use pango cairo draw a text and blend into stream frame
+ *            alse can use cairo draw rectangle and other things if needed
+ *
+ * @Param buffer stream frame buffer
+ * @Param info  stream frame info
+ * @Param x     the text x pos in the frame
+ * @Param y     the text y pos in the frame
+ * @Param width  the width of the text
+ * @Param height the height of the text
+ * @Param text
+ *
+ * @Returns   if success return true
+ */
+/* ----------------------------------------------------------------------------*/
+static gboolean
+mix2_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
+               int width, int height, const gchar *text)
+{
+    cairo_render_t *render = cairo_render_create(width,  height, "Sans 14");
+    gchar *data = cairo_render_get_rgba_data(render,  text);
+    GstBuffer *text_buf = gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY,
+                          data, 4 * width * height, 0, 4 * width * height, NULL, NULL);
+    GstVideoFrame frame;
+    GstMapFlags mapFlag = GstMapFlags(GST_MAP_READ | GST_MAP_WRITE);
+    buffer = gst_buffer_make_writable(buffer);
+    if (!gst_video_frame_map(&frame, info, buffer, mapFlag)) {
+        LOG_ERROR("draw text video frame map error1");
+        return FALSE;
+    }
+    GstVideoFrame text_frame;
+    GstVideoInfo text_info;
+    char caps_string[100];
+    sprintf(caps_string, "video/x-raw,format=BGRA,width=%d,height=%d", width,
+            height);
+    GstCaps *caps = gst_caps_from_string(caps_string);
+    gst_video_info_from_caps(&text_info, caps);
+    gst_caps_unref(caps);
+    if (!gst_video_frame_map(&text_frame, &text_info, text_buf, GST_MAP_READ)) {
+        LOG_ERROR("draw text video frame map error2");
+        return FALSE;
+    }
+    gboolean ret =  gst_video_blend(&frame, &text_frame, x, y, 1.0);
+    gst_video_frame_unmap(&frame);
+    gst_video_frame_unmap(&text_frame);
+    cairo_render_destroy(render);
+    gst_buffer_unref(text_buf);
+    return ret;
 }
 
