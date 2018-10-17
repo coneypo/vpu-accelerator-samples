@@ -135,10 +135,38 @@ exit_master(void)
     g_hash_table_unref(mix2_ctx.msg_pro_fun_hst);
 }
 
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis draw border on frame by param
+ *
+ * @Param pic frame info
+ * @Param pic_w frame width
+ * @Param pic_h frame height
+ * @Param rect_x x of border's left top point
+ * @Param rect_y y of border's left top point
+ * @Param rect_w width of border
+ * @Param rect_h height of border
+ * @Param R RGB color's Red value
+ * @Param G RGB color's Green value
+ * @Param B RGB color's Blue value
+ *
+ * @Returns 0 is success.
+ */
+/* ----------------------------------------------------------------------------*/
 static gint
 nv12_border(guint8 *pic, guint pic_w, guint pic_h, guint rect_x,
             guint rect_y, guint rect_w, guint rect_h, int R, int G, int B)
 {
+    /* judge the params*/
+    if (rect_y > pic_h || rect_x > pic_w) {
+        return 0;
+    }
+    if (rect_y + rect_h > pic_h) {
+        rect_h = pic_h - rect_y;
+    }
+    if (rect_x + rect_w > pic_w) {
+        rect_w = pic_w - rect_x;
+    }
     /* set up the rectangle border size */
     const int border = 5;
     /* RGB convert YUV */
