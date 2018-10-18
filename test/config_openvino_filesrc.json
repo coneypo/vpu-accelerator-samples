@@ -1,0 +1,474 @@
+{
+    "rtsp":
+    {
+        "rtsp_server":
+        [
+            {
+                "enable":1,
+                "element":"enc0",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "mount_path":"/test0"
+            },
+            {
+                "enable":1,
+                "element":"enc1",
+                "caps":"video/x-jpeg,width=352,height=288",
+                "fps":30,
+                "mount_path":"/test1"
+            },
+            {
+                "enable":1,
+                "element":"enc2",
+                "caps":"video/x-h265,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc":1356955625,
+                "mount_path":"/test2"
+            },
+            {
+                "enable":1,
+                "element":"enc5",
+                "caps":"audio/x-alaw,rate=8000,channels=1",
+                "srtp_enable":0,
+                "key":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc":1356955625,
+                "mount_path":"/test5"
+            },
+            {
+                "enable":1,
+                "element":"enc6",
+                "caps":"audio/x-mulaw,rate=8000,channels=1",
+                "mount_path":"/test6"
+            },
+            {
+                "enable":1,
+                "element":"enc7",
+                "caps":"audio/x-adpcm,rate=8000,channels=1,layout=g726,bitrate=32000",
+                "mount_path":"/test7"
+            },
+            {
+                "enable":1,
+                "element":"enc8",
+                "caps":"audio/G722,rate=16000,channels=1",
+                "mount_path":"/test8"
+            },
+            {
+                "enable":1,
+                "element":"enc9",
+                "caps":"audio/mpeg,mpegversion=4,stream-format=raw,rate=16000,channels=1,base-profile=lc",
+                "mount_path":"/test9"
+            },
+            {
+                "enable":1,
+                "merge_av":1,
+                "element":"enc0",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "element1":"enc5",
+                "caps1":"audio/x-alaw,rate=8000,channels=1",
+                "srtp_enable1":0,
+                "key1":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc1":1356955625,
+                "mount_path":"/test10"
+            }
+        ],
+        "rtsp_server_port": 8554 //1-65535
+    },
+    "cvsdk_detection":
+    {
+        "enable_motion_detection":1,
+        "enable_face_detection":1,
+        "fetching_element":"mix"
+    },
+    "openvino_detection":
+    [
+        {
+            "enable":1,
+            "name":"openvino_vehicle_detection",
+            "message_name":"vehicle_detection",
+            "src_name":"src",
+            "src_format":"NV12",
+            "pipe_string":"appsrc name=source ! queue max-size-buffers=1 leaky=2 !  
+                           videoconvert ! openvino-inference-st1  
+                           model=%s device=CPU every-nth-frame=1 batch-size=1 name=detect ! 
+                           queue ! fakesink",
+            "model_path":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml"
+        }
+    ],
+    "mix2":
+    {
+    "subscribe_message" : ["vehicle_detection"],
+    "delay_queue": "mix2_queue",
+    "element_name": "proc_src"
+    },
+    "mix": {
+        "logo":
+        [
+            {
+                "filename":"intel.rgba",
+                "width":200,
+                "height":132,
+                "x":16,
+                "y":16
+            },
+            {
+                "filename":"intel.rgba",
+                "width":200,
+                "height":132,
+                "x":300,
+                "y":32
+            }
+        ],
+        "mask":
+        [
+            {
+                "x":600,
+                "y":600,
+                "width":150,
+                "height":150,
+                "color_rgba": [255, 0, 0, 255]
+            }
+        ],
+        "osd":
+        [
+            {
+                "num":10,
+                "x":800,
+                "y":700
+            },
+            {
+                "x":1500,
+                "y":0,
+                "name":"clock",
+                "font":"Sans 30"
+            },
+            {
+                "x":600,
+                "y":400,
+                "name":"cpu",
+                "font":"Sans 32",
+                "max-stride":10
+            },
+            {
+                "x":1000,
+                "y":400,
+                "name":"gpu",
+                "font":"Sans 32",
+                "max-stride":10
+            },
+            {
+                "x":400,
+                "y":1030,
+                "name":"flow_text",
+                "font":"Sans 18",
+                "text":"ipc-prd2 mediapipe application"
+            }
+        ],
+        "mosaic":
+        [
+            {
+                "x":200,
+                "y":10,
+                "width":150,
+                "height":150
+            },
+            {
+                "x":400,
+                "y":0,
+                "width":150,
+                "height":150
+            }
+        ],
+        "wf":
+        [
+            {
+                "x":400,
+                "y":10,
+                "width":100,
+                "height":170
+            },
+            {
+                "x":0,
+                "y":300,
+                "width":130,
+                "height":100
+            }
+        ],
+        "roi":
+        [
+            {
+                "x":0,
+                "y":0,
+                "width":120,
+                "height":120,
+                "value":-3
+            }
+        ]
+    },
+
+    "element":
+    [
+        //---------src---------
+        {
+            "name":"src",
+            "location":"src.nv12",
+            "device-name":6,
+            "io-mode":0,
+            "printfps":1
+        },
+        //only for filesrc
+        //{
+            //    "name":"src_parse",
+            //    "width":1920,
+            //    "height":1080,
+            //    "format":23,
+            //    "framerate":"5/1"
+            //},
+            {
+                "name":"src_caps",
+                "caps":"video/x-raw,format=YUY2,width=640,height=480",
+            },
+
+            //---------scale---------
+            {
+                "name":"scale_caps",
+                "caps":"video/x-raw,format=NV12,width=1920,height=1088"
+            },
+
+            //---------videorate----------
+            {
+                "name":"videorate",
+                "skip-to-first":1
+            },
+            {
+                "name":"videorate_caps",
+                "caps":"video/x-raw,framerate=30/1"
+            },
+
+            //---------mix---------
+            {
+                "name":"mix_caps",
+                "caps":"video/x-raw,format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"mfx_caps",
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=1920,height=1080"
+            },
+
+            //------------channel: 0-------------
+            {
+                "name":"scale0_caps",
+                "caps":"video/x-raw,format=NV12,width=1920,height=1088"
+            },
+            {
+                "name":"scale0_mfx_caps",
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"enc0",
+                "gop-size":128,
+                //	    "gop-distance":8, // key frames period
+                "rate-control":1,  // CBR
+                "bitrate":4096,
+                "enableMBQP":0,
+                "mbqp":[6,13,20,28,13,20,28,32,20,28,32,37,28,32,37,42]
+            },
+            {
+                "name":"enc0_caps",
+                "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+            },
+            {
+                "name":"sink0",
+                "location":"test0.264"
+            },
+
+            //-------------channel: 1---------------
+            {
+                "name":"scale1_caps",
+                "caps":"video/x-raw,format=NV12,width=352,height=288"
+            },
+            {
+                "name":"scale1_mfx_caps",      //for scale with MFXSurface
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=352,height=288,framerate=30/1"
+            },
+            {
+                "name":"enc1",
+                "quality":50
+            },
+            {
+                "name":"enc1_caps",
+                "caps":"image/jpeg"       //TODO: set the default framerate
+            },
+            {
+                "name":"sink1",
+                "location":"test1.avi",
+            },
+
+            //------------channel: 2-------------
+            {
+                "name":"scale2_caps",
+                "caps":"video/x-raw,format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"scale2_mfx_caps",
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"enc2",
+                "gop-size":128,
+                //	    "gop-distance":8, // key frames period
+                "rate-control":1,  // CBR
+                "bitrate":4096,
+                "preset":6,
+                "idr-interval":1
+            },
+            {
+                "name":"enc2_caps",
+                "caps":"video/x-h265,stream-format=byte-stream,profile=high"
+            },
+            {
+                "name":"sink2",
+                "location":"test2.265",
+            },
+
+            //------------channel: 3-------------
+            {
+                "name":"scale3_caps",
+                "caps":"video/x-raw,format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"scale3_mfx_caps",      //for scale with MFXSurface
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"rotate",
+                "method":1
+            },
+            {
+                "name":"rotate_mfx_caps",      //for rotate with MFXSurface
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=1080,height=1920"
+            },
+            {
+                "name":"enc3",
+                "gop-size":128,
+                //	    "gop-distance":8, // key frames period
+                "rate-control":1,  // CBR
+                "bitrate":4096
+            },
+            {
+                "name":"enc3_caps",
+                "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+            },
+            {
+                "name":"sink3",
+                "location":"test3.264"
+            },
+
+            //------------channel: 4-------------
+            {
+                "name":"scale4_caps",
+                "caps":"video/x-raw,format=NV12,width=352,height=288"
+            },
+            {
+                "name":"scale4_mfx_caps",      //for scale with MFXSurface
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=352,height=288"
+            },
+            {
+                "name":"enc4",
+                "gop-size":128,
+                //	    "gop-distance":8, // key frames period
+                "rate-control":1,  // CBR
+                "bitrate":4096
+            },
+            {
+                "name":"enc4_caps",
+                "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+            },
+            {
+                "name":"sink4",
+                "location":"test4.264"
+            },
+            //------------channel: 5-------------
+            {
+                "name":"scale5_caps",      //for scale with MFXSurface
+                "caps":"video/x-raw,format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"scale5_mfx_caps",
+                "caps":"video/x-raw(memory:MFXSurface),format=NV12,width=1920,height=1080"
+            },
+            {
+                "name":"enc5",
+                "gop-size":128,
+                //	    "gop-distance":8, // key frames period
+                "rate-control":1,  // CBR
+                "bitrate":4096
+            },
+            {
+                "name":"enc5_caps",
+                "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+            },
+            {
+                "name":"sink5",
+                "location":"test5.264"
+            },
+
+            //----------------local display-------------
+            {
+                "name":"scaler_display_caps",
+                "caps":"video/x-raw,format=BGRx,width=1920,height=1088"
+            },
+            {
+                "name":"enc5_caps",
+                "caps":"audio/x-alaw,rate=8000,channels=1"
+            },
+            {
+                "name":"enc6_caps",
+                "caps":"audio/x-mulaw,rate=8000,channels=1"
+            },
+            {
+                "name":"enc7",
+                "bitrate":32000
+            },
+            {
+                "name":"enc7_caps",
+                "caps":"audio/x-adpcm,rate=8000,channels=1,layout=g726"
+            },
+            {
+                "name":"enc8",
+                "bitrate":32000
+            },
+            {
+                "name":"enc8_caps",
+                "caps":"audio/G722,rate=16000"
+            },
+            {
+                "name":"enc9",
+                "bitrate":32000
+            },
+            {
+                "name":"enc9_caps",
+                "caps":"audio/mpeg,mpegversion=4,stream-format=raw,rate=16000,channels=1,base-profile=lc"
+            }
+    ],
+    "changeformat":{
+        "plugin_264_class_name" : "vaapih264enc",
+        "plugin_265_class_name" : "vaapih265enc",
+        "plugin_jpeg_class_name" : "vaapijpegenc",
+
+    },
+    "onvif":{
+        "image_element": "src",
+        "video_element": "enc0",
+        "stream_uri": "/test0",
+        "videorate_capsfilter": "videorate_caps"
+    }
+
+}
