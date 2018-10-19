@@ -13,6 +13,7 @@ typedef struct {
     GMutex lock;
     guint delay;
     const char *delay_queue_name;
+    guint draw_color_channel[3];
 } mix2_message_ctx;
 
 /* This struct is used to store
@@ -46,6 +47,11 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name);
 static mp_int_t
 process_vehicle_detection_message(const char *message_name,
                                   const char *subscribe_name, GstMessage *message);
+
+static mp_int_t
+process_crossroad_detection_message(const char *message_name,
+                                  const char *subscribe_name, GstMessage *message);
+
 static mp_int_t
 queue_message_from_observer(const char *message_name,
                             const char *subscribe_name, GstMessage *message);
@@ -104,6 +110,14 @@ queue_message_from_observer(const char *message_name,
 
 static mp_int_t
 process_vehicle_detection_message(const char *message_name,
+                                  const char *subscribe_name, GstMessage *message)
+{
+    return queue_message_from_observer(message_name, subscribe_name,
+                                       message);
+}
+
+static mp_int_t
+process_crossroad_detection_message(const char *message_name,
                                   const char *subscribe_name, GstMessage *message)
 {
     return queue_message_from_observer(message_name, subscribe_name,
@@ -296,31 +310,30 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
                 && gst_structure_get_uint(boxed, "width", &width)
                 && gst_structure_get_uint(boxed, "height", &height)) {
                 //draw a border
-                nv12_border(ptr, _width , _height, x, y, width, height, 0, 0, 255);
+                nv12_border(ptr, _width , _height, x, y, width, height,
+                        msg_ctx->draw_color_channel[0],
+                        msg_ctx->draw_color_channel[1],
+                        msg_ctx->draw_color_channel[2]);
             }
         }
         gst_buffer_unmap(buffer, &info);
 
-#ifdef DEBUG
-        //test code for draw text
         // mix2_draw_text will map buffer,so can't be used after gst_buffer_map
-        char text[20];
         for (i = 0; i < nsize; ++i) {
             item = gst_value_list_get_value(vlist, i);
             boxed = (GstStructure *) g_value_get_boxed(item);
             if (gst_structure_get_uint(boxed, "x", &x)
                 && gst_structure_get_uint(boxed, "y", &y)
                 && gst_structure_get_uint(boxed, "width", &width)
-                && gst_structure_get_uint(boxed, "height", &height)) {
+                && gst_structure_get_uint(boxed, "height", &height)){
+                const gchar* text = gst_structure_get_string(boxed, "attributes");
                 //draw text
-                sprintf(text, "car%d", i);
-                if (!mix2_draw_text(buffer, &src_video_info, x + 5, y + 5, width, height,
-                                    text)) {
+                if (text != NULL && !mix2_draw_text(buffer, &src_video_info,
+                            x + 5, y + 5, width, height, text)) {
                     LOG_WARNING("draw text:%s failed\n", text);
                 }
             }
         }
-#endif
         g_queue_pop_head(msg_ctx->message_queue);
         gst_message_unref(walk);
     }
@@ -340,6 +353,8 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
                                    (GDestroyNotify)g_free, NULL);
         g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("vehicle_detection"),
                             (gpointer) process_vehicle_detection_message);
+        g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("crossroad_detection"),
+                            (gpointer) process_crossroad_detection_message);
     }
     //analyze config , post message , add callback
     struct json_object *array = NULL;
@@ -391,6 +406,17 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
                 LOG_DEBUG("mix2: delay_queue_name: %s", delay_queue_name);
                 gst_bus_post(bus, m);
                 gst_object_unref(bus);
+            }
+        }
+        if (json_object_object_get_ex(mix_root, "draw_color", &array)) {
+            struct json_object *color_chanel_array = NULL;
+            guint color_num_values = json_object_array_length(array);
+            for (guint i = 0; i < num_values && i < color_num_values; i++) {
+                message_obj = json_object_array_get_idx(array, i);
+                for (int y = 0; y < 3 && y < json_object_array_length(message_obj); y++) {
+                    mix2_ctx.msg_ctxs[i].draw_color_channel[y] =
+                        json_object_get_int(json_object_array_get_idx(message_obj, y));
+                }
             }
         }
         if (find) {

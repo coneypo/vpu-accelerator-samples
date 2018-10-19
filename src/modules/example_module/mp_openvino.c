@@ -126,7 +126,7 @@ unsubscribe_message(const char *message_name,
 
 //about subscriber_message end
 
-#define MAX_BUF_SIZE 512
+#define MAX_BUF_SIZE 1024
 #define QUEUE_CAPACITY 10
 
 // about branch start
@@ -136,7 +136,9 @@ typedef struct {
     const gchar  *pipe_string;
     const gchar  *name;
     const gchar  *src_name;
-    const gchar  *model_path;
+    const gchar  *model_path1;
+    const gchar  *model_path2;
+    const gchar  *model_path3;
     const gchar *message_name;
     const gchar *src_format;
 } openvino_branch_t;
@@ -296,7 +298,17 @@ branch_init(mediapipe_branch_t *mp_branch)
     const gchar *desc_format = NULL;
     gchar description[MAX_BUF_SIZE];
     branch_t *branch = (branch_t *) mp_branch;
-    snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path);
+    if (branch->model_path3 != NULL) {
+        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1,
+                 branch->model_path2, branch->model_path3);
+    } else if (branch->model_path2 != NULL) {
+        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1,
+                 branch->model_path2);
+    } else if (branch->model_path1 != NULL) {
+        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1);
+    } else {
+        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, NULL);
+    }
     printf("description:[%s]\n", description);
     GstElement *new_pipeline = mediapipe_branch_create_pipeline(description);
     if (new_pipeline == NULL) {
@@ -343,8 +355,12 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
                             &(ctx->branch[i].src_name));
             json_get_string(detect, "src_format",
                             &(ctx->branch[i].src_format));
-            json_get_string(detect, "model_path",
-                            &(ctx->branch[i].model_path));
+            json_get_string(detect, "model_path1",
+                            &(ctx->branch[i].model_path1));
+            json_get_string(detect, "model_path2",
+                            &(ctx->branch[i].model_path2));
+            json_get_string(detect, "model_path3",
+                            &(ctx->branch[i].model_path3));
             json_get_string(detect, "name",
                             &(ctx->branch[i].name));
             json_get_string(detect, "message_name",
@@ -703,6 +719,7 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
     GValue objectlist = { 0 };
     g_value_init(&objectlist, GST_TYPE_LIST);
+    LOG_DEBUG("branch->name:%s", branch->name);
     if (!get_value_from_buffer(pad, buffer, &objectlist)) {
         return GST_PAD_PROBE_OK;
     }
