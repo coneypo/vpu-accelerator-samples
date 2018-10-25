@@ -612,7 +612,6 @@ get_value_from_buffer(GstPad *pad, GstBuffer *buffer, GValue *objectlist)
                 attributes_str = ((ObjectAttributes *)meta_attr->data)[i].as_string;
             }
             if (meta_vehicle_color) {
-                attributes_str = ((ObjectAttributes *)meta_attr->data)[i].as_string;
                 static const std::string colors[] = {"white", "gray", "yellow", "red", "green", "blue", "black"};
                 auto data = meta_vehicle_color->GetElement<float[7]>(i);
                 if (data) {
