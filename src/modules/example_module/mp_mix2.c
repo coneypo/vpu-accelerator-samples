@@ -1,4 +1,5 @@
 #include "mediapipe_com.h"
+#include <string>
 
 #define MESSAGE_MIX2_MAX_NUM 10
 
@@ -33,7 +34,7 @@ mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data);
 static gboolean
 mix2_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
-        int width, int height,const gchar *text);
+               int width, int height, const gchar *text);
 
 static char *
 mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd);
@@ -50,6 +51,10 @@ process_vehicle_detection_message(const char *message_name,
 
 static mp_int_t
 process_crossroad_detection_message(const char *message_name,
+                                    const char *subscribe_name, GstMessage *message);
+
+static mp_int_t
+process_barrier_detection_message(const char *message_name,
                                   const char *subscribe_name, GstMessage *message);
 
 static mp_int_t
@@ -124,6 +129,14 @@ process_crossroad_detection_message(const char *message_name,
                                        message);
 }
 
+static mp_int_t
+process_barrier_detection_message(const char *message_name,
+                                  const char *subscribe_name, GstMessage *message)
+{
+    return queue_message_from_observer(message_name, subscribe_name,
+                                       message);
+}
+
 static char *
 mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd)
 {
@@ -153,7 +166,7 @@ exit_master(void)
 /**
  * @Synopsis draw border on frame by param
  *
- * @Param pic frame info
+ * @Param buffer frame buffer
  * @Param pic_w frame width
  * @Param pic_h frame height
  * @Param rect_x x of border's left top point
@@ -164,15 +177,24 @@ exit_master(void)
  * @Param G RGB color's Green value
  * @Param B RGB color's Blue value
  *
- * @Returns 0 is success.
+ * @Returns 0 is success, -1 is map error.
  */
 /* ----------------------------------------------------------------------------*/
 static gint
-nv12_border(guint8 *pic, guint pic_w, guint pic_h, guint rect_x,
+nv12_border(GstBuffer *buffer, guint pic_w, guint pic_h, guint rect_x,
             guint rect_y, guint rect_w, guint rect_h, int R, int G, int B)
 {
+    GstMapInfo info;
+    GstMapFlags mapFlag = GstMapFlags(GST_MAP_READ | GST_MAP_WRITE);
+    //map buf to info
+    if (! gst_buffer_map(buffer, &info, mapFlag)) {
+        LOG_ERROR("mix2: map buffer error!");
+        return -1;
+    }
+    guint8 *pic = info.data;
     /* judge the params*/
     if (rect_y > pic_h || rect_x > pic_w) {
+        gst_buffer_unmap(buffer, &info);
         return 0;
     }
     if (rect_y + rect_h > pic_h) {
@@ -205,6 +227,7 @@ nv12_border(guint8 *pic, guint pic_w, guint pic_h, guint rect_x,
             }
         }
     }
+    gst_buffer_unmap(buffer, &info);
     return 0;
 }
 
@@ -221,7 +244,6 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
     const GValue *vlist, *item;
     guint nsize, i;
     guint x, y, width, height;
-    GstMapInfo info;
     GstElement *enc_element = NULL;
     GstPad *src_pad = NULL;
     GstCaps *src_caps = NULL;
@@ -293,15 +315,9 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
     g_mutex_unlock(&msg_ctx->lock);
     //draw info on buffer
     if (walk != NULL) {
-        GstMapFlags mapFlag = GstMapFlags(GST_MAP_READ | GST_MAP_WRITE);
-        //map buf to info
-        if (! gst_buffer_map(buffer, &info, mapFlag)) {
-            LOG_ERROR("mix2: map buffer error!");
-            return FALSE;
-        }
-        guint8 *ptr = info.data;
         vlist = gst_structure_get_value(root, msg_ctx->message_name);
         nsize = gst_value_list_get_size(vlist);
+        std::string textString;
         for (i = 0; i < nsize; ++i) {
             item = gst_value_list_get_value(vlist, i);
             boxed = (GstStructure *) g_value_get_boxed(item);
@@ -310,27 +326,38 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
                 && gst_structure_get_uint(boxed, "width", &width)
                 && gst_structure_get_uint(boxed, "height", &height)) {
                 //draw a border
-                nv12_border(ptr, _width , _height, x, y, width, height,
+                nv12_border(buffer, _width, _height, x, y, width, height,
                         msg_ctx->draw_color_channel[0],
                         msg_ctx->draw_color_channel[1],
                         msg_ctx->draw_color_channel[2]);
-            }
-        }
-        gst_buffer_unmap(buffer, &info);
-
-        // mix2_draw_text will map buffer,so can't be used after gst_buffer_map
-        for (i = 0; i < nsize; ++i) {
-            item = gst_value_list_get_value(vlist, i);
-            boxed = (GstStructure *) g_value_get_boxed(item);
-            if (gst_structure_get_uint(boxed, "x", &x)
-                && gst_structure_get_uint(boxed, "y", &y)
-                && gst_structure_get_uint(boxed, "width", &width)
-                && gst_structure_get_uint(boxed, "height", &height)){
-                const gchar* text = gst_structure_get_string(boxed, "attributes");
+                textString.clear();
+                //draw text
+                const gchar *text = gst_structure_get_string(boxed, "attributes");
+                if (text != NULL) {
+                    textString.append(text);
+                    textString.append(",");
+                }
+                text = gst_structure_get_string(boxed, "color");
+                if (text != NULL) {
+                    textString.append(text);
+                    textString.append(",");
+                }
+                text = gst_structure_get_string(boxed, "vehicle");
+                if (text != NULL) {
+                    textString.append(text);
+                    textString.append(",");
+                }
+                //convert const char * to char *
+                char *p = const_cast<char *>(textString.c_str());
+                //delete , in the end
+                int len = strlen(p);
+                if (p[len - 1] == ',') {
+                    p[len - 1] = '\0';
+                }
                 //draw text
                 if (text != NULL && !mix2_draw_text(buffer, &src_video_info,
-                            x + 5, y + 5, width, height, text)) {
-                    LOG_WARNING("draw text:%s failed\n", text);
+                            x + 5, y + 5, width, height, p)) {
+                    LOG_WARNING("draw text:%s failed\n", p);
                 }
             }
         }
@@ -355,6 +382,8 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
                             (gpointer) process_vehicle_detection_message);
         g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("crossroad_detection"),
                             (gpointer) process_crossroad_detection_message);
+        g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("barrier_detection"),
+                            (gpointer) process_barrier_detection_message);
     }
     //analyze config , post message , add callback
     struct json_object *array = NULL;

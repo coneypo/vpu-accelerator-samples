@@ -113,12 +113,27 @@
                            name=detect ! queue ! fakesink",
             "model_path1":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/person-vehicle-bike-detection-crossroad-0078/FP32/person-vehicle-bike-detection-crossroad-0078.xml",
             "model_path2":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/person-attributes-recognition-crossroad-0031/FP32/person-attributes-recognition-crossroad-0031.xml"
+        },
+        {
+            "enable":1,
+            "name":"openvino_barrier_detection",
+            "message_name":"barrier_detection",
+            "src_name":"src",
+            "src_format":"NV12",
+            "pipe_string":"appsrc name=source ! queue max-size-buffers=1 leaky=2 !
+                           videoconvert !
+                           openvino-inference model=%s device=CPU every-nth-frame=1 batch-size=4 ! queue !
+                           openvino-classification model=%s,%s object-class=1,2
+                           name=detect ! queue ! fakesink",
+            "model_path1":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/vehicle-license-plate-detection-barrier-0007/FP32/vehicle-license-plate-detection-barrier-0007.xml",
+            "model_path2":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/vehicle-attributes-recognition-barrier-0039/FP32/vehicle-attributes-recognition-barrier-0039.xml",
+            "model_path3":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/license-plate-recognition-barrier-0001/FP32/license-plate-recognition-barrier-0001.xml"
         }
     ],
     "mix2":
     {
-    "subscribe_message" : ["vehicle_detection", "crossroad_detection"],
-    "draw_color" : [[0,0,255],[255,0,0]],
+    "subscribe_message" : ["vehicle_detection", "crossroad_detection", "barrier_detection"],
+    "draw_color" : [[0,0,255],[255,0,0],[255,255,0]],
     "delay_queue": "mix2_queue",
     "element_name": "proc_src"
     },
