@@ -1,0 +1,11 @@
+testbuffersrc name=src !
+capsfilter             name=src_caps !
+queue name=mix2_queue !
+testbufferscale name=proc_src !
+capsfilter             name=scale_caps !
+videorate !
+capsfilter             name=videorate_caps !
+queue !
+vaapih264enc           name=enc0 !
+capsfilter             name=enc0_caps !
+filesink               name=sink0
