@@ -1,0 +1,27 @@
+filesrc location=/home/mang/video-examples/cars_1920x1080.h264  !
+h264parse !
+vaapih264dec !
+video/x-raw,format=NV12,width=1920,height=1088 !
+rawvideoparse  width=1920 height=1088 format=23 !
+queue !
+videoscale name=src  !
+capsfilter                 name=scale_caps !
+queue name=mix2_queue !
+videoscale name=proc_src !
+capsfilter             name=scale0_caps !
+videorate !
+capsfilter             name=videorate_caps !
+tee name=t
+t. !
+queue !
+videoconvert !
+capsfilter             name=scaler_display_caps !
+ximagesink
+t. !
+queue !
+vaapih264enc           name=enc0 !
+capsfilter             name=enc0_caps !
+filesink               name=sink0
+
+
+
