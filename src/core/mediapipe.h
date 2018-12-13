@@ -72,6 +72,12 @@ mediapipe_set_user_callback(mediapipe_t *mp,
                             const gchar *element_name, const gchar *pad_name,
                             user_callback_t user_callback, gpointer user_data);
 
+
+int
+mediapipe_remove_user_callback(mediapipe_t *mp,
+                            const gchar *element_name, const gchar *pad_name,
+                            user_callback_t user_callback, gpointer user_data);
+
 #define MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, property_name,  ...) \
     do { \
         GstElement *element =  \

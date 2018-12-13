@@ -51,7 +51,14 @@ probe_callback_user(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
         buffer = gst_buffer_make_writable(buffer);
         GST_PAD_PROBE_INFO_DATA(info) = buffer;
-        ctx->user_callback(ctx->mp, buffer, NULL, 0, ctx->user_data);
+        if (ctx->user_callback) {
+            ctx->user_callback(ctx->mp, buffer, NULL, 0, ctx->user_data);
+        } else {
+            ctx->mp->probe_data_list = g_list_remove(ctx->mp->probe_data_list, user_data);
+            g_free(user_data);
+            return GST_PAD_PROBE_REMOVE;
+        }
+
     }
 
     return GST_PAD_PROBE_OK;
@@ -144,6 +151,50 @@ mediapipe_set_user_callback(mediapipe_t *mp, const gchar *elem_name,
     ctx->user_callback = user_callback;
     ctx->user_data = user_data;
     return add_probe_callback(probe_callback_user, ctx);
+}
+
+/**
+    @brief remove the user callback function
+
+    @param mp Pointer to medipipe.
+    @param element_name remove callback to sink pad or src pad of this element.
+    @param pad_name "sink" for sink pad, "src" for src pad
+    @param user_callback Pointer to user callback function.
+    @param user_data Data pass to user callback function.
+
+    @retval 0: Success
+    @retval -1: Fail
+*/
+int
+mediapipe_remove_user_callback(mediapipe_t *mp,
+                               const gchar *elem_name, const gchar *pad_name,
+                               user_callback_t user_callback, gpointer user_data)
+{
+    if (!mp || !elem_name || !pad_name || mp->state == STATE_NOT_CREATE) {
+        return -1;
+    }
+    GstElement *elem = gst_bin_get_by_name(GST_BIN(mp->pipeline), elem_name);
+    if (!elem) {
+        LOG_WARNING("remove callback failed, can not find element \"%s\"", elem_name);
+        return -1;
+    }
+    GList *l = mp->probe_data_list;
+    while (l != NULL) {
+        probe_context_t *ctx = l->data;
+        if (ctx->element == elem
+            && 0 == g_strcmp0(ctx->pad_name, pad_name)
+            && ctx->user_callback == user_callback
+            && ctx->user_data == user_data) {
+            ctx->user_callback = NULL;
+            break;
+        }
+        l = l->next;
+    }
+    gst_object_unref(elem);
+    if (l == NULL) {
+        return -1;
+    }
+    return 0;
 }
 
 
