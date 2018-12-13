@@ -23,6 +23,8 @@ void convert_from_hex_to_byte(const char* source, unsigned char* dest, int sourc
 
 gchar *read_file(const char *filename);
 
+gboolean write_file(const gchar *data, const gchar *file_name);
+
 gchar *fakebuff_create(guint32 color, gint width, gint height);
 
 const char *get_local_ip_addr();

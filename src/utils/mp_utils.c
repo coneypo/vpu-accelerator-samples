@@ -85,6 +85,19 @@ read_file(const char *filename)
     return data;
 }
 
+gboolean
+write_file(const gchar *data, const gchar *file_name)
+{
+    FILE *fp = fopen(file_name, "w");
+    if (fp == NULL) {
+        g_print("Open file %s failed", file_name);
+        return FALSE;
+    }
+    fwrite(data, 1, strlen(data), fp);
+    fclose(fp);
+    return TRUE;
+}
+
 gchar *
 fakebuff_create(guint32 color, gint width, gint height)
 {
