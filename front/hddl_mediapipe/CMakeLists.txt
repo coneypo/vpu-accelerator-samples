@@ -121,6 +121,8 @@ message("addon moudle ${ADDON_MODULES}")
 message("addon deps lib")
 message("${ADDON_MODULES_DEP_LIBS}")
 
+install(TARGETS hddl_mediapipe2 DESTINATION /usr/bin)
+
 if(CMAKE_BUILD_TYPE STREQUAL Debug)
     add_definitions(-DDEBUG)
 endif()
