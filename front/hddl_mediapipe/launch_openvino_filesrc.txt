@@ -1,4 +1,4 @@
-filesrc location=/home/mang/video-examples/cars_1920x1080.h264  !
+filesrc location=cars_1920x1080.h264  !
 h264parse !
 vaapih264dec !
 video/x-raw,format=NV12,width=1920,height=1088 !
