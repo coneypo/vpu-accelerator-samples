@@ -259,6 +259,30 @@ bus_callback(GstBus *bus, GstMessage *msg, gpointer data)
 
 /* --------------------------------------------------------------------------*/
 /**
+ * @Synopsis create pipeline from string
+ *
+ * @Param data pipeline string
+ *
+ * @Returns  return the pipeline element
+ */
+/* ----------------------------------------------------------------------------*/
+static inline GstElement *
+create_pipeline_from_string(gchar *data)
+{
+    g_assert(data != NULL);
+    GError     *error = NULL;
+    GstElement *pipeline = NULL;
+    pipeline = gst_parse_launch(data, &error);
+    if (error || !pipeline) {
+        LOG_ERROR("failed to build pipeline from string : %s, error message: %s",
+                  data, (error) ? error->message : NULL);
+        return NULL;
+    }
+    return pipeline;
+}
+
+/* --------------------------------------------------------------------------*/
+/**
  * @Synopsis create pipeline from file
  *
  * @Param file the file contain pipeline string
@@ -331,6 +355,49 @@ mediapipe_create(int argc, char *argv[])
     }
 
     return mp;
+}
+
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis  init mediapipe from config string and launch string
+ *
+ * @Param config     config string
+ * @Param launch     launch string
+ * @Param mp        mediapipe
+ *
+ * @Returns  if success return true
+ */
+/* ----------------------------------------------------------------------------*/
+gboolean
+mediapipe_init_from_string(char *config, char *launch, mediapipe_t *mp)
+{
+    gst_init(0, NULL);
+    g_assert(mp != NULL);
+    g_assert(config != NULL);
+    g_assert(launch != NULL);
+    if (mp->pipeline != NULL) {
+        LOG_ERROR("mediapipe already have a pipeline");
+        return FALSE;
+    }
+
+    mp->pipeline = create_pipeline_from_string(launch);
+    if (!mp->pipeline) {
+        LOG_ERROR("failed to create pipeline from string");
+        return FALSE;
+    }
+
+    mp->config = json_create_from_string(config);
+    if (!mp->config) {
+        LOG_ERROR("failed to load config from string");
+        return FALSE;
+    }
+
+    GstBus *bus = gst_element_get_bus(mp->pipeline);
+    mp->bus_watch_id = gst_bus_add_watch(bus, bus_callback, mp);
+    gst_object_unref(bus);
+    mp->loop = g_main_loop_new(NULL, FALSE);
+    mp->state = STATE_READY;
+    return TRUE;
 }
 
 /**

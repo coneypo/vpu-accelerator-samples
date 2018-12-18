@@ -45,6 +45,10 @@ get_resolution_from_caps(GstCaps *caps, gint *width, gint *height);
 mediapipe_t *
 mediapipe_create(int argc, char *argv[]);
 
+
+gboolean
+mediapipe_init_from_string(char *config, char *launch, mediapipe_t *mp);
+
 void
 mediapipe_destroy(mediapipe_t *mp);
 

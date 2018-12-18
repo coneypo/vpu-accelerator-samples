@@ -1,4 +1,5 @@
 #include "mp_config_json.h"
+#include "local_debug.h"
 
 #define ONE_BILLON_NANO_SECONDS 1000000000
 
@@ -9,6 +10,29 @@ struct json_object *
 json_create(const char *filename)
 {
     return json_object_from_file(filename);
+}
+
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis create a json object from a string
+ *
+ * @Param str json string
+ *
+ * @Returns json object
+ */
+/* ----------------------------------------------------------------------------*/
+struct json_object *
+json_create_from_string(char *str)
+{
+    g_assert(str != NULL);
+    enum json_tokener_error jerr = json_tokener_success;
+    json_object *json = NULL;
+    json =  json_tokener_parse_verbose(str, &jerr);
+    if (jerr != json_tokener_success) {
+        LOG_ERROR("Failed to parse string :%s, error:mesage:%s",
+                  str, json_tokener_error_desc(jerr));
+    }
+    return json;
 }
 
 void
