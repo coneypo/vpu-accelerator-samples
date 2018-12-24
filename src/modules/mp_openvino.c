@@ -1,6 +1,7 @@
 #include "mediapipe_com.h"
 #include <string>
 #include <algorithm>
+#include <vector>
 
 //meta define start
 #define IVA_FOURCC(c1, c2, c3, c4) (((c1) & 255) + (((c2) & 255) << 8) + (((c3) & 255) << 16) + (((c4) & 255) << 24))
