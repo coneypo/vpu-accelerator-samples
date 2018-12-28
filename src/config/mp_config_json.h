@@ -16,7 +16,7 @@ typedef gpointer(*config_func_t)(struct json_object *object);
 struct json_object *json_create(const char *filename);
 
 struct json_object *
-json_create_from_string(char *str);
+json_create_from_string(const char *str);
 
 void json_destroy(struct json_object **obj);
 

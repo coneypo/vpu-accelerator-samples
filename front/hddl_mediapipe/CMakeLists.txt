@@ -17,6 +17,8 @@ foreach(_module ${MP_MODULES})
 list(APPEND SRC_LIST "${BASE_MODULES_PATH}/mp_${_module}.c")
 endforeach(_module)
 list(APPEND SRC_LIST "./main.c")
+list(APPEND SRC_LIST "./unixsocket/us_client.c")
+list(APPEND SRC_LIST "./process_command/process_command.c")
 
 #add addon moudle
 set(ADDON_MODULE_PATH "" CACHE STRING "addon modules path")
@@ -100,6 +102,7 @@ target_link_libraries (hddl_mediapipe2 ${CAIRO_LIBRARIES})
 target_link_libraries (hddl_mediapipe2 ${LIBPANGO_LIBRARIES})
 target_link_libraries (hddl_mediapipe2 ${LIBPANGO_CAIRO_LIBRARY})
 target_link_libraries (hddl_mediapipe2 ${ADDON_MODULES_DEP_LIBS})
+target_link_libraries (hddl_mediapipe2 libpthread.so)
 
 #set FOLDER for subdir install
 set_property(TARGET hddl_mediapipe2 PROPERTY FOLDER "executables")

@@ -22,7 +22,7 @@ json_create(const char *filename)
  */
 /* ----------------------------------------------------------------------------*/
 struct json_object *
-json_create_from_string(char *str)
+json_create_from_string(const char *str)
 {
     g_assert(str != NULL);
     enum json_tokener_error jerr = json_tokener_success;

@@ -47,7 +47,7 @@ mediapipe_create(int argc, char *argv[]);
 
 
 gboolean
-mediapipe_init_from_string(char *config, char *launch, mediapipe_t *mp);
+mediapipe_init_from_string(const char *config, const char *launch, mediapipe_t *mp);
 
 void
 mediapipe_destroy(mediapipe_t *mp);
