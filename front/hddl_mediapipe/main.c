@@ -8,6 +8,9 @@
 #include "unixsocket/us_client.h"
 #include "process_command/process_command.h"
 
+const char *g_config_file = "config_openvino_filesrc.json";
+const char *g_launch_file = "launch_openvino_filesrc.txt";
+
 static gchar *g_server_uri = NULL;
 static gint g_pipe_id = 0;
 
@@ -16,8 +19,12 @@ print_hddl_usage(const char *program_name, gint exit_code)
 {
     g_print("Usage: %s...\n", program_name);
     g_print(
+        "Create pipeline from server command:\n"
         " -u --specify uri of unix socket server.\n"
         " -i --specify id of unix socket client.\n"
+        "Create pipeline from local file:\n"
+        " -c --specify name of config file.\n"
+        " -l --specify name of launch file.\n"
         " -h --help Display this usage information.\n");
     exit(exit_code);
 }
@@ -26,10 +33,12 @@ print_hddl_usage(const char *program_name, gint exit_code)
 static gboolean
 parse_hddl_cmdline(int argc, char *argv[])
 {
-    const char *const brief = "hu:i:";
+    const char *const brief = "hu:i:c:l:";
     const struct option details[] = {
         { "serveruri", 1, NULL, 'u'},
         { "clientid", 1, NULL, 'i',},
+        { "config", 1, NULL, 'c',},
+        { "launch", 1, NULL, 'l',},
         { "help", 0, NULL, 'h'},
         { NULL, 0, NULL, 0 }
     };
@@ -44,6 +53,12 @@ parse_hddl_cmdline(int argc, char *argv[])
             case 'i':
                 g_pipe_id = atoi(optarg);
                 break;
+            case 'c':
+                g_config_file = optarg;
+                break;
+            case 'l':
+                g_launch_file = optarg;
+                break;
             case 'h': /* help */
                 print_hddl_usage(argv[0], 0);
                 break;
@@ -57,8 +72,6 @@ parse_hddl_cmdline(int argc, char *argv[])
                 abort();
         }
     }
-    optind = 1;
-    g_print("server uri is %s, pipe id is %d\n", g_server_uri, g_pipe_id);
     
     return TRUE;
 }
@@ -192,21 +205,40 @@ int main(int argc, char *argv[])
     hp->mp = mp;
     hp->mp->state = STATE_NOT_CREATE;
 
-    // Create unix socket client and connect to server.
-    hp->client = usclient_setup(g_server_uri, g_pipe_id);
-    hp->pipe_id = g_pipe_id;
-    hp->message_handle_thread = g_thread_new(NULL, message_handler, (gpointer)hp);
+    if(g_server_uri != NULL) {
+        // Create pipeline from server command.
+        hp->client = usclient_setup(g_server_uri, g_pipe_id);
+        hp->pipe_id = g_pipe_id;
+        hp->message_handle_thread = g_thread_new(NULL, message_handler, (gpointer)hp);
 
-    int times = 2000;
-    while ((hp->mp->state != STATE_READY) && times > 0) {
-        g_usleep(1000);
-        times--;
+        int times = 2000;
+        while ((hp->mp->state != STATE_READY) && times > 0) {
+            g_usleep(1000);
+            times--;
+        }
+        if (hp->mp->state != STATE_READY) {
+            printf("Failed to create pipeline\n");
+            return -1;
+        }
+
+    } else {
+        // Create pipeline from local file.
+        gchar *launch = read_file(g_launch_file);
+        if(launch == NULL) {
+            return -1;
+        }
+        gchar *config = read_file(g_config_file);
+        if(config == NULL) {
+            return -1;
+        }
+        ret = mediapipe_init_from_string(config, launch, hp->mp);
+        g_free(launch);
+        g_free(config);
+        if(ret == FALSE) {
+            return -1;
+        }
     }
 
-    if (hp->mp->state != STATE_READY) {
-        printf("Failed to create pipeline\n");
-        return -1;
-    }
 
     if (mp_preinit_modules() != MP_OK) {
         return MP_ERROR;
