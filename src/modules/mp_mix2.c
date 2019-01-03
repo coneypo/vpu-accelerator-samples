@@ -355,10 +355,12 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
                     p[len - 1] = '\0';
                 }
                 //draw text
-                if (text != NULL && !mix2_draw_text(buffer, &src_video_info,
+                if (textString.length() > 0 && !mix2_draw_text(buffer, &src_video_info,
                             x + 5, y + 5, width, height, p)) {
                     LOG_WARNING("draw text:%s failed\n", p);
                 }
+                LOG_DEBUG("draw data:%d,%d,%d,%d,%s,pst:%ld", x, y,
+                          width, height, p, GST_BUFFER_PTS(buffer));
             }
         }
         g_queue_pop_head(msg_ctx->message_queue);

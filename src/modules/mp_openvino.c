@@ -108,6 +108,45 @@ static GstMetaIVA *FindIVAMeta(GstBuffer *buffer, int data_type,
 }
 //*meta define end
 
+//new version openvo gstreamer-plugin version meta
+// need openvino sdk l_openvino_toolkit_p_2018.4.420
+// openvion gstreamer-plugins commit db7fb8a5551415a29efd490afd4ac7a190471806
+#define GVA_DETECTION_META_TAG "gvadetectionmeta"
+typedef struct _GVADetection GVADetection;
+struct _GVADetection {
+    gfloat x_min;
+    gfloat y_min;
+    gfloat x_max;
+    gfloat y_max;
+    gdouble confidence;
+    gint label_id;
+    gint object_id;
+    GPtrArray *text_attributes;
+};
+
+typedef struct _GstGVADetectionMeta GstGVADetectionMeta;
+typedef GArray BBoxesArray;
+struct _GstGVADetectionMeta {
+    GstMeta  meta;
+    GstMeta *raw;
+    GPtrArray *labels; // array of labels in string format with label_id as index
+    BBoxesArray *bboxes;
+};
+
+static bool is_gva_detection_meta(GstMeta *meta)
+{
+    static GQuark gva_quark = 0;
+    if (!gva_quark) {
+        gva_quark = g_quark_from_static_string(GVA_DETECTION_META_TAG);
+    }
+    if (gst_meta_api_type_has_tag(meta->info->api, gva_quark)) {
+        return true;
+    }
+    return false;
+}
+//new meta define end
+
+
 //about subscriber_message start
 typedef int (*message_process_fun)(const char *message_name,
                                    const char *subscribe_name, GstMessage *message);
@@ -127,7 +166,7 @@ unsubscribe_message(const char *message_name,
 
 //about subscriber_message end
 
-#define MAX_BUF_SIZE 1024
+#define MAX_BUF_SIZE 10240
 #define QUEUE_CAPACITY 10
 
 // about branch start
@@ -142,6 +181,7 @@ typedef struct {
     const gchar  *model_path3;
     const gchar *message_name;
     const gchar *src_format;
+    struct json_object* pipe_params;
 } openvino_branch_t;
 
 typedef  openvino_branch_t branch_t;
@@ -149,6 +189,7 @@ typedef  openvino_branch_t branch_t;
 typedef struct {
     mediapipe_t *mp;
     GHashTable  *msg_hst;
+    gboolean openvino_use_new_plugins;
     guint branch_num;
     openvino_branch_t branch[1];
 } openvino_ctx_t;
@@ -175,6 +216,9 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
 gboolean
 get_value_from_buffer(GstPad *pad, GstBuffer *buffer, GValue *objectlist);
+
+gboolean
+get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer, GValue *objectlist);
 
 //get message and progress it end
 
@@ -283,6 +327,73 @@ branch_config(branch_t *branch)
     return TRUE;
 }
 
+static void create_description_from_string_and_params(branch_t *branch,
+        gchar *description)
+{
+    const gchar *s_p = branch->pipe_string;
+    char *d_p = description;
+    guint pipe_str_count = 0;
+    char param_name[50] = {0};
+    const gchar *param_value = NULL;
+    char end_char = '\0';
+    char *param_p = NULL;
+    guint parm_str_count = 0;
+    while (pipe_str_count < MAX_BUF_SIZE && s_p && *s_p != '\0') {
+        if (*s_p != '$') {
+            *d_p = *s_p;
+            d_p++;
+            s_p++;
+            pipe_str_count++;
+        } else {
+            s_p++;
+            if (!s_p) {
+                break;
+            }
+            param_p = &param_name[0];
+            parm_str_count = 0;
+            switch (*s_p) {
+                case '{':
+                    end_char = '}';
+                    break;
+                case '(':
+                    end_char = ')';
+                    break;
+                default:
+                    end_char = ' ';
+                    *param_p = *s_p;
+                    param_p++;
+                    parm_str_count++;
+                    break;
+            }
+            s_p++;
+            while (parm_str_count < 50 && s_p && *s_p != '\0') {
+                if (*s_p != end_char) {
+                    *param_p = *s_p;
+                    param_p++;
+                    s_p++;
+                    parm_str_count++;
+                } else {
+                    if (end_char != ' ') {
+                        s_p++;
+                    }
+                    break;
+                }
+            }
+            *param_p = '\0';
+            param_value = NULL;
+            if (param_name[0] != '\0' && json_get_string(branch->pipe_params,
+                    param_name, &param_value)) {
+                int num = g_strlcpy(d_p, param_value,
+                                    MAX_BUF_SIZE - pipe_str_count);
+                d_p += num;
+                pipe_str_count += num;
+            }
+        }
+    }
+    *d_p = '\0';
+}
+
+
 /* --------------------------------------------------------------------------*/
 /**
  * @Synopsis openvino custom branch init
@@ -309,6 +420,9 @@ branch_init(mediapipe_branch_t *mp_branch)
         snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1);
     } else {
         snprintf(description, MAX_BUF_SIZE, branch->pipe_string, NULL);
+    }
+    if (ctx->openvino_use_new_plugins) {
+        create_description_from_string_and_params(branch, description);
     }
     printf("description:[%s]\n", description);
     GstElement *new_pipeline = mediapipe_branch_create_pipeline(description);
@@ -347,6 +461,9 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     int branch_num = json_object_array_length(object);
     ctx = (ctx_t *)g_malloc0(sizeof(ctx_t) + sizeof(
                                  branch_t) * branch_num);
+    ctx->openvino_use_new_plugins =
+        json_check_enable_state(root, "openvino_use_new_plugins");
+
     ctx->mp = mp;
     ctx->branch_num = branch_num;
     for (int i = 0; i < branch_num; ++i) {
@@ -370,6 +487,11 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
                             &(ctx->branch[i].pipe_string));
             ctx->branch[i].enable = TRUE;
             ctx->branch[i].mp_branch.branch_init = branch_init;
+            if (ctx->openvino_use_new_plugins) {
+                json_object_object_get_ex(detect, "pipe_params",
+                            &(ctx->branch[i].pipe_params));
+            }
+
             load_success = mediapipe_setup_new_branch(mp, ctx->branch[i].src_name, "src",
                            &ctx->branch[i].mp_branch);
             if (load_success) {
@@ -696,6 +818,86 @@ get_value_from_buffer(GstPad *pad, GstBuffer *buffer, GValue *objectlist)
     return FALSE;
 }
 
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis  get data from buffer meta
+ *
+ * @Param pad
+ * @Param buffer
+ * @Param objectlist store the data
+ */
+/* ----------------------------------------------------------------------------*/
+gboolean
+get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer,
+                                  GValue *objectlist)
+{
+    GstMeta *gst_meta = NULL;
+    gpointer state = NULL;
+    GstCaps *caps = gst_pad_get_current_caps(pad);
+    GstVideoInfo info;
+    if (!gst_video_info_from_caps(&info, caps)) {
+        LOG_ERROR("get video info form caps falied");
+        gst_caps_unref(caps);
+        return FALSE;
+    }
+    gst_caps_unref(caps);
+    while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
+        if (is_gva_detection_meta(gst_meta)) {
+            GstGVADetectionMeta *meta = (GstGVADetectionMeta *)gst_meta;
+            for (int i = 0; i < meta->bboxes->len; i++) {
+                GVADetection *bbox = &g_array_index(meta->bboxes, GVADetection, i);
+                int label_id = bbox->label_id;
+                float confidence = bbox->confidence;
+                float xmin = bbox->x_min * info.width;
+                float ymin = bbox->y_min * info.height;
+                float xmax = bbox->x_max * info.width;
+                float ymax = bbox->y_max * info.height;
+                const char *attributes_str = NULL;
+                const char *color_str = NULL;
+                const char *vehicle_str = NULL;
+                const char *license_plate_str = NULL;
+                int object_id = bbox->object_id;
+                std::string text;
+                if (bbox->text_attributes) {
+                    for (int i = 0; i < bbox->text_attributes->len; i++) {
+                        text += (gchar *)g_ptr_array_index(bbox->text_attributes, i);
+                        text += " ";
+                    }
+                    attributes_str = g_strdup(text.c_str());
+                }
+                //create content list
+                GValue tmp_value = { 0 };
+                g_value_init(&tmp_value, GST_TYPE_STRUCTURE);
+                GstStructure *s =
+                    gst_structure_new("object",
+                            "x", G_TYPE_UINT, int(xmin),
+                            "y", G_TYPE_UINT, int(ymin),
+                            "width", G_TYPE_UINT, int(xmax - xmin),
+                            "height", G_TYPE_UINT, int(ymax - ymin),
+                            "attributes", G_TYPE_STRING, attributes_str,
+                            "orign_width", G_TYPE_UINT, info.width, //add for mix2 paint Rectangle
+                            "orign_height", G_TYPE_UINT, info.height,//add for mix2 paint Rectangle
+                            "label_id", G_TYPE_INT, label_id,
+                            "confidence", G_TYPE_FLOAT, confidence,
+                            "color", G_TYPE_STRING, color_str, // will delete later
+                            "vehicle", G_TYPE_STRING, vehicle_str, // will delete later
+                            "license_plate", G_TYPE_STRING, license_plate_str, // will delete later
+                            "object_id", G_TYPE_INT, object_id,
+                            NULL);
+                g_value_take_boxed(&tmp_value, s);
+                gst_value_list_append_value(objectlist, &tmp_value);
+                g_value_unset(&tmp_value);
+                LOG_DEBUG("meta data:%d,%d,%d,%d,%d,%f,%s,%s,%s,%s,%d, %ld", int(xmin), int(ymin),
+                        int(xmax - xmin), int(ymax - ymin), label_id, confidence,
+                        attributes_str, color_str, vehicle_str, license_plate_str,
+                        object_id, GST_BUFFER_PTS(buffer));
+
+            }
+        }
+    }
+    return TRUE;
+}
+
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -720,8 +922,14 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     GValue objectlist = { 0 };
     g_value_init(&objectlist, GST_TYPE_LIST);
     LOG_DEBUG("branch->name:%s", branch->name);
-    if (!get_value_from_buffer(pad, buffer, &objectlist)) {
-        return GST_PAD_PROBE_OK;
+    if (ctx->openvino_use_new_plugins) {
+        if (!get_value_from_buffer_new_version(pad, buffer, &objectlist)) {
+            return GST_PAD_PROBE_OK;
+        }
+    } else {
+        if (!get_value_from_buffer(pad, buffer, &objectlist)) {
+            return GST_PAD_PROBE_OK;
+        }
     }
     //create messsage
     GstStructure *s = gst_structure_new(branch->name,

@@ -82,6 +82,12 @@ configure_file(./decode_config.json  ${CMAKE_CURRENT_BINARY_DIR}/decode_config.j
 configure_file(./decode_launch.txt  ${CMAKE_CURRENT_BINARY_DIR}/decode_launch.txt COPYONLY)
 configure_file(./config_testbuffer.json  ${CMAKE_CURRENT_BINARY_DIR}/config_testbuffer.json COPYONLY)
 configure_file(./launch_testbuffer.txt  ${CMAKE_CURRENT_BINARY_DIR}/launch_testbuffer.txt COPYONLY)
+configure_file(./config_openvino_new.json  ${CMAKE_CURRENT_BINARY_DIR}/config_openvino_new.json COPYONLY)
+configure_file(./launch_openvino_new.txt  ${CMAKE_CURRENT_BINARY_DIR}/launch_openvino_new.txt COPYONLY)
+configure_file(./labels/detect_person_vehicle_bike.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/detect_person_vehicle_bike.txt COPYONLY)
+configure_file(./labels/pedestrian_attributes.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/pedestrian_attributes.txt COPYONLY)
+configure_file(./labels/vehicle_types.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_types.txt COPYONLY)
+configure_file(./labels/vehicle_colors.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_colors.txt COPYONLY)
 
 ADD_EXECUTABLE(mediapipe2 ${SRC_LIST} )
 

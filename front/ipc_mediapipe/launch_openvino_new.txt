@@ -1,0 +1,15 @@
+testbuffersrc location=crossroad.yuv printfps=true replay=true name=src !
+capsfilter                 name=src_caps !
+queue !
+videoscale !
+capsfilter             name=scale_caps !
+queue name=mix2_queue !
+videoscale name=proc_src !
+capsfilter             name=scale0_caps !
+queue !
+vaapih264enc           name=enc0 !
+capsfilter             name=enc0_caps !
+fakesink               name=sink0
+
+
+
