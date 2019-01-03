@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <json-c/json.h>
 
+#include "local_debug.h"
 #include "us_client.h"
 
 #include <sys/epoll.h>
@@ -137,7 +138,7 @@ static void *usclient_thread(void *us_client)
     events = calloc(10, sizeof(event));
 
     while (1) {
-        printf("Try to recv data\n");
+        LOG_DEBUG("Try to recv data\n");
         int n = epoll_wait(epfd, events, 10, -1);
 
         for (int i = 0; i < n; i++) {
