@@ -11,6 +11,8 @@
 
 #include "us_client.h"
 
+#include <sys/epoll.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -115,10 +117,47 @@ static void *usclient_thread(void *us_client)
     
     client->socket_fd = usclient_connect(client->server_uri, client->pipe_id);
 
-    while (true) {
-        MessageItem *item =  usclient_recv(client->socket_fd);
-        if (item != NULL) {
-            g_async_queue_push(client->message_queue, item);
+    struct epoll_event event;
+    struct epoll_event *events;
+    int epfd = epoll_create1(0);
+    if (epfd == -1) {
+        perror("create epoll fd failed\n");
+        exit(1);
+    }
+
+    event.data.fd = client->socket_fd;
+    event.events = EPOLLIN | EPOLLET;
+
+    int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, client->socket_fd, &event);
+    if (ret == -1) {
+        perror("ctl add epoll failed\n");
+        exit(1);
+    }
+
+    events = calloc(10, sizeof(event));
+
+    while (1) {
+        printf("Try to recv data\n");
+        int n = epoll_wait(epfd, events, 10, -1);
+
+        for (int i = 0; i < n; i++) {
+            if ((events[i].events & EPOLLERR) ||
+                (events[i].events & EPOLLHUP) ||
+                (!(events[i].events & EPOLLIN))) {
+                // An error has occured on this fd, or the socket is not
+                // ready for reading
+                if (events[i].events & EPOLLERR)
+                    fprintf(stderr, "epoll error: EPOLLERR\n");
+                if (events[i].events & EPOLLHUP)
+                    fprintf(stderr, "epoll error: EPOLLHUP\n");
+                close(events[i].data.fd);
+                continue;
+            } else {
+                MessageItem *item =  usclient_recv(client->socket_fd);
+                if (item != NULL) {
+                    g_async_queue_push(client->message_queue, item);
+                }
+            }
         }
     }
 }
