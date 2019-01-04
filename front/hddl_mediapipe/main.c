@@ -120,21 +120,8 @@ handle_keyboard(GIOChannel *source, GIOCondition cond, gpointer data)
 }
 
 
-enum E_COMMAND_TYPE
-json_get_command_type(json_object *root)
-{
-    int command_type = -1;
-    if (json_get_int(root, "type", &command_type))
-    {
-        return (enum E_COMMAND_TYPE) command_type;
-    } else {
-        return eCommand_None;
-    }
-}
-
-
 static gboolean 
-hddl_process_command(char *command_desc, mediapipe_hddl_t *hp)
+process_command(char *command_desc, mediapipe_hddl_t *hp)
 {
     struct json_object *root = NULL;
     enum E_COMMAND_TYPE command_type = eCommand_None;
@@ -146,7 +133,11 @@ hddl_process_command(char *command_desc, mediapipe_hddl_t *hp)
         return FALSE;
     }
 
-    command_type = json_get_command_type(root);
+    if(!json_get_int(root, "type", &command_type)) {
+        return FALSE;
+    }
+
+//    command_type = json_get_command_type(root);
 
     switch(command_type) {
         case eCommand_PipeCreate:
@@ -182,7 +173,7 @@ static void *message_handler(void *data)
     gboolean continue_process = TRUE;
     while(continue_process) {
         item = usclient_get_data(hp->client);
-        continue_process = hddl_process_command(item->data, hp);
+        continue_process = process_command(item->data, hp);
         usclient_free_item(item);
     }
     return NULL;
