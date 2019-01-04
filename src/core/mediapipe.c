@@ -267,7 +267,7 @@ bus_callback(GstBus *bus, GstMessage *msg, gpointer data)
  */
 /* ----------------------------------------------------------------------------*/
 static inline GstElement *
-create_pipeline_from_string(gchar *data)
+create_pipeline_from_string(const gchar *data)
 {
     g_assert(data != NULL);
     GError     *error = NULL;
@@ -369,7 +369,7 @@ mediapipe_create(int argc, char *argv[])
  */
 /* ----------------------------------------------------------------------------*/
 gboolean
-mediapipe_init_from_string(char *config, char *launch, mediapipe_t *mp)
+mediapipe_init_from_string(const char *config, const char *launch, mediapipe_t *mp)
 {
     gst_init(0, NULL);
     g_assert(mp != NULL);

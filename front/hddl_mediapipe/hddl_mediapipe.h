@@ -6,12 +6,16 @@ extern "C" {
 #endif
 
 #include "mediapipe.h"
+#include "unixsocket/us_client.h"
+
 
 typedef struct {
-    mediapipe_t  *mp;
-    gint         pipe_id;
-    GThread      *message_handle_thread;
+    mediapipe_t     *mp;
+    gint            pipe_id;
+    usclient        *client;
+    GThread         *message_handle_thread;
 } mediapipe_hddl_t;
+
 
 #ifdef __cplusplus
 }
