@@ -28,7 +28,7 @@ After this, you will have folder structure
 
 Generate a Certificate Authority:
 ```bash
-openssl req -new -x509 -keyout ca-key.pem -out ca-crt.pem -config openssl.cnf
+openssl req -new -x509 -keyout ca-key.pem -out ca-cert.pem -config openssl.cnf
 ```
 * Insert a CA Password and remember it
 * Specify a CA Common Name, like 'root.localhost' or 'ca.localhost'. This MUST be different from both server and client CN.
@@ -49,7 +49,7 @@ openssl req -new -key server-key.pem -out server-csr.pem -config openssl.cnf
 
 Sign certificate using the CA:
 ```
-openssl ca -in server-csr.pem -out server-crt.pem -cert ca-crt.pem -keyfile ca-key.pem -config openssl.cnf
+openssl ca -in server-csr.pem -out server-cert.pem -cert ca-cert.pem -keyfile ca-key.pem -config openssl.cnf
 ```
 # 4 Generate Client certificate
 
@@ -64,19 +64,19 @@ Generate Client certificate signing request:
 
 Sign certificate using the CA:
 ```bash
-openssl ca -in client-csr.pem -out client-crt.pem -cert ca-crt.pem -keyfile ca-key.pem -config openssl.cnf
+openssl ca -in client-csr.pem -out client-cert.pem -cert ca-cert.pem -keyfile ca-key.pem -config openssl.cnf
 ```
 # 5 Generate CRL
 
 Environment preparation
 ```bash
 cp ca-key.pem ./demoCA/private/cakey.pem
-cp ca-crt.pem ./demoCA/cacert.pem
+cp ca-cert.pem ./demoCA/cacert.pem
 echo '00' >./demoCA/crlnumber
 ```
 Revoke Server Certificate
 ```bash
-openssl ca -revoke server-crt.pem -config openssl.cnf
+openssl ca -revoke server-cert.pem -config openssl.cnf
 ```
 Generate Server CRL
 ```bash
@@ -84,7 +84,7 @@ openssl ca -gencrl  -out server.crl  -config openssl.cnf
 ```
 Revoke Client Certificate
 ```bash
-openssl ca -revoke client-crt.pem -config openssl.cnf
+openssl ca -revoke client-cert.pem -config openssl.cnf
 ```
 Generate Client CRL
 ```bash

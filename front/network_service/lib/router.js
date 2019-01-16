@@ -124,9 +124,10 @@ exports.ipcCreateHandler =  function (ws, message, adminCtx) {
         wsSender.sendMessage(ws, 'json format error', 400);
         return;
     }
+    var clientID = ws.id;
     for (let i = 0; i < create_json.command_create.pipe_num; i++) {
         let pipe_id = pipe_base ++;
-        let gst_cmd = `./hddl_mediapipe2  -u ${adminCtx.socketURL} -i ${pipe_id}`;
+        let gst_cmd = `hddl_mediapipe2  -u ${adminCtx.socketURL} -i ${pipe_id}`;
         console.log('cmd %s', gst_cmd);
         let pipes;
         if(adminCtx.client2pipe.has(ws.id)) {
@@ -149,9 +150,10 @@ exports.ipcCreateHandler =  function (ws, message, adminCtx) {
 
       child.on('exit', function (exitCode) {
         console.log("Child exited with code: " + exitCode);
-        if(ws.readyState == ws.OPEN) {
+        let clientWS = adminCtx.wsConns.get(clientID);
+        if(!!clientWS && clientWS.readyState == clientWS.OPEN) {
             console.log("delete pipe_id %s", pipe_id);
-            ws.send(JSON.stringify({headers: {method: 'pipe_delete'}, payload: [pipe_id], code: 200}));
+            clientWS.send(JSON.stringify({headers: {method: 'pipe_delete'}, payload: [pipe_id], code: 200}));
         }
         pipes.delete(pipe_id);
         adminCtx.pipe2pid.delete(pipe_id);
@@ -165,7 +167,8 @@ exports.ipcCreateHandler =  function (ws, message, adminCtx) {
       updatePipeJSON(adminCtx.pipe2json, create_json, pipe_id, 'create');
       console.log('create pipe %s', pipe_id);
       wsSender.sendMessage(ws, `pipe_create ${pipe_id}`);
-      ws.send(JSON.stringify({headers: {method: 'pipe_id'}, payload: [pipe_id], code: 200}));
+      wsSender.sendProtocol(ws, {method: 'pipe_id'}, Array.from(pipes), 200);
+      wsSender.sendProtocol(ws, {method: 'pipe_info', pipe_id: pipe_id}, create_json, 200);
     }
 
 }
