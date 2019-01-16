@@ -14,6 +14,7 @@ typedef struct {
     gint            pipe_id;
     usclient        *client;
     GThread         *message_handle_thread;
+    guint           bus_watch_id;
 } mediapipe_hddl_t;
 
 

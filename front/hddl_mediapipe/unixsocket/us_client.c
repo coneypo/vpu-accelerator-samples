@@ -8,17 +8,19 @@
 #include <glib.h>
 #include <stdbool.h>
 #include <json-c/json.h>
-
+#include <arpa/inet.h>
+#include <sys/epoll.h>
 #include "local_debug.h"
 #include "us_client.h"
-
-#include <sys/epoll.h>
+#include "../process_command/process_command.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 4096
+#define HEADER_LEN 4
+#define TYPE_LEN 4
 
 static void item_free_func(gpointer data)
 {
@@ -29,18 +31,45 @@ static void item_free_func(gpointer data)
     return;
 }
 
+static char* create_send_buffer(trans_protocol *msg)
+{
+    char *str = g_new(char, msg->package_len);
+    *(uint32_t*)str = htonl(msg->package_len);
+    *(uint32_t*)(str + 4) = htonl(msg->type);
+    if(msg->package_len > 8) {
+        memcpy(str + 8, msg->payload, msg->package_len - 8);
+    }
+    return str;
+}
+
+static int send_data(const int sockfd, const void *buffer, uint32_t length)
+{
+    int len = 0;
+    int send_len = 0;
+
+    do {
+        len = send(sockfd, buffer, length, 0);
+        if (len > 0) {
+            buffer += len;
+            length -= len;
+            send_len += len;
+        }
+    } while (len > 0 && len != length);
+
+    return send_len;
+}
 
 static int usclient_connect(const char *server_uri, const int pipe_id)
 {
     int sockfd = -1;
     struct sockaddr_un serv_addr;
-    
+
     sockfd = socket(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK, 0);
     if (sockfd < 0) {
         perror("ERROR opening socket");
         exit(1);
     }
-    
+
     //Connect to server
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sun_family = AF_UNIX;
@@ -50,74 +79,127 @@ static int usclient_connect(const char *server_uri, const int pipe_id)
         perror("ERROR connecting!");
         exit(1);
     }
-    
+
     // Send pipe id to server.
-    int type_id = 1; 
-    struct json_object *obj = json_object_new_object();
-    struct json_object *pipe = json_object_new_int(pipe_id);
-    struct json_object *type = json_object_new_int(type_id);
-    json_object_object_add(obj, "type", type);
-    json_object_object_add(obj, "payload", pipe);
-   
-    const char *send_str = json_object_to_json_string(obj);
-    printf("send_str = %s\n", send_str);
-    int n = write(sockfd, send_str, strlen(send_str));
-    json_object_put(obj);
-    if (n < 0) {
+    char pipe_id_str[10] = {0};
+    snprintf(pipe_id_str, sizeof(pipe_id_str), "%d", pipe_id);
+    uint32_t type = eCommand_Pipeid;
+    trans_protocol msg;
+    msg.package_len = strlen(pipe_id_str) + 8;
+    msg.type = type;
+    msg.payload = pipe_id_str;
+    char* send_buffer = create_send_buffer(&msg);
+    int n = send_data(sockfd, send_buffer, msg.package_len);
+    g_free(send_buffer);
+
+    if (n != msg.package_len) {
         perror("ERROR writing to socket");
         exit(1);
     }
-    
+
     return sockfd;
 }
 
 
-static MessageItem *usclient_recv(const int sockfd)
+/**
+ * Synopsis Parse received data, push parse result to queue or post message to bus
+ *
+ * @Param buffer           receive buffer, may contain several packages.
+ *                         format: 0~3byte: package length
+ *                                 4~7byte: command type
+ *                                 7~package length byte: payload 
+ * @Param length           total buffer length to parse.
+ *
+ * @Param message_queue    store the parsed data.
+ * @Param bus              message bus
+ */
+static int parse(gchar *buffer, int length, GAsyncQueue *message_queue, GstBus *bus)
 {
-    int continue_recv = 1;
-    int size = 0;
-    int total_len = 0;
-    int recv_index = 1;
-    int recv_len = 0;
-    
-    gchar *buffer = g_new0(char, BUFFER_SIZE);
-    MessageItem *item = g_new0(MessageItem, 1);
-    
-    while (continue_recv) {
-        recv_len = recv(sockfd, buffer + total_len, BUFFER_SIZE, 0);
-        if ((recv_len == -1)||(recv_len == 0)) {
+    uint32_t type = 0;
+    uint32_t payload_len = 0;
+    char*    payload = NULL;
+
+    int cur_pos = 0;
+
+    while (cur_pos < length) {
+        int rest_len = length - cur_pos;
+        if (rest_len < HEADER_LEN) {
+            LOG_ERROR("not enough buffer, cur_pos = %d\n", cur_pos);
             break;
         }
-        
-        recv_index++;
-        total_len += recv_len;
-        
-        if (recv_len == BUFFER_SIZE) {
-            buffer = g_renew(char, buffer, recv_index * BUFFER_SIZE);
-            continue_recv = 1;
-        } else {
-            continue_recv = 0;
+        uint32_t package_len = ntohl(*((uint32_t *)(buffer + cur_pos)));
+
+        if (rest_len < package_len) {
+            LOG_ERROR("not enough payload, cur_pos = %d\n", cur_pos);
+            break;
         }
+
+        type = ntohl(*((uint32_t *)(buffer + cur_pos + HEADER_LEN)));
+        payload_len = package_len - HEADER_LEN - TYPE_LEN;
+        payload = buffer + cur_pos + HEADER_LEN + TYPE_LEN;
+
+        if (type == eCommand_Config || type == eCommand_Launch) {
+            if (payload_len != 0) {
+                MessageItem *item = g_new0(MessageItem, 1);
+                item->data = NULL;
+                item->type = type;
+                item->len = payload_len;
+                item->data = g_new0(char, item->len);
+                g_memmove(item->data, payload, item->len);
+                g_async_queue_push(message_queue, item);
+            }
+        } else {
+            char* payload_str = g_new0(char, payload_len + 1);
+            memcpy(payload_str, payload, payload_len);
+            payload_str[payload_len] = '\0';
+            GstStructure *s = gst_structure_new("process_message",
+                    "command_type", G_TYPE_UINT, type,
+                    "payload_len", G_TYPE_UINT, payload_len,
+                    "payload", G_TYPE_STRING, payload_str,
+                    NULL
+                    );
+            GstMessage *m = gst_message_new_application(NULL, s);
+            gst_bus_post(bus, m);
+            g_free(payload_str);
+        }
+        cur_pos += package_len;
+    }
+    return cur_pos;
+} 
+
+static void recv_data(const int sockfd, GString* recv_buffer)
+{
+    int recv_len = 0;
+    gchar buffer[4096]; 
+
+    do {
+        recv_len = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (recv_len > 0) {
+            g_string_append_len(recv_buffer, buffer, recv_len);
+        }
+    } while (recv_len != -1 && recv_len != 0);
+}
+
+static void usclient_handle_recv(const int sockfd, GString *recv_buffer, GAsyncQueue *message_queue, GstBus *bus)
+{
+    int pos = 0;
+    recv_data(sockfd, recv_buffer);
+
+    if (recv_buffer->len > 0) {
+        pos = parse(recv_buffer->str, recv_buffer->len, message_queue, bus);
     }
 
-    if(total_len == 0) {
-        g_free(buffer);
-        g_free(item);
-        return NULL;
-    } else {
-        item->data = buffer;
-        item->len = total_len;
-        return item;
-    }
+    g_string_erase(recv_buffer, 0, pos);
 }
 
 
 static void *usclient_thread(void *us_client)
 {
     usclient *client = (usclient *) us_client;
+    GString *recv_buffer = g_string_new(NULL);
     
     client->socket_fd = usclient_connect(client->server_uri, client->pipe_id);
-
+    LOG_DEBUG("connected to server %s\n", client->server_uri);
     struct epoll_event event;
     struct epoll_event *events;
     int epfd = epoll_create1(0);
@@ -154,18 +236,14 @@ static void *usclient_thread(void *us_client)
                 close(events[i].data.fd);
                 continue;
             } else {
-                MessageItem *item =  usclient_recv(client->socket_fd);
-                if (item != NULL) {
-                    g_async_queue_push(client->message_queue, item);
-                }
+                usclient_handle_recv(client->socket_fd, recv_buffer, client->message_queue, client->bus);
             }
         }
     }
 }
 
 /**
- * Synopsis Create unix socket client, connect to server,
- *          push received data to queue.
+ * Synopsis Create unix socket client
  *
  * @Param server_uri       Server uri string
  * @Param pipe_id          Pipe id
@@ -181,6 +259,10 @@ usclient *usclient_setup(const char *server_uri, const int pipe_id)
         g_print("Client struct malloc failure\n");
         exit(1);
     }
+
+    GstBus *bus = gst_bus_new();
+    us_client->bus = bus;
+
     us_client->pipe_id = pipe_id;
     snprintf(us_client->server_uri, URI_LEN, "%s", server_uri);
     us_client->message_queue = g_async_queue_new_full(item_free_func);
@@ -196,9 +278,7 @@ usclient *usclient_setup(const char *server_uri, const int pipe_id)
     while (!(us_client->socket_fd > 0) && times-- > 0) {
         g_usleep(100);
     }
-
     return us_client;
-    
 }
 
 /**

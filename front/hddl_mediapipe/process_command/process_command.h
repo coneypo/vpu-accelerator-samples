@@ -1,6 +1,9 @@
 #ifndef __PROCESS_COMMAND_H__
 #define __PROCRSS_COMMAND_H__
 
+#include "mediapipe.h"
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,9 +19,7 @@ enum E_COMMAND_TYPE {
     eCommand_PipeDestroy = 5,
 };
 
-
-gboolean create_pipeline(char *desc, mediapipe_t *mp);
-void set_property(json_object *desc, mediapipe_t *mp);
+gboolean process_command(mediapipe_t *mp, void *message);
 
 #ifdef __cplusplus
 }

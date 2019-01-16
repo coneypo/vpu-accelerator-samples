@@ -1,56 +1,10 @@
 #include "mediapipe.h"
+#include "../unixsocket/us_client.h"
+#include "process_command.h"
 
-#define LAUNCH_KEY          "Launch"
-#define CONFIG_KEY          "Config"
-
-
-gboolean
-create_pipeline(char *desc, mediapipe_t *mp)
-{
-    struct json_object *root = NULL;
-    struct json_object *object = NULL;
-    struct json_object *config_object = NULL;
-    const char *launch = NULL;
-    const char *config = NULL;
-    
-    root = json_create_from_string(desc);
-    if (!root) {
-        g_print("Failed to create json object!\n");
-        return FALSE;
-    }
- 
-    if (!(json_object_object_get_ex(root, "payload", &object) &&
-                json_object_is_type(object, json_type_object))) {
-        g_print("Failed to create pipeline: invalid payload from server!\n");
-        json_destroy(&root);
-        return FALSE;
-    }
-        
-    // get launch data.
-    if (!json_get_string(object, LAUNCH_KEY, &launch)) {
-        g_print("Failed to parse launch command!\n");
-        json_destroy(&root);
-        return FALSE;
-    }
-        
-    // get config data.
-    if (!json_object_object_get_ex(object, CONFIG_KEY, &config_object)) {
-        g_print("Failed to parse config command!\n");
-        json_destroy(&root);
-        return FALSE;
-    }
-    config = json_object_to_json_string(config_object);
-
-    // create pipeline from string
-    mediapipe_init_from_string(config, launch, mp);
-    
-    json_destroy(&root);
-    return TRUE;
-}
-
-
+static
 void
-set_property(json_object *desc, mediapipe_t *mp)
+set_property(char *desc, mediapipe_t *mp)
 {
     struct json_object *parent, *ele, *ppty;
     struct json_object_iterator iter, end;
@@ -58,8 +12,8 @@ set_property(json_object *desc, mediapipe_t *mp)
     enum json_type ppty_type;
     unsigned int len, i;
     int ret = -1;
-    struct json_object *root = desc;
-    assert(json_object_object_get_ex(root, "payload", &parent));
+    struct json_object *root = json_create_from_string(desc);
+    assert(json_object_object_get_ex(root, "property", &parent));
     assert(json_object_is_type(parent, json_type_array));
     len = json_object_array_length(parent);
 
@@ -159,6 +113,66 @@ set_property(json_object *desc, mediapipe_t *mp)
             json_object_iter_next(&iter);
         }
     }
+    json_object_put(root);
 
+}
+
+
+/**
+ * @Synopsis  process bus message
+ *
+ * @Param mp   mediapipe
+ * @Param message
+ *
+ * @Returns
+ */
+gboolean
+process_command(mediapipe_t *mp, void *message)
+{
+    GstMessage *m = (GstMessage *) message;
+    const  GstStructure *s;
+    int command_type;
+    int payload_len;
+    char *payload;
+    if (GST_MESSAGE_TYPE(m) != GST_MESSAGE_APPLICATION) {
+        return FALSE;
+    }
+    s = gst_message_get_structure(m);
+    const gchar *name = gst_structure_get_name(s);
+
+    if (g_strcmp0(name, "process_message") != 0) {
+        return FALSE;
+    }
+
+    if (gst_structure_get(s,
+                "command_type", G_TYPE_UINT, &command_type,
+                "payload_len", G_TYPE_UINT, &payload_len,
+                "payload", G_TYPE_STRING, &payload,
+                NULL) == FALSE) {
+        return FALSE;
+    }
+
+    switch(command_type) {
+        case eCommand_Config:
+        case eCommand_Launch:
+             break;
+
+        case eCommand_SetProperty:
+             g_print("Receive set_property command from server.\n");
+             if (payload_len != 0) {
+                set_property(payload, mp);
+             }
+             break;
+
+        case eCommand_PipeDestroy:
+             g_print("Receive destroy pipeline command from server.\n");
+             mediapipe_stop(mp);
+             break;
+
+        default:
+             break;
+    }
+
+    return TRUE;
 }
 
