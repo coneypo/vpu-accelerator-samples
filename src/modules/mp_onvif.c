@@ -23,11 +23,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <signal.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <sys/un.h>
 #define SERVER_PORT 8889
 #define BUF_LEN 1024
 #define DEFAULT_WIDTH "1920"
@@ -38,6 +38,7 @@
 #define RTSP_LEN 60
 #define PARAM_INT_FAILD -999999
 #define PARAM_STR_FAILD "FAILED"
+#define SERVERNAME "/tmp/onvif"
 
 static GHashTable *client_table = NULL;
 
@@ -1405,12 +1406,11 @@ static void destroy_context(Context **ctx)
 static void onvif_server_start(mediapipe_t *mp)
 {
     GIOChannel *gio_socket_channel;
-    gint server_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in server_sockaddr;
-    server_sockaddr.sin_family = AF_INET;
-    server_sockaddr.sin_port = htons(SERVER_PORT);
-    server_sockaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
+    gint server_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    struct sockaddr_un server_sockaddr;
+    server_sockaddr.sun_family = AF_UNIX;
+    strncpy(server_sockaddr.sun_path, SERVERNAME, sizeof(server_sockaddr.sun_path)-1);
+    unlink(SERVERNAME);
     int reuse = 1;
     if (setsockopt(server_sockfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse,
                 sizeof(reuse)) < 0) {
@@ -1427,11 +1427,13 @@ static void onvif_server_start(mediapipe_t *mp)
     if(bind(server_sockfd, (struct sockaddr *) &server_sockaddr,
             sizeof(server_sockaddr)) == -1) {
         perror("bind error");
+        close(server_sockfd);
         exit(1);
     }
 
     if(listen(server_sockfd, 20) == -1) {
         perror("Communication listen error");
+        close(server_sockfd);
         exit(1);
     }
     LOG_INFO("Communication server listen at: %d", SERVER_PORT);
