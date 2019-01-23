@@ -1,15 +1,7 @@
 {
-    "client_id": 1,
-    "command_type": 0 ,
-    "command_create":
-    {
-         "pipe_num": 1,
-         "config":{
-            "type": 0,
-            "payload":
-            {
-                 "Launch":"filesrc location=/home/zhangyi7/working_code/keem_bay/video-examples/cars_1920x1080.h264  ! h264parse ! vaapih264dec ! rawvideoparse  width=1920 height=1088 format=23 ! queue ! videoscale  name=src ! capsfilter name=scale_caps ! queue name=mix2_queue ! videoscale name=proc_src ! capsfilter             name=scale0_caps ! videorate ! capsfilter             name=videorate_caps ! tee name=t t. ! queue ! videoconvert ! capsfilter             name=scaler_display_caps ! ximagesink t. ! queue ! vaapih264enc           name=enc0 ! capsfilter             name=enc0_caps ! filesink               name=sink0",
-                 "Config":
+   "pipe_num": 1,
+   "Launch":"filesrc location=/home/zhangyi7/working_code/keem_bay/video-examples/cars_1920x1080.h264  ! h264parse ! vaapih264dec ! rawvideoparse  width=1920 height=1088 format=23 ! queue ! videoscale  name=src ! capsfilter name=scale_caps ! queue name=mix2_queue ! videoscale name=proc_src ! capsfilter             name=scale0_caps ! videorate ! capsfilter             name=videorate_caps ! tee name=t t. ! queue ! videoconvert ! capsfilter             name=scaler_display_caps ! ximagesink t. ! queue ! vaapih264enc           name=enc0 ! capsfilter             name=enc0_caps ! filesink name=sink0",
+   "Config":
               {
                  "openvino_detection":
                  [
@@ -90,8 +82,5 @@
                     }
                  ]
               }
-            }
-         }
 
-    }
  }

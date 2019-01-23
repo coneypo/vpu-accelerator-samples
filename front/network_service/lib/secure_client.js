@@ -45,35 +45,40 @@ class SecuredWebsocketClient extends EventEmitter {
         });
 
         const httpObj = this._isUnix ? http : https;
-        httpObj.get(options, (res) => {
-            const { statusCode } = res;
-            const contentType = res.headers['content-type'];
-            let error;
-            if (statusCode !== 200) {
-              error = new Error('Request Failed.\n' +
-                                `Status Code: ${statusCode}`);
-            }
-            if (error) {
-              console.error(error.message);
-              // consume response data to free up memory
-              res.resume();
-              return;
-            }
-            res.setEncoding('utf8');
-            let rawData = '';
-            res.on('data', (chunk) => { rawData += chunk; });
-            res.on('end', () => {
-              try {
-                this._token = rawData;
-                this.emit('TokenReady', rawData);
-              } catch (e) {
-                console.error(e.message);
-              }
-            });
-          }).on('error', (e) => {
-            console.error(`Got error: ${e.message}` + " please check your URL");
+        try {
+            httpObj.get(options, (res) => {
+                const { statusCode } = res;
+                const contentType = res.headers['content-type'];
+                let error;
+                if (statusCode !== 200) {
+                  error = new Error('Request Failed.\n' +
+                                    `Status Code: ${statusCode}`);
+                }
+                if (error) {
+                  console.error(error.message);
+                  // consume response data to free up memory
+                  res.resume();
+                  return;
+                }
+                res.setEncoding('utf8');
+                let rawData = '';
+                res.on('data', (chunk) => { rawData += chunk; });
+                res.on('end', () => {
+                  try {
+                    this._token = rawData;
+                    this.emit('TokenReady', rawData);
+                  } catch (e) {
+                    console.error(e.message);
+                  }
+                });
+              }).on('error', (e) => {
+                console.error(`Got error: ${e.message}` + " please check your URL");
+                process.exit(0);
+              });
+        } catch(err) {
+            console.log(`Http Get error ${err.message}`);
             process.exit(0);
-          });
+        }
 
     };
 

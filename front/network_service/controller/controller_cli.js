@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 'use strict'
 const clientCLI = require('../lib/client_cli');
 const fs = require('fs');
@@ -112,13 +113,19 @@ function setup(options) {
           rl.emit('hint', `wrong cmd ${args} please check`);
           return;
         }
-        var headers = {pipe_id: parseInt(cmd[2]), method: 'destroy'};
-        fileHelper.uploadFile([cmd[1]], ws, headers, ()=> rl.prompt())
+        var pipe_id = parseInt(cmd[2]);
+        if(pipe_ids.has(pipe_id)) {
+          var headers = {pipe_id: parseInt(cmd[2]), method: 'destroy'};
+          fileHelper.uploadFile([cmd[1]], ws, headers, ()=> rl.prompt());
+        } else {
+          rl.emit('hint', `pipe_id ${pipe_id} not exist `);
+        }
       },
       'pipe': function(ws, rl) {
         rl.emit('hint', pipe_ids)
       },
-      'q': function() {
+      'q': function(ws, rl) {
+	      rl.emit('hint', `Bye ${process.pid}`);
         process.exit(0);
       },
       'm' : function(ws, rl) {
@@ -158,7 +165,7 @@ function setup(options) {
     if(dispatcher[cmd[0]]) {
       fn = dispatcher[cmd[0]];
     } else {
-      console.log(`command not support ${args} please check`);
+      fn = (ws, rl) => {rl.emit('hint', `wrong cmd ${args} please check`)};
     }
     return fn;
     }
@@ -166,16 +173,18 @@ function setup(options) {
 
 //The websocket incoming parser && router
 function getInParser() {
-return function incoming(ws, message) {
+return function incoming(ws, message, rl) {
   var method = message.headers.method || 'unknown';
     if(method === 'text') {
       console.log('message %s', message.payload);
     } else if(method === 'pipe_id') {
         console.log("pipe_id from server", message.payload);
         message.payload.forEach(elem=> pipe_ids.add(elem));
+        rl.prompt();
     } else if(method === 'pipe_delete') {
         console.log("pipe_delete %s", message.payload);
         message.payload.forEach(elem=> {pipe_ids.delete(elem)});
+        rl.prompt();
     } else {
       method ==='checkSum' && (modelCheck = fileHelper.safelyJSONParser(message.payload.toString()));
     }

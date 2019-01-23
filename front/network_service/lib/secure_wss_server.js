@@ -87,6 +87,11 @@ class SecureServer extends EventEmitter {
         if(options.port == null && options.host == null) {
             throw new TypeError('No port specified');
         }
+
+        if(fs.existsSync(options.socket))
+        {
+            throw new TypeError(`Unix Path ${options.socket} exists`);
+        }
         //unix socket doesn't need port set.
         var server;
         if(options.port) {
@@ -129,10 +134,11 @@ class SecureServer extends EventEmitter {
         };
         adminWS.on('connection', getConnHandler.call(options, this._adminApp, adminCtx));
         dataWS.on('connection', getDataConnHandler.call(options, this._dataApp, adminCtx));
-        ipcServer.on('connection', getUnixConnHandler(this._unixApp, adminCtx, options.ipcProtocol || 'json'));
+        ipcServer.on('connection', getUnixConnHandler(this._unixApp, adminCtx));
+        server.on('error', (e)=> this.emit('error', e));
         server.listen(options.port ? options.port : options.host);
         ipcServer.listen(options.socket);
-        fs.chmodSync(options.socket, 0o770);
+        fs.chmodSync(options.socket, 0o600);
     }
 
     start() {
@@ -236,27 +242,30 @@ function getConnHandler(app, adminCtx){
 
 function getDataConnHandler(app, adminCtx){
     var that = this;
+    var masterID = null;
     return function connection(ws, request) {
-        ws.id = parseInt(request.headers['token'].client_id);
+        if(masterID == null) {
+            ws.id = parseInt(request.headers['token'].client_id);
+            masterID = parseInt(request.headers['token'].client_id);
+        } else if(parseInt(request.headers['token'].client_id) != masterID) {
+            console.log("reject redundant receiver");
+            ws.terminate();
+            return;
+        }
         adminCtx.dataCons = ws;
         ws.on('message', function handle(message) {
             var result = message;
             if(!!app) {
                 try{
                     app(ws, result, adminCtx);
-                } catch (err) {
-                    console.log('Got Error %s', err.message);
+                } catch(err) {
+                    console.log(err.message);
                 }
             }
         });
         ws.on('close', (code, reason)=> {
             console.log(`ws client ${ws.id} close reason ${code}/${reason}`);
-        })
-        if(adminCtx.client2pipe.has(ws.id)) {
-            console.log('Client Reconnect id %s', ws.id);
-            let pipes = adminCtx.client2pipe.get(ws.id);
-            wsSender.sendProtocol(ws,{method: 'pipe_id'}, Array.from(pipes), 200);
-        }
+        });
     }
 }
 
@@ -298,49 +307,29 @@ function getUnixSocketServer(options) {
     return server;
 }
 
-function getUnixConnHandler(app, adminCtx, protocol="json")
+function getUnixConnHandler(app, adminCtx)
 {
     const pipe2socket = adminCtx.pipe2socket;
-    var Socket = class {
-        constructor(stream) {this._socket = stream}
-        send(obj, options) {
-          this._socket.write(obj);
-        }
-      };
     return function (stream) {
-        if(protocol === "json") {
-            var socket = new Socket(stream);
-            stream.on('data', function(msg) {
-                console.log('Receive %s', msg.toString('hex'));
-                msg = fileHelper.safelyJSONParser(msg.toString('utf8'));
-                if(msg === null) return
-                if(msg.type == constants.msgType.ePipeID && adminCtx.pipe2pid.has(parseInt(msg.payload))) {
-                    socket.id = parseInt(msg.payload);
-                    pipe2socket.set(parseInt(msg.payload), socket);
-                }
-                try {
-                    !!app && app(msg, Object.assign(adminCtx, {transceiver: socket}));
-                } catch (err) {
-                    console.log(err.message);
-                }
-            })
-        } else {
-            var transceiver = new Transceiver(stream, (data)=> {
-                console.log("Receive Packet");
-                console.log(JSON.stringify(data));
-                if(data.type == constants.msgType.ePipeID) {
-                    console.log('Connection acknowledged %s', data.payload);
-                    transceiver.id = parseInt(data.payload);
-                    pipe2socket.set(parseInt(data.payload), transceiver);
-                }
-                try{
-                    !!app && app(data, Object.assign(adminCtx, {transceiver: transceiver}));
-                } catch (err) {
-                    console.log("ipc application error %s", err.message);
-                }
-            });
-            transceiver.init();
+        var transceiver = new Transceiver(stream, (data)=> {
+        console.log("Receive Packet");
+        console.log(JSON.stringify(data));
+        if(data.type == constants.msgType.ePipeID) {
+            console.log('Connection acknowledged %s', data.payload);
+            transceiver.id = parseInt(data.payload);
+            pipe2socket.set(parseInt(data.payload), transceiver);
         }
+        try{
+            !!app && app(data, Object.assign(adminCtx, {transceiver: transceiver}));
+        } catch (err) {
+            console.log("ipc application error %s", err.message);
+
+        }});
+        stream.on('error', (err)=> {
+            console.log(err.message);
+            stream.destroy();
+        });
+        transceiver.init();
     }
 };
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const fs = require('fs');
 const fileHelper = require('../lib/file_helper');
 const constants = require('../lib/constants');

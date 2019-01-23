@@ -40,7 +40,6 @@ class clientCLI {
 
         this._rl.on('hint', (hint)=> {
             this._rl.pause();
-            console.log("Logging");
             console.log(hint);
             this._rl.prompt();
         })
@@ -80,13 +79,14 @@ function getAnswerHandler(question, callback)
     var handler = function (answer) {
         answer = answer.trim();
         const url = answer.trim().split(':');
-        if(!answer || url.length == 2)
+
+        if(!answer || url.length == 2 && ! isNaN(url[1]))
         {
             !answer && console.log(`use default setting ${that._options.host}:${that._options.port}`);
             !!answer && (that._options.host = url[0],that._options.port = url[1]);
             that._ws = new SecureWebsocket(that._options);
-            that._ws.on("message", (data)=> {that._inParser(that._ws, data);});
-            that._ws.on('close', ()=>{that._rl.removeAllListeners('line');console.log("\nserver close the connection, please close client by CTRL + C");that._ws = null;process.exit(0)});
+            that._ws.on("message", (data)=> {that._inParser(that._ws, data, that._rl);});
+            that._ws.on('close', ()=>{that._rl.removeAllListeners('line');console.log("\nserver close the connection");that._ws = null;process.exit(0)});
             that._rl.emit('connect', that._exec, that._ws, that._rl);
 
         } else {

@@ -1,4 +1,4 @@
-#!/usr/bin/env nodejs
+#!/usr/bin/env node
 'use strict';
 const SecureServer = require('../lib/secure_wss_server');
 const fs = require('fs');
@@ -17,7 +17,7 @@ var options = {
   requestCert: true,
   ca: [ca],
   metaPath: __dirname + '/model/model_info.json',
-  ipcProtocol: "json"
+  ipcProtocol: "raw"
 };
 
 if(crl != null) {
@@ -31,7 +31,7 @@ if (process.platform === "win32") {
 }
 
 if(!fs.existsSync('ipc_socket')) {
-  fs.mkdirSync('ipc_socket', {mode: 0o770});
+  fs.mkdirSync('ipc_socket', {mode: 0o700});
 }
 
 const route = require('../lib/router');
@@ -60,9 +60,10 @@ function unixApp(data, adminCtx){
     console.log("valid pipe %s", data.payload);
     var createJSON;
     createJSON = adminCtx.pipe2json.get(parseInt(data.payload)).create;
-    var initConfig = JSON.stringify(createJSON.command_create.config);
-
-    adminCtx.transceiver.send(initConfig);
+    var initLaunch = (createJSON.Launch);
+    var initConfig = JSON.stringify(createJSON.Config);
+    adminCtx.transceiver.send(initConfig, constants.msgType.eConfig);
+    adminCtx.transceiver.send(initLaunch, constants.msgType.eLaunch);
   } else {
     console.log(data.payload.toString());
     !!adminCtx.dataCons && adminCtx.dataCons.readyState === adminCtx.dataCons.OPEN && adminCtx.dataCons.send(JSON.stringify({headers: {type: data.type, pipe_id: adminCtx.transceiver.id}, payload: data.payload}));
@@ -72,9 +73,16 @@ function unixApp(data, adminCtx){
 
 server.unixUse(unixApp);
 server.adminUse(incoming);
-//server.dataUse(dataApp);
 
-server.start();
+server.on('error', (error)=>{console.log("Server ERROR: " + error.message); server.close();process.exit(0)});
+
+try {
+  server.start();
+} catch(error){
+  console.log("Server Init ERROR: " + error.message);
+  server.close();
+  process.exit(0);
+}
 
 process.on('SIGINT', ()=> {
   console.log('Server close due to exit');
