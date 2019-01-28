@@ -8,9 +8,8 @@ extern "C" {
 #include "mediapipe.h"
 #include "unixsocket/us_client.h"
 
-
 typedef struct {
-    mediapipe_t     *mp;
+    mediapipe_t     mp;
     gint            pipe_id;
     usclient        *client;
     GThread         *message_handle_thread;

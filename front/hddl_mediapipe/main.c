@@ -6,7 +6,7 @@
 #include "mp_utils.h"
 #include "hddl_mediapipe.h"
 #include "unixsocket/us_client.h"
-#include "process_command/process_command.h"
+#include "process_command.h"
 
 #include <gst/gst.h>
 
@@ -152,16 +152,15 @@ int main(int argc, char *argv[])
     mediapipe_hddl_t *hp = g_new0(mediapipe_hddl_t, 1);
     gst_init(&argc, &argv);
 
-    mediapipe_t *mp = g_new0(mediapipe_t, 1);
-    hp->mp = mp;
-
     if(g_server_uri != NULL) {
         hp->client = usclient_setup(g_server_uri, g_pipe_id);
         hp->pipe_id = g_pipe_id;
-        hp->bus_watch_id = gst_bus_add_watch(hp->client->bus, bus_callback, hp->mp);
+        hp->bus_watch_id = gst_bus_add_watch(hp->client->bus, bus_callback, &hp->mp);
         for (int i = 0; i < 2; i++) {
-            // Block wait until get data from server.
-            item = usclient_get_data(hp->client);
+            item = usclient_get_data_timed(hp->client);
+            if(item == NULL) {
+                return -1;
+            }
             if (item->type == eCommand_Config) {
                 config = item->data;
             } else if (item->type == eCommand_Launch) {
@@ -182,8 +181,8 @@ int main(int argc, char *argv[])
             return -1;
         }
     }
-
-    ret = mediapipe_init_from_string(config, launch, hp->mp);
+    
+    ret = mediapipe_init_from_string(config, launch, &hp->mp);
     g_free(launch);
     g_free(config);
     if(ret == FALSE) {
@@ -194,37 +193,35 @@ int main(int argc, char *argv[])
         return MP_ERROR;
     }
 
-    if (MP_OK != mp_create_modules(hp->mp)) {
+    if (MP_OK != mp_create_modules(&hp->mp)) {
 
         printf("create_modules falid\n");
         return -1;
     }
 
-    if (MP_OK != mp_modules_prase_json_config(hp->mp)) {
+    if (MP_OK != mp_modules_prase_json_config(&hp->mp)) {
         printf("modules_prase_json_config falid\n");
         return -1;
     }
 
-    if (MP_OK != mp_init_modules(hp->mp)) {
+    if (MP_OK != mp_init_modules(&hp->mp)) {
         printf("modules_init_modules falid\n");
         return -1;
     }
 
     io_stdin = g_io_channel_unix_new(fileno(stdin));
-    g_io_add_watch(io_stdin, G_IO_IN, (GIOFunc)handle_keyboard, hp->mp);
+    g_io_add_watch(io_stdin, G_IO_IN, (GIOFunc)handle_keyboard, &hp->mp);
 
-    if (MP_OK != mp_modules_init_callback(hp->mp)) {
+    if (MP_OK != mp_modules_init_callback(&hp->mp)) {
         printf("modules_init_callback falid\n");
         return -1;
     }
-    mediapipe_start(hp->mp);
-
+    mediapipe_start(&hp->mp);
     g_io_channel_unref(io_stdin);
     gst_object_unref(hp->client->bus);
     g_source_remove(hp->bus_watch_id);
     usclient_destroy(hp->client);
-    mediapipe_destroy(hp->mp);
-    g_free(hp);
+    mediapipe_destroy(&hp->mp);
 
     return 0;
 }

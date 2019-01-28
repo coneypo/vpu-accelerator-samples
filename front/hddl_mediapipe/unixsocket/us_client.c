@@ -9,10 +9,9 @@
 #include <stdbool.h>
 #include <json-c/json.h>
 #include <arpa/inet.h>
-#include <sys/epoll.h>
 #include "local_debug.h"
 #include "us_client.h"
-#include "../process_command/process_command.h"
+#include "process_command.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +20,8 @@ extern "C" {
 #define BUFFER_SIZE 4096
 #define HEADER_LEN 4
 #define TYPE_LEN 4
+#define MAX_EVENTS 2
+
 
 static void item_free_func(gpointer data)
 {
@@ -42,22 +43,31 @@ static char* create_send_buffer(trans_protocol *msg)
     return str;
 }
 
-static int send_data(const int sockfd, const void *buffer, uint32_t length)
+/**
+ * @Synopsis Add message to send buffer and add EPOLLOUT event
+ *
+ * @Param us_client       Unix socket client
+ * @Param msg             Message to send
+ * @Param type            Message type
+ *
+ */
+void usclient_msg_to_send_buffer(usclient *client, gchar *msg, gint len, int type)
 {
-    int len = 0;
-    int send_len = 0;
+    uint32_t msg_len = htonl(len + HEADER_LEN + TYPE_LEN);
+    uint32_t msg_type = htonl(type);
+    g_mutex_lock(&client->lock);
+    g_string_append_len(client->send_buffer, (const char*)&msg_len, HEADER_LEN);
+    g_string_append_len(client->send_buffer, (const char*)&msg_type, TYPE_LEN);
+    g_string_append_len(client->send_buffer, msg, len);
 
-    do {
-        len = send(sockfd, buffer, length, 0);
-        if (len > 0) {
-            buffer += len;
-            length -= len;
-            send_len += len;
-        }
-    } while (len > 0 && len != length);
-
-    return send_len;
+    client->epoll.event.events |= EPOLLOUT;
+    int ret = epoll_ctl(client->epoll.epfd, EPOLL_CTL_MOD, client->socket_fd, &client->epoll.event);
+    if (ret == -1) {
+        LOG_ERROR("set epoll events error: %s\n", strerror(errno));
+    }
+    g_mutex_unlock(&client->lock);
 }
+
 
 static int usclient_connect(const char *server_uri, const int pipe_id)
 {
@@ -89,17 +99,15 @@ static int usclient_connect(const char *server_uri, const int pipe_id)
     msg.type = type;
     msg.payload = pipe_id_str;
     char* send_buffer = create_send_buffer(&msg);
-    int n = send_data(sockfd, send_buffer, msg.package_len);
+    int n = send(sockfd, send_buffer, msg.package_len, 0);
     g_free(send_buffer);
 
     if (n != msg.package_len) {
         perror("ERROR writing to socket");
         exit(1);
     }
-
     return sockfd;
 }
-
 
 /**
  * Synopsis Parse received data, push parse result to queue or post message to bus
@@ -137,21 +145,21 @@ static int parse(gchar *buffer, int length, GAsyncQueue *message_queue, GstBus *
         type = ntohl(*((uint32_t *)(buffer + cur_pos + HEADER_LEN)));
         payload_len = package_len - HEADER_LEN - TYPE_LEN;
         payload = buffer + cur_pos + HEADER_LEN + TYPE_LEN;
+        char* payload_str = g_new0(char, payload_len + 1);
+        memcpy(payload_str, payload, payload_len);
+        payload_str[payload_len] = '\0';
 
         if (type == eCommand_Config || type == eCommand_Launch) {
             if (payload_len != 0) {
                 MessageItem *item = g_new0(MessageItem, 1);
                 item->data = NULL;
                 item->type = type;
-                item->len = payload_len;
+                item->len = payload_len + 1;
                 item->data = g_new0(char, item->len);
-                g_memmove(item->data, payload, item->len);
+                g_memmove(item->data, payload_str, item->len);
                 g_async_queue_push(message_queue, item);
             }
         } else {
-            char* payload_str = g_new0(char, payload_len + 1);
-            memcpy(payload_str, payload, payload_len);
-            payload_str[payload_len] = '\0';
             GstStructure *s = gst_structure_new("process_message",
                     "command_type", G_TYPE_UINT, type,
                     "payload_len", G_TYPE_UINT, payload_len,
@@ -160,12 +168,28 @@ static int parse(gchar *buffer, int length, GAsyncQueue *message_queue, GstBus *
                     );
             GstMessage *m = gst_message_new_application(NULL, s);
             gst_bus_post(bus, m);
-            g_free(payload_str);
         }
+
+        g_free(payload_str);
         cur_pos += package_len;
     }
     return cur_pos;
 } 
+
+static int send_data(usclient *client, const char *buffer, uint32_t length)
+{
+    int len = 0;
+    int send_len = 0;
+    do {
+        len = send(client->socket_fd, buffer, length - send_len, 0);
+        if (len > 0) {
+            buffer += len;
+            send_len += len;
+        }
+    } while (len > 0 && send_len < length);
+
+    return send_len;
+}
 
 static void recv_data(const int sockfd, GString* recv_buffer)
 {
@@ -178,6 +202,25 @@ static void recv_data(const int sockfd, GString* recv_buffer)
             g_string_append_len(recv_buffer, buffer, recv_len);
         }
     } while (recv_len != -1 && recv_len != 0);
+}
+
+static void usclient_handle_send(usclient *client)
+{
+    g_mutex_lock(&client->lock);
+    int send_len = send_data(client, client->send_buffer->str, client->send_buffer->len);
+    // we have already sent all data and need not to wait to EPOLLOUT
+    // if there's new data to send, it will add EPOLLOUT there.
+    if (send_len == client->send_buffer->len) {
+        client->epoll.event.events &= ~(EPOLLOUT);
+    }
+
+    int ret = epoll_ctl(client->epoll.epfd, EPOLL_CTL_MOD, client->socket_fd, &client->epoll.event);
+    if (ret == -1) {
+        LOG_ERROR("set epoll events error: %s\n", strerror(errno));
+    }
+
+    g_string_erase(client->send_buffer, 0, send_len);
+    g_mutex_unlock(&client->lock);
 }
 
 static void usclient_handle_recv(const int sockfd, GString *recv_buffer, GAsyncQueue *message_queue, GstBus *bus)
@@ -197,46 +240,37 @@ static void *usclient_thread(void *us_client)
 {
     usclient *client = (usclient *) us_client;
     GString *recv_buffer = g_string_new(NULL);
-    
+
     client->socket_fd = usclient_connect(client->server_uri, client->pipe_id);
     LOG_DEBUG("connected to server %s\n", client->server_uri);
-    struct epoll_event event;
-    struct epoll_event *events;
+
     int epfd = epoll_create1(0);
     if (epfd == -1) {
         perror("create epoll fd failed\n");
         exit(1);
     }
+    client->epoll.epfd = epfd;
+    struct epoll_event events[MAX_EVENTS];
+    client->epoll.event.data.fd = client->socket_fd;
+    client->epoll.event.events = EPOLLIN | EPOLLET;
 
-    event.data.fd = client->socket_fd;
-    event.events = EPOLLIN | EPOLLET;
-
-    int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, client->socket_fd, &event);
+    int ret = epoll_ctl(client->epoll.epfd, EPOLL_CTL_ADD, client->socket_fd, &client->epoll.event);
     if (ret == -1) {
         perror("ctl add epoll failed\n");
         exit(1);
     }
 
-    events = calloc(10, sizeof(event));
-
     while (1) {
-        LOG_DEBUG("Try to recv data\n");
-        int n = epoll_wait(epfd, events, 10, -1);
+        int n = epoll_wait(client->epoll.epfd, events, 10, -1);
 
         for (int i = 0; i < n; i++) {
-            if ((events[i].events & EPOLLERR) ||
-                (events[i].events & EPOLLHUP) ||
-                (!(events[i].events & EPOLLIN))) {
-                // An error has occured on this fd, or the socket is not
-                // ready for reading
-                if (events[i].events & EPOLLERR)
-                    fprintf(stderr, "epoll error: EPOLLERR\n");
-                if (events[i].events & EPOLLHUP)
-                    fprintf(stderr, "epoll error: EPOLLHUP\n");
-                close(events[i].data.fd);
-                continue;
-            } else {
+            if (events[i].events & EPOLLIN) {
                 usclient_handle_recv(client->socket_fd, recv_buffer, client->message_queue, client->bus);
+            } else if(events[i].events & EPOLLOUT) {
+                usclient_handle_send(client);
+            } else if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
+                LOG_ERROR("epoll error\n");
+                continue;
             }
         }
     }
@@ -262,10 +296,12 @@ usclient *usclient_setup(const char *server_uri, const int pipe_id)
 
     GstBus *bus = gst_bus_new();
     us_client->bus = bus;
-
     us_client->pipe_id = pipe_id;
     snprintf(us_client->server_uri, URI_LEN, "%s", server_uri);
     us_client->message_queue = g_async_queue_new_full(item_free_func);
+    us_client->send_buffer = g_string_new(NULL);
+    g_mutex_init(&us_client->lock);
+
     int ret = pthread_create(&thid, NULL, usclient_thread, (void *) us_client);
     if (ret != 0) {
         perror("Failed to create thread\n");
@@ -303,7 +339,7 @@ MessageItem *usclient_get_data(usclient *us_client)
 
 /**
  * @Synopsis Pops data from queue. This function returns NULL
- *           if no data is received in 400ms.
+ *           if no data is received in 1s.
  *
  * @Param us_client       Unix socket client which owns the queue
  *
@@ -315,7 +351,7 @@ MessageItem *usclient_get_data_timed(usclient *us_client)
         g_print("Failed to get command, invalid unix socket client!\n");
         return NULL;
     }
-    gint64 timeout_microsec = 400000; //400ms
+    gint64 timeout_microsec = 1000000; //1s
     MessageItem *item = (MessageItem *) g_async_queue_timeout_pop(
                             us_client->message_queue,
                             timeout_microsec
@@ -350,6 +386,8 @@ void usclient_destroy(usclient *us_client)
     if (us_client->message_queue) {
         g_async_queue_unref(us_client->message_queue);
     }
+
+    g_string_free(us_client->send_buffer, TRUE);
 
     g_free(us_client);
 }

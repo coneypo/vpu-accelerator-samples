@@ -17,6 +17,7 @@ enum E_COMMAND_TYPE {
     eCommand_Launch = 3,
     eCommand_SetProperty = 4,
     eCommand_PipeDestroy = 5,
+    eCommand_Metadata = 6
 };
 
 gboolean process_command(mediapipe_t *mp, void *message);

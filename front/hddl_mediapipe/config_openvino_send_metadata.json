@@ -1,0 +1,78 @@
+{
+    "openvino_detection":
+    [
+        {
+            "enable":1,
+            "name":"openvino_vehicle_detection",
+            "message_name":"vehicle_detection",
+            "src_name":"src",
+            "src_format":"NV12",
+            "pipe_string":"appsrc name=source ! queue max-size-buffers=1 leaky=2 !  
+                           videoconvert ! openvino-inference-st1  
+                           model=%s device=CPU every-nth-frame=1 batch-size=1 name=detect ! 
+                           queue ! fakesink",
+            "model_path1":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml"
+        },
+        {
+            "enable":1,
+            "name":"openvino_crossroad_detection",
+            "message_name":"crossroad_detection",
+            "src_name":"src",
+            "src_format":"NV12",
+            "pipe_string":"appsrc name=source ! queue max-size-buffers=1 leaky=2 !
+                           videoconvert ! openvino-inference model=%s ! queue !
+                           openvino-classification model=%s meta-format=pedestrian-attributes
+                           name=detect ! queue ! fakesink",
+            "model_path1":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/person-vehicle-bike-detection-crossroad-0078/FP32/person-vehicle-bike-detection-crossroad-0078.xml",
+            "model_path2":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/person-attributes-recognition-crossroad-0031/FP32/person-attributes-recognition-crossroad-0031.xml"
+        },
+        {
+            "enable":1,
+            "name":"openvino_barrier_detection",
+            "message_name":"barrier_detection",
+            "src_name":"src",
+            "src_format":"NV12",
+            "pipe_string":"appsrc name=source ! queue max-size-buffers=1 leaky=2 !
+                           videoconvert !
+                           openvino-inference model=%s device=CPU every-nth-frame=1 batch-size=4 ! queue !
+                           openvino-classification model=%s,%s object-class=1,2
+                           name=detect ! queue ! fakesink",
+            "model_path1":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml",
+            "model_path2":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/vehicle-attributes-recognition-barrier-0039/FP32/vehicle-attributes-recognition-barrier-0039.xml",
+            "model_path3":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/license-plate-recognition-barrier-0001/FP32/license-plate-recognition-barrier-0001.xml"
+        }
+    ],
+    "metadata":
+    {
+    "subscribe_message" : ["vehicle_detection", "crossroad_detection", "barrier_detection"],
+    },
+    "element":
+    [
+        //---------src---------
+        {
+            "name":"src",
+        },
+
+         //---------scale---------
+        {
+            "name":"scale_caps",
+            "caps":"video/x-raw,format=NV12,width=1920,height=1088"
+        },
+
+        //------------channel: 0-------------
+        {
+            "name":"enc0",
+            "rate-control":1,  // CBR
+            "bitrate":4096,
+        },
+        {
+            "name":"enc0_caps",
+            "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+        },
+        {
+            "name":"sink0",
+            "location":"test0.264"
+        },
+
+    ],
+}

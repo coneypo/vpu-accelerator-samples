@@ -9,7 +9,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" 
 FILE(GLOB_RECURSE SRC_LIST "${CMAKE_SOURCE_DIR}/src/config/*.c" "${CMAKE_SOURCE_DIR}/src/core/*.c" "${CMAKE_SOURCE_DIR}/src/utils/*.c" )
 
 #define modules that will be compliled
-set(MP_MODULES element openvino mix2)
+set(MP_MODULES element openvino metadata)
 set(BASE_MODULES ${MP_MODULES})
 
 #add mudules source file
@@ -58,7 +58,7 @@ file(APPEND ${modulecfile} "\n")
 list(APPEND SRC_LIST ${modulecfile})
 
 # set some module compiled by CXX
-SET_SOURCE_FILES_PROPERTIES( ${BASE_MODULES_PATH}/mp_crop.c ${BASE_MODULES_PATH}/mp_mix.c  ${BASE_MODULES_PATH}/mp_mix2.c PROPERTIES LANGUAGE CXX )
+SET_SOURCE_FILES_PROPERTIES( ${BASE_MODULES_PATH}/mp_crop.c ${BASE_MODULES_PATH}/mp_mix.c  ${BASE_MODULES_PATH}/mp_mix2.c ${BASE_MODULES_PATH}/mp_metadata.c  PROPERTIES LANGUAGE CXX )
 SET_SOURCE_FILES_PROPERTIES( ${BASE_MODULES_PATH}/mp_openvino.c PROPERTIES LANGUAGE CXX )
 
 #copy config.json and launch.txt into make dir
@@ -85,6 +85,8 @@ include_directories("${CMAKE_SOURCE_DIR}/src/config")
 include_directories("${CMAKE_SOURCE_DIR}/src/core")
 include_directories("${CMAKE_SOURCE_DIR}/src/meta")
 include_directories("${CMAKE_SOURCE_DIR}/src/utils")
+include_directories("${CMAKE_SOURCE_DIR}/front/hddl_mediapipe")
+include_directories("${CMAKE_SOURCE_DIR}/front/hddl_mediapipe/process_command")
 
 #opencl oclcommon.h didn't not add  extern c heard, so there is some problem
 #when link  libgstocl.so , so force use  CXX link
