@@ -1,3 +1,7 @@
+//Copyright (C) 2018 Intel Corporation
+// 
+//SPDX-License-Identifier: MIT
+//
 'use strict';
 const crypto = require('crypto');
 const fileHelper = require('./file_helper');

@@ -1,3 +1,7 @@
+//Copyright (C) 2018 Intel Corporation
+// 
+//SPDX-License-Identifier: MIT
+//
 'use strict';
 function basename(path) {
 return path.substring(path.lastIndexOf("/")+1);

@@ -16,9 +16,9 @@ npm install
 # 2. setup certificates
 
 Refer to `certificate_create_explanation.md` to create TLS certificate.
-* Copy "ca-crt.pem client-crt.pem client-key.pem" into 'controller/client_cert'
-* Copy "ca-crt.pem client-crt.pem client-key.pem" into 'receiver/client_cert'
-* Copy "ca-crt.pem server-crt.pem server-key.pem" into 'server/server_cert'
+* Copy "ca-cert.pem client-cert.pem client-key.pem" into 'controller/client_cert'
+* Copy "ca-cert.pem client-cert.pem client-key.pem" into 'receiver/client_cert'
+* Copy "ca-cert.pem server-cert.pem server-key.pem" into 'server/server_cert'
 * Copy 'client.crl' into 'server_cert'
 * Copy 'server.crl' into 'client_cert'
 

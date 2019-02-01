@@ -1,3 +1,7 @@
+//Copyright (C) 2018 Intel Corporation
+// 
+//SPDX-License-Identifier: MIT
+//
 exports.sendMessage = function (ws, message, code) {
     if (!!ws && ws.readyState === ws.OPEN) {
         ws.send(JSON.stringify({headers: {method: 'text', code: code || 200}, payload: `${message}`}));

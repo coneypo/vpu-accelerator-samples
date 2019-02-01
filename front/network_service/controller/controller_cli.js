@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+//Copyright (C) 2018 Intel Corporation
+// 
+//SPDX-License-Identifier: MIT
+//
 'use strict'
 const clientCLI = require('../lib/client_cli');
 const fs = require('fs');

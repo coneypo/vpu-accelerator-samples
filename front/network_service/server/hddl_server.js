@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+//Copyright (C) 2018 Intel Corporation
+// 
+//SPDX-License-Identifier: MIT
+//
 'use strict';
 const SecureServer = require('../lib/secure_wss_server');
 const fs = require('fs');
@@ -16,7 +20,7 @@ var options = {
   cert: certificate,
   requestCert: true,
   ca: [ca],
-  metaPath: __dirname + '/model/model_info.json',
+  metaPath: __dirname + '/models/model_info.json',
   ipcProtocol: "raw"
 };
 
@@ -55,18 +59,18 @@ function incoming(ws, message, adminCtx) {
   }
 };
 
-function unixApp(data, adminCtx){
+function unixApp(data, adminCtx, transceiver){
   if(data.type == constants.msgType.ePipeID && adminCtx.pipe2pid.has(parseInt(data.payload))) {
     console.log("valid pipe %s", data.payload);
     var createJSON;
     createJSON = adminCtx.pipe2json.get(parseInt(data.payload)).create;
     var initLaunch = (createJSON.Launch);
     var initConfig = JSON.stringify(createJSON.Config);
-    adminCtx.transceiver.send(initConfig, constants.msgType.eConfig);
-    adminCtx.transceiver.send(initLaunch, constants.msgType.eLaunch);
+    transceiver.send(initConfig, constants.msgType.eConfig);
+    transceiver.send(initLaunch, constants.msgType.eLaunch);
   } else {
     console.log(data.payload.toString());
-    !!adminCtx.dataCons && adminCtx.dataCons.readyState === adminCtx.dataCons.OPEN && adminCtx.dataCons.send(JSON.stringify({headers: {type: data.type, pipe_id: adminCtx.transceiver.id}, payload: data.payload}));
+    !!adminCtx.dataCons && adminCtx.dataCons.readyState === adminCtx.dataCons.OPEN && adminCtx.dataCons.send(JSON.stringify({headers: {type: data.type, pipe_id: transceiver.id}, payload: data.payload}));
   }
 }
 

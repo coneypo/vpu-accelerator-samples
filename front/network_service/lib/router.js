@@ -1,10 +1,14 @@
+//Copyright (C) 2018 Intel Corporation
+// 
+//SPDX-License-Identifier: MIT
+//
 'use strict';
 const wsSender = require('./ws_sender.js');
 const { spawn } = require('child_process');
 const path = require('../lib/path_parser')
 const fileHelper = require('../lib/file_helper');
 const fs = require('fs');
-const BufferStream = require('../lib/buffer_stream');
+const BufferStream = require('../lib/single_buffer_stream');
 const constants = require('./constants.js')
 var pipe_base = 0;
 exports.router = function route(obj) {
@@ -133,17 +137,26 @@ exports.updateModel = function (ws, model, adminCtx){
     }
     var filePath = model.headers.path;
     var dir = path.dirname(path.dirname(filePath));
-    saveBuffer(filePath, model.payload);
-    var modelMeta = JSON.stringify(fileHelper.updateCheckSum(filePath, model.checkSum));
-    try {
+    if(!adminCtx.fileLock.has(filePath)){
+        //no other controller update the file, acquire the file lock
+        adminCtx.fileLock.add(filePath);
+        saveBuffer(filePath, model.payload, adminCtx.fileLock);
+        var modelMeta = JSON.stringify(fileHelper.updateCheckSum(filePath, model.checkSum));
         fs.writeFileSync(path.join(dir, 'model_info.json'), modelMeta);
-    } catch (err)
-    {
-        console.log(`update model error ${err.message}`);
+        console.log('sendMeta');
+        //inform each controller about the update
+        adminCtx.wsConns.forEach((value, key, map) => {
+            console.log(`update model for client id ${key}`);
+            wsSender.sendProtocol(value, {method: 'checkSum'}, modelMeta);
+        });
+        wsSender.sendProtocol(ws, {method: 'checkSum'}, modelMeta);
+    } else {
+        //the model is being updated by other controller.
+        wsSender.sendProtocol(ws, {method: 'error'}, `file ${filePath} being updating by other controller`);
     }
-    wsSender.sendProtocol(ws,{method: 'checkSum'}, modelMeta);
+
   }
-  function saveBuffer(filePath, buffer) {
+  function saveBuffer(filePath, buffer, fileLock) {
     var folderName = path.dirname(filePath);
     if(!fs.existsSync(folderName))
     {
@@ -151,6 +164,19 @@ exports.updateModel = function (ws, model, adminCtx){
       fs.mkdirSync('./' + folderName, { recursive: true, mode: 0o700 });
     }
     var modelBuffer = new BufferStream(buffer);
-    var stream = fs.createWriteStream(filePath, { mode: 0o600 });
-    modelBuffer.pipe(stream).on('error', (err)=> console.log(`save Buffer error ${err.message}`));
+    var writer = fs.createWriteStream(filePath, { mode: 0o600 });
+    writer.on('error', (err)=> {
+        console.log(`save Buffer error ${err.message}`);
+        fileLock.delete(filePath);
+    });
+    modelBuffer.on('error', (err)=> {
+        console.log(`read Buffer error ${err.message}`); 
+        writer.end();
+    });
+    //release file lock when completing file writing.
+    writer.on('finish', ()=> {
+        console.log(`${filePath} upload complete`);
+        fileLock.delete(filePath);
+    });
+    modelBuffer.pipe(writer);
   }

@@ -1,3 +1,7 @@
+//Copyright (C) 2018 Intel Corporation
+// 
+//SPDX-License-Identifier: MIT
+//
 'use strict';
 const WebSocket = require('ws');
 const https = require('https');
@@ -81,6 +85,7 @@ class SecureServer extends EventEmitter {
         this._pipe2json = new Map();
         this._wsConns = new Map();
         this._dataCons = null;
+        this._fileLock = new Set();
     }
 
     initServer(options) {
@@ -130,7 +135,8 @@ class SecureServer extends EventEmitter {
             pipe2pid: this._pipe2pid,
             pipe2json: this._pipe2json,
             dataCons: this._dataCons,
-            socketURL: this._options.socket
+            socketURL: this._options.socket,
+            fileLock: this._fileLock
         };
         adminWS.on('connection', getConnHandler.call(options, this._adminApp, adminCtx));
         dataWS.on('connection', getDataConnHandler.call(options, this._dataApp, adminCtx));
@@ -226,6 +232,7 @@ function getConnHandler(app, adminCtx){
         });
         ws.on('close', (code, reason)=> {
             console.log(`ws client ${ws.id} close reason ${code}/${reason}`);
+            adminCtx.wsConns.delete(ws.id);
         })
         if(adminCtx.client2pipe.has(ws.id)) {
             console.log('Client Reconnect id %s', ws.id);
@@ -309,18 +316,15 @@ function getUnixSocketServer(options) {
 
 function getUnixConnHandler(app, adminCtx)
 {
-    const pipe2socket = adminCtx.pipe2socket;
     return function (stream) {
         var transceiver = new Transceiver(stream, (data)=> {
-        console.log("Receive Packet");
-        console.log(JSON.stringify(data));
         if(data.type == constants.msgType.ePipeID) {
             console.log('Connection acknowledged %s', data.payload);
             transceiver.id = parseInt(data.payload);
-            pipe2socket.set(parseInt(data.payload), transceiver);
+            adminCtx.pipe2socket.set(parseInt(data.payload), transceiver);
         }
         try{
-            !!app && app(data, Object.assign(adminCtx, {transceiver: transceiver}));
+            !!app && app(data, adminCtx, transceiver);
         } catch (err) {
             console.log("ipc application error %s", err.message);
 
@@ -328,6 +332,12 @@ function getUnixConnHandler(app, adminCtx)
         stream.on('error', (err)=> {
             console.log(err.message);
             stream.destroy();
+            adminCtx.pipe2socket.delete(transceiver.id);
+        });
+        stream.on('close', ()=> {
+            console.log(`ipc socket pipe_id ${transceiver.id} disconnects`);
+            if(transceiver.hasOwnProperty('id'))
+            adminCtx.pipe2socket.delete(transceiver.id);
         });
         transceiver.init();
     }
