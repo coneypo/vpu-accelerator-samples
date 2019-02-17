@@ -4,7 +4,9 @@
  */
 
 #include "hddl_mediapipe.h"
+#ifndef HDDL_MEDIAPIPE_3
 #include "process_command.h"
+#endif
 
 
 typedef struct {
@@ -85,11 +87,15 @@ parse_message_and_add_buffer(const char *message_name,
                 g_string_append_printf(metadata, "rect = (%d, %d, %d, %d),", x, y, width, height);
                 g_string_append_printf(metadata,"label_id = %d, confidence = %f,", label_id, g_value_get_float(confidence));
                 g_string_append_printf(metadata, "ts = %f",ts);
-                msg_type = eCommand_Metadata; 
 
                 // Add metadata to client send buffer
                 LOG_DEBUG("metadata = %s, len = %ld, ts = %f\n", metadata->str, metadata->len, ts);
+#ifdef HDDL_MEDIAPIPE_3
+                hddl_mediapipe_send_metadata(ctx.hp, metadata->str, metadata->len);
+#else
+                msg_type = eCommand_Metadata;
                 usclient_msg_to_send_buffer(ctx.hp->client, metadata->str, metadata->len, msg_type);
+#endif
                 g_string_free(metadata, TRUE);
             }
     }
@@ -124,10 +130,12 @@ static gboolean
 json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
 {
     mediapipe_hddl_t *hp = (mediapipe_hddl_t*) mp;
+#ifndef HDDL_MEDIAPIPE_3
     if (hp->client == NULL) {
         LOG_DEBUG("client service not available, skip send metadata.");
         return FALSE;
     }
+#endif
     ctx.hp = hp; 
 
     //find metadata json object
