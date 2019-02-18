@@ -164,7 +164,9 @@ exit_master(void)
                           (GDestroyNotify)gst_message_unref);
         g_mutex_clear(&mix2_ctx.msg_ctxs[i].lock);
     }
-    g_hash_table_unref(mix2_ctx.msg_pro_fun_hst);
+    if (mix2_ctx.msg_pro_fun_hst) {
+        g_hash_table_unref(mix2_ctx.msg_pro_fun_hst);
+    }
 }
 
 /* --------------------------------------------------------------------------*/

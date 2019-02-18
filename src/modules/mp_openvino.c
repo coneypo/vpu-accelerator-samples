@@ -517,6 +517,9 @@ static void
 exit_master(void)
 {
     gint i;
+    if (!ctx) {
+        return;
+    }
     for (i = 0; i < ctx->branch_num; i++) {
         if (ctx->branch[i].enable) {
             mediapipe_branch_destroy_internal(&ctx->branch[i].mp_branch);
