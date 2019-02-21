@@ -9,8 +9,8 @@
             "src_name":"src",
             "src_format":"NV12",
             "pipe_string":"appsrc name=source ! queue max-size-buffers=1 leaky=2 !
-                           videoconvert ! gvadetect inference-id=inf0 model=${MODEL} device=CPU every-nth-frame=1 batch-size=1 name=detect !
-                           queue ! fakesink",
+            videoconvert ! gvadetect inference-id=inf0 model=${MODEL} device=CPU every-nth-frame=1 batch-size=1 name=detect !
+            queue ! fakesink",
             "pipe_params":
             {
                 "MODEL":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml"
@@ -23,12 +23,12 @@
             "src_name":"src",
             "src_format":"NV12",
             "pipe_string":"appsrc name=source ! queue max-size-buffers=1 leaky=2 !
-                           videoconvert ! gvadetect model=${DETECTION_MODEL} labels-file=${DETECTION_LABELS} ! queue !
-                           gvaclassify model=$(PERSON_MODEL),$VEHICLE_MODEL object-class=person,vehicle ! queue !
-                           gvametaconvert converter=attributes method=compound labels-file=${PERSON_LABELS} !
-                           gvametaconvert converter=attributes method=max layer-name=color labels-file=${COLOR_LABELS}  !
-                           gvametaconvert converter=attributes method=max layer-name=type labels-file=${TYPE_LABELS}
-                           name=detect ! queue ! fakesink",
+            videoconvert ! gvadetect model=${DETECTION_MODEL} labels-file=${DETECTION_LABELS} ! queue !
+            gvaclassify model=$(PERSON_MODEL),$VEHICLE_MODEL object-class=person,vehicle ! queue !
+            gvametaconvert converter=attributes method=compound labels-file=${PERSON_LABELS} !
+            gvametaconvert converter=attributes method=max layer-name=color labels-file=${COLOR_LABELS}  !
+            gvametaconvert converter=attributes method=max layer-name=type labels-file=${TYPE_LABELS}
+            name=detect ! queue ! fakesink",
             "pipe_params":
             {
                 "DETECTION_MODEL":"/opt/intel/computer_vision_sdk/deployment_tools/intel_models/person-vehicle-bike-detection-crossroad-0078/FP32/person-vehicle-bike-detection-crossroad-0078.xml",
@@ -39,7 +39,8 @@
                 "COLOR_LABELS":"./labels/vehicle_colors.txt",
                 "TYPE_LABELS":"./labels/vehicle_types.txt"
             }
-        },
+        }
+
     ],
     "mix2":
     {
@@ -61,7 +62,17 @@
             "caps":"video/x-raw,format=NV12,width=1920,height=1088"
         },
 
+         //---------videorate----------
+        {
+            "name":"videorate_caps",
+            "caps":"video/x-raw,framerate=30/1"
+        },
+
         //------------channel: 0-------------
+        {
+            "name":"scale0_caps",
+            "caps":"video/x-raw,format=NV12,width=1920,height=1088"
+        },
         {
             "name":"enc0",
             "rate-control":1,  // CBR
@@ -76,5 +87,10 @@
             "location":"test0.264"
         },
 
+        //----------------local display-------------
+        {
+            "name":"scaler_display_caps",
+            "caps":"video/x-raw,format=BGRx,width=1920,height=1088"
+        },
     ],
 }
