@@ -95,7 +95,7 @@ json_setup_elements(mediapipe_t *mp)
                 ppty_valuestring = json_object_get_string(ppty);
 
                 if (strcmp(ppty_name, "caps")) {
-                    if (!strchr(ppty_valuestring, '/')) {
+                    if (!strchr(ppty_valuestring, '/') || !strcmp(ppty_name, "location")) {
                         MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name, ppty_valuestring,
                                                NULL);
                     } else {      //fraction type
@@ -161,6 +161,11 @@ json_setup_elements(mediapipe_t *mp)
                 /* g_array_unref(array); */
                 break;
             }
+
+            case json_type_boolean:
+                MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name,
+                                       json_object_get_boolean(ppty), NULL);
+                break;
 
             default:
                 g_print("Unkown property type!\n");
