@@ -16,15 +16,15 @@ namespace hddl {
             return ret;                     \
     }
 
-Pipeline::Pipeline(int id)
-    : m_id(id)
+Pipeline::Pipeline(std::string socketName, int pipeId)
+    : m_id(pipeId)
     , m_seq_no(0)
     , m_state(MPState::NONEXIST)
 {
     std::vector<std::string> argv = {
         MP_PATH,
         "-u",
-        "/tmp/hddl_manager.sock",
+        socketName,
         "-i",
         std::to_string(m_id)
     };

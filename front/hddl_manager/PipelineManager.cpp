@@ -9,12 +9,20 @@ using boost::asio::local::stream_protocol;
 
 namespace hddl {
 
-#define HDDL_MANAGER_SOCKET "/tmp/hddl_manager.sock"
-
 PipelineManager::PipelineManager()
     : m_ioContext()
 {
-    createSocket();
+}
+
+void PipelineManager::init(int socketId)
+{
+    createSocket(socketId);
+}
+
+void PipelineManager::uninit()
+{
+    removeAll();
+    m_ioContext.stop();
 }
 
 PipelineStatus PipelineManager::removeAll()
@@ -42,7 +50,7 @@ PipelineStatus PipelineManager::addPipeline(int id, std::string launch, std::str
     if (m_map.find(id) != m_map.end())
         return PipelineStatus::ALREADY_CREATED;
 
-    m_map.emplace(id, std::unique_ptr<Pipeline>(new Pipeline(id)));
+    m_map.emplace(id, std::unique_ptr<Pipeline>(new Pipeline(m_socketName, id)));
 
     auto& pipeline = m_map[id];
 
@@ -128,13 +136,15 @@ void PipelineManager::cleanupPipeline(int id, PipelineStatus status)
         m_map.erase(id);
 }
 
-void PipelineManager::createSocket()
+void PipelineManager::createSocket(int socketId)
 {
-    std::remove(HDDL_MANAGER_SOCKET);
+    if (socketId != 0)
+        m_socketName += std::to_string(socketId);
+    std::remove(m_socketName.c_str());
     std::thread server = std::thread(
         [this]() {
             m_acceptor = std::unique_ptr<stream_protocol::acceptor>(
-                new stream_protocol::acceptor(m_ioContext, stream_protocol::endpoint(HDDL_MANAGER_SOCKET)));
+                new stream_protocol::acceptor(m_ioContext, stream_protocol::endpoint(m_socketName)));
             accept();
             m_ioContext.run();
         });

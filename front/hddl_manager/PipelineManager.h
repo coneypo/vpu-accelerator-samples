@@ -15,11 +15,11 @@ namespace hddl {
 
 class PipelineManager {
 public:
-    PipelineManager();
-    ~PipelineManager() = default;
-
     PipelineManager(const PipelineManager&) = delete;
     PipelineManager& operator=(const PipelineManager&) = delete;
+
+    void init(int socketId = 0);
+    void uninit();
 
     PipelineStatus removeAll();
     std::vector<int> getAll();
@@ -31,16 +31,27 @@ public:
     PipelineStatus stopPipeline(int id);
     PipelineStatus pausePipeline(int id);
 
+    static PipelineManager& getInstance()
+    {
+        static PipelineManager instance;
+        return instance;
+    }
+
 private:
+    PipelineManager();
+    ~PipelineManager() = default;
+
     /*
      * If NOT_EXIST, remove Pipeline id from map.
      * This function should be called while m_mapMutex locked.
      */
     void cleanupPipeline(int id, PipelineStatus status);
 
-    void createSocket();
+    void createSocket(int socketId);
     void accept();
     void registerPipelineConnection();
+
+    std::string m_socketName = "/tmp/hddl_manager.sock";
 
     using Acceptor = std::unique_ptr<boost::asio::local::stream_protocol::acceptor>;
     using Socket = std::unique_ptr<boost::asio::local::stream_protocol::socket>;

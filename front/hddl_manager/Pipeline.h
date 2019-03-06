@@ -29,7 +29,7 @@ class Pipeline {
 public:
     using Socket = boost::asio::local::stream_protocol::socket;
 
-    Pipeline(int id);
+    Pipeline(std::string socketName, int pipeId);
     ~Pipeline();
 
     Pipeline(const Pipeline&) = delete;

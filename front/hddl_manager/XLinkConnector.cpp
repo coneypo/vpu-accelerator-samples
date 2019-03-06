@@ -3,18 +3,13 @@
 namespace hddl {
 
 XLinkConnector::XLinkConnector()
-    : m_pipeManager()
-    , m_init(false)
+    : m_init(false)
 {
 }
 
-XLinkConnector::~XLinkConnector()
+int XLinkConnector::init(PipelineManager& pipeMgr)
 {
-    uninit();
-}
-
-int XLinkConnector::init()
-{
+    m_pipeManager = &pipeMgr;
     m_ghandler.protocol = PCIE;
     auto status = XLinkInitialize(&m_ghandler);
     if (status != X_LINK_SUCCESS)
@@ -26,6 +21,8 @@ int XLinkConnector::init()
 
 void XLinkConnector::uninit()
 {
+    m_init = false;
+    m_pipeManager = nullptr;
     XLinkUninitialize();
 }
 
@@ -102,7 +99,7 @@ std::string XLinkConnector::generateResponse(streamPacketDesc_t* packet)
 
 void XLinkConnector::handleCreate(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto status = m_pipeManager.addPipeline(request.pipeline_id(),
+    auto status = m_pipeManager->addPipeline(request.pipeline_id(),
         request.create().launch_data(), request.create().config_data());
 
     response.set_rsp_type(CREATE_PIPELINE_RESPONSE);
@@ -111,7 +108,7 @@ void XLinkConnector::handleCreate(HalMsgRequest& request, HalMsgResponse& respon
 
 void XLinkConnector::handleDestroy(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto status = m_pipeManager.deletePipeline(request.pipeline_id());
+    auto status = m_pipeManager->deletePipeline(request.pipeline_id());
 
     response.set_rsp_type(DESTROY_PIPELINE_RESPONSE);
     response.set_ret_code(mapStatus(status));
@@ -119,7 +116,7 @@ void XLinkConnector::handleDestroy(HalMsgRequest& request, HalMsgResponse& respo
 
 void XLinkConnector::handleModify(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto status = m_pipeManager.modifyPipeline(request.pipeline_id(),
+    auto status = m_pipeManager->modifyPipeline(request.pipeline_id(),
         request.modify().config_data());
 
     response.set_rsp_type(MODIFY_PIPELINE_RESPONSE);
@@ -128,7 +125,7 @@ void XLinkConnector::handleModify(HalMsgRequest& request, HalMsgResponse& respon
 
 void XLinkConnector::handlePlay(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto status = m_pipeManager.playPipeline(request.pipeline_id());
+    auto status = m_pipeManager->playPipeline(request.pipeline_id());
 
     response.set_rsp_type(PLAY_PIPELINE_RESPONSE);
     response.set_ret_code(mapStatus(status));
@@ -136,7 +133,7 @@ void XLinkConnector::handlePlay(HalMsgRequest& request, HalMsgResponse& response
 
 void XLinkConnector::handleStop(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto status = m_pipeManager.stopPipeline(request.pipeline_id());
+    auto status = m_pipeManager->stopPipeline(request.pipeline_id());
 
     response.set_rsp_type(STOP_PIPELINE_RESPONSE);
     response.set_ret_code(mapStatus(status));
@@ -144,7 +141,7 @@ void XLinkConnector::handleStop(HalMsgRequest& request, HalMsgResponse& response
 
 void XLinkConnector::handlePause(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto status = m_pipeManager.pausePipeline(request.pipeline_id());
+    auto status = m_pipeManager->pausePipeline(request.pipeline_id());
 
     response.set_rsp_type(PAUSE_PIPELINE_RESPONSE);
     response.set_ret_code(mapStatus(status));

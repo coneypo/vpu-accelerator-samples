@@ -1,23 +1,56 @@
+#include "PipelineManager.h"
 #include "XLinkConnector.h"
 #include <csignal>
 #include <cstdlib>
+#include <iostream>
+#include <string>
 
 using namespace hddl;
 
-static XLinkConnector connector;
+static auto& connector = XLinkConnector::getInstance();
 
-void uninitialize(int sig)
+static void uninitialize(int sig)
 {
     connector.stop();
 }
 
+static int usage()
+{
+    std::cerr << "hddl_manager [-id|--id socket_id]" << std::endl;
+    std::cerr << "    -id|--id socket_id : set the socket file name suffix, for testing only." << std::endl;
+
+    return EXIT_FAILURE;
+}
+
 int main(int argc, char* argv[])
 {
-    connector.init();
+    int socketId = 0;
+    if (argc != 1 && argc != 3)
+        return usage();
+    int i = 1;
+    while (i < argc) {
+        if ((strcmp(argv[i], "-id") == 0 || strcmp(argv[i], "--id") == 0) && i != (argc - 1)) {
+            try {
+                socketId = std::stoi(argv[++i]);
+            } catch (std::exception& e) {
+                return usage();
+            }
+        } else {
+            return usage();
+        }
+        i++;
+    }
+
+    auto& pipeMgr = PipelineManager::getInstance();
+    pipeMgr.init(socketId);
+
+    connector.init(pipeMgr);
 
     signal(SIGINT, uninitialize);
 
     connector.run();
+    connector.uninit();
+    pipeMgr.uninit();
 
     return EXIT_SUCCESS;
 }
