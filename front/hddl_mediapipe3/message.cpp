@@ -28,7 +28,7 @@
 
 using namespace hddl;
 
-static void set_property(const char* desc, mediapipe_t* mp)
+static gboolean set_property(const char* desc, mediapipe_t* mp)
 {
     struct json_object *parent, *ele, *ppty;
     struct json_object_iterator iter, end;
@@ -37,8 +37,10 @@ static void set_property(const char* desc, mediapipe_t* mp)
     unsigned int len, i;
     int ret = -1;
     struct json_object* root = json_create_from_string(desc);
-    assert(json_object_object_get_ex(root, "property", &parent));
-    assert(json_object_is_type(parent, json_type_array));
+    if (!json_object_object_get_ex(root, "property", &parent))
+        return FALSE;
+    if (!json_object_is_type(parent, json_type_array))
+        return FALSE;
     len = json_object_array_length(parent);
 
     for (i = 0; i < len; ++i) {
@@ -50,9 +52,11 @@ static void set_property(const char* desc, mediapipe_t* mp)
             break;
         }
 
-        assert(0 == strcmp("name", json_object_iter_peek_name(&iter)));
+        if (0 != strcmp("name", json_object_iter_peek_name(&iter)))
+            return FALSE;
         ppty = json_object_iter_peek_value(&iter);
-        assert(json_object_is_type(ppty, json_type_string));
+        if (!json_object_is_type(ppty, json_type_string))
+            return FALSE;
         element_name = json_object_get_string(ppty);
         json_object_iter_next(&iter);
 
@@ -140,6 +144,7 @@ static void set_property(const char* desc, mediapipe_t* mp)
         }
     }
     json_object_put(root);
+    return TRUE;
 }
 
 static MsgRspType req_to_rsp(MsgReqType type)
@@ -231,9 +236,7 @@ static gboolean handle(mediapipe_hddl_impl_t* hp, MsgRequest& request, MsgRespon
         }
         break;
     case MODIFY_REQUEST:
-        if (!request.modify().config_data().empty()) {
-            set_property(request.modify().config_data().c_str(), &hp->hp.mp);
-        } else {
+        if (request.modify().config_data().empty() || !set_property(request.modify().config_data().c_str(), &hp->hp.mp)) {
             response.set_ret_code(1);
             ret = FALSE;
         }
