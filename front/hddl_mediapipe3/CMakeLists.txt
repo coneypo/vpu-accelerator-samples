@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" 
 file(GLOB_RECURSE SRC_LIST "${CMAKE_SOURCE_DIR}/src/config/*.c" "${CMAKE_SOURCE_DIR}/src/core/*.c" "${CMAKE_SOURCE_DIR}/src/utils/*.c" )
 
 #define modules that will be compliled
-set(MP_MODULES element)
+set(MP_MODULES element openvino mix2)
 set(BASE_MODULES ${MP_MODULES})
 
 #add mudules source file
