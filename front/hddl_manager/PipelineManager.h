@@ -4,12 +4,11 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <unordered_map>
 
-#include <boost/asio.hpp>
-
+#include "PipelineStatus.h"
 #include "Pipeline.h"
+#include "PipelineIPC.h"
 
 namespace hddl {
 
@@ -38,7 +37,7 @@ public:
     }
 
 private:
-    PipelineManager();
+    PipelineManager() = default;
     ~PipelineManager() = default;
 
     /*
@@ -47,19 +46,7 @@ private:
      */
     void cleanupPipeline(int id, PipelineStatus status);
 
-    void createSocket(int socketId);
-    void accept();
-    void registerPipelineConnection();
-
-    std::string m_socketName = "/tmp/hddl_manager.sock";
-
-    using Acceptor = std::unique_ptr<boost::asio::local::stream_protocol::acceptor>;
-    using Socket = std::unique_ptr<boost::asio::local::stream_protocol::socket>;
-    Acceptor m_acceptor;
-    boost::asio::io_service m_ioContext;
-    Socket m_tempSocket;
-    std::mutex m_socketMutex;
-    std::array<char, 1024> m_buffer;
+    PipelineIPC& m_ipc = PipelineIPC::getInstance();
 
     using Map = std::unordered_map<int, std::unique_ptr<Pipeline>>;
     std::mutex m_mapMutex;

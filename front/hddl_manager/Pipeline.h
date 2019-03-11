@@ -1,35 +1,20 @@
 #ifndef _PIPELINE_H_
 #define _PIPELINE_H_
 
-#include <boost/asio.hpp>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_set>
-#include <vector>
 
+#include "PipelineStatus.h"
+#include "PipelineIPC.h"
 #include "SubProcess.h"
-#include <hddl_message.pb.h>
 
 namespace hddl {
 
-enum class PipelineStatus : int {
-    SUCCESS = 0,
-    ERROR = -1,
-    COMM_TIMEOUT = -2,
-    INVALID_PARAMETER = -3,
-    NOT_EXIST = -4,
-    ALREADY_CREATED = -5,
-    ALREADY_STARTED = -6,
-    NOT_PLAYING = -7,
-    STOPPED = -8
-};
-
 class Pipeline {
 public:
-    using Socket = boost::asio::local::stream_protocol::socket;
-
-    Pipeline(std::string socketName, int pipeId);
+    Pipeline(int pipeId);
     ~Pipeline();
 
     Pipeline(const Pipeline&) = delete;
@@ -41,15 +26,6 @@ public:
     PipelineStatus play();
     PipelineStatus stop();
     PipelineStatus pause();
-
-    /*
-     * The PipelineManager should call this to set connection socket back.
-     * In create there's timeout waiting on this.
-     */
-    void establishConnection(std::unique_ptr<Socket> socket)
-    {
-        m_socket = std::move(socket);
-    }
 
 private:
     enum class MPState : int {
@@ -83,17 +59,12 @@ private:
 
     PipelineStatus stateToStatus(MPState state);
 
-    MsgRequest createRequest(MsgReqType type);
-    std::unique_ptr<MsgResponse> sendRequest(const MsgRequest& request);
-
     int m_id;
-    unsigned long m_seq_no;
     std::unique_ptr<SubProcess> m_proc;
-
     std::mutex m_mutex;
     MPState m_state;
 
-    std::unique_ptr<Socket> m_socket;
+    PipelineIPC& m_ipc = PipelineIPC::getInstance();
 };
 
 }
