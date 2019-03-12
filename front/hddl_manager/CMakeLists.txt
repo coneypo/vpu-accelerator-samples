@@ -1,18 +1,36 @@
 find_package(XLinkFake REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Protobuf REQUIRED)
-protobuf_generate_cpp(PROTO_SRC PROTO_HDR hal_message.proto ../message/hddl_message.proto)
+
+protobuf_generate_cpp(PROTO_SRC PROTO_HDR hal_message.proto)
 
 # Add this extra line to make CLion analyze better though it's already added as target porperty
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-file(GLOB SRC "*.cpp")
-file(GLOB HDR "*.h")
+set(SRC main.cpp XLinkConnector.cpp PipelineManager.cpp Pipeline.cpp)
+set(HDR XLinkConnector.h PipelineManager.h PipelineStatus.h Pipeline.h)
 
-add_executable(hddl_manager ${SRC} ${HDR} ${PROTO_SRC} ${PROTO_HDR})
+option(MANAGER_THREAD "Build HDDL Manager to create mediapipe in thread" OFF)
+
+if(MANAGER_THREAD)
+    mediapipe_library_build(NAME hddl_manager_lib MODULES element openvino mix2)
+
+    list(APPEND SRC PipelineThread.cpp)
+    add_executable(hddl_manager ${SRC} ${HDR} ${PROTO_SRC} ${PROTO_HDR} ${SRC_LIST})
+    target_compile_definitions(hddl_manager PRIVATE -DMANAGER_THREAD)
+    target_link_libraries(hddl_manager hddl_manager_lib)
+else(MANAGER_THREAD)
+    protobuf_generate_cpp(PROTO_PROC_SRC PROTO_PROC_HDR ../message/hddl_message.proto)
+
+    list(APPEND SRC PipelineProcess.cpp PipelineIPC.cpp SubProcess.cpp)
+    list(APPEND HDR PipelineIPC.h SubProcess.h)
+    add_executable(hddl_manager ${SRC} ${HDR} ${PROTO_SRC} ${PROTO_HDR} ${PROTO_PROC_SRC} ${PROTO_PROC_HDR})
+
+    target_compile_definitions(hddl_manager PRIVATE -DINSTALL_DIR=${CMAKE_INSTALL_PREFIX})
+endif(MANAGER_THREAD)
+
 target_compile_options(hddl_manager PRIVATE -std=c++11 -Wall -pthread)
-target_compile_definitions(hddl_manager PRIVATE -DINSTALL_DIR=${CMAKE_INSTALL_PREFIX})
 target_include_directories(hddl_manager PRIVATE
-    $<BUILD_INTERFACE:${PROTOBUF_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+        $<BUILD_INTERFACE:${PROTOBUF_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
 target_link_libraries(hddl_manager pthread XLinkFake::xlinkfake_arm ${Boost_LIBRARIES} ${PROTOBUF_LITE_LIBRARY})

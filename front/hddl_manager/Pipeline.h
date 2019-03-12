@@ -7,8 +7,6 @@
 #include <unordered_set>
 
 #include "PipelineStatus.h"
-#include "PipelineIPC.h"
-#include "SubProcess.h"
 
 namespace hddl {
 
@@ -60,11 +58,11 @@ private:
     PipelineStatus stateToStatus(MPState state);
 
     int m_id;
-    std::unique_ptr<SubProcess> m_proc;
     std::mutex m_mutex;
     MPState m_state;
 
-    PipelineIPC& m_ipc = PipelineIPC::getInstance();
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 }

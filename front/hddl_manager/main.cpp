@@ -3,6 +3,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
+#include <cstring>
 #include <string>
 
 using namespace hddl;

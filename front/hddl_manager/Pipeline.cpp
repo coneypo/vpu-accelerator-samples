@@ -3,11 +3,13 @@
 #include <chrono>
 #include <thread>
 
-namespace hddl {
+#ifdef MANAGER_THREAD
+#include "PipelineThread.cpp"
+#else
+#include "PipelineProcess.cpp"
+#endif
 
-#define TOKEN(x) #x
-#define PREFIX(x) TOKEN(x)
-#define MP_PATH PREFIX(INSTALL_DIR) "/bin/hddl_mediapipe3"
+namespace hddl {
 
 #define ERROR_RET(STATUS)                   \
     {                                       \
@@ -19,23 +21,12 @@ namespace hddl {
 Pipeline::Pipeline(int pipeId)
     : m_id(pipeId)
     , m_state(MPState::NONEXIST)
+    , m_impl(new Impl(this))
 {
-    auto socketName = m_ipc.getSocketName();
-    std::vector<std::string> argv = {
-        MP_PATH,
-        "-u",
-        socketName,
-        "-i",
-        std::to_string(m_id)
-    };
-    m_proc = std::unique_ptr<SubProcess>(new SubProcess(argv));
 }
 
 Pipeline::~Pipeline()
 {
-    if (m_state != MPState::NONEXIST && m_proc->poll())
-        m_proc->terminate();
-    m_proc.reset();
 }
 
 PipelineStatus Pipeline::stateToStatus(Pipeline::MPState state)
@@ -82,15 +73,7 @@ PipelineStatus Pipeline::create(std::string launch, std::string config)
 
     ERROR_RET(isInStates({ MPState::NONEXIST }, PipelineStatus::ALREADY_CREATED));
 
-    if (!m_proc->execute())
-        return PipelineStatus::INVALID_PARAMETER;
-
-    m_proc->enableWaitNotify([this] {
-        std::lock_guard<std::mutex> l(m_mutex);
-        m_state = MPState::NONEXIST;
-    });
-
-    auto sts = m_ipc.create(m_id, std::move(launch), std::move(config));
+    auto sts = m_impl->create(std::move(launch), std::move(config));
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
@@ -105,7 +88,7 @@ PipelineStatus Pipeline::modify(std::string config)
 
     ERROR_RET(isNotInStates({ MPState::NONEXIST, MPState::STOPPED }));
 
-    return m_ipc.modify(m_id, std::move(config));
+    return m_impl->modify(std::move(config));
 }
 
 PipelineStatus Pipeline::destroy()
@@ -114,7 +97,7 @@ PipelineStatus Pipeline::destroy()
 
     ERROR_RET(isNotInStates({ MPState::NONEXIST }, PipelineStatus::NOT_EXIST));
 
-    auto sts = m_ipc.destroy(m_id);
+    auto sts = m_impl->destroy();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
@@ -129,7 +112,7 @@ PipelineStatus Pipeline::play()
 
     ERROR_RET(isInStates({ MPState::CREATED, MPState::PAUSED }));
 
-    auto sts = m_ipc.play(m_id);
+    auto sts = m_impl->play();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
@@ -144,7 +127,7 @@ PipelineStatus Pipeline::stop()
 
     ERROR_RET(isInStates({ MPState::PLAYING, MPState::PAUSED }, PipelineStatus::NOT_PLAYING));
 
-    auto sts = m_ipc.stop(m_id);
+    auto sts = m_impl->stop();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
@@ -159,7 +142,7 @@ PipelineStatus Pipeline::pause()
 
     ERROR_RET(isInStates({ MPState::PLAYING }, PipelineStatus::NOT_PLAYING));
 
-    auto sts = m_ipc.pause(m_id);
+    auto sts = m_impl->pause();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 

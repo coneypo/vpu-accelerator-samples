@@ -2,13 +2,16 @@
 #define _PIPELINEMANAGER_H_
 
 #include <memory>
+#include <vector>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
 #include "PipelineStatus.h"
 #include "Pipeline.h"
+#ifndef MANAGER_THREAD
 #include "PipelineIPC.h"
+#endif
 
 namespace hddl {
 
@@ -46,11 +49,13 @@ private:
      */
     void cleanupPipeline(int id, PipelineStatus status);
 
-    PipelineIPC& m_ipc = PipelineIPC::getInstance();
-
     using Map = std::unordered_map<int, std::unique_ptr<Pipeline>>;
     std::mutex m_mapMutex;
     Map m_map;
+
+#ifndef MANAGER_THREAD
+    PipelineIPC& m_ipc = PipelineIPC::getInstance();
+#endif
 };
 
 }
