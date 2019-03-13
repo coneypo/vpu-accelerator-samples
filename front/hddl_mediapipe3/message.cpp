@@ -163,6 +163,9 @@ static MsgRspType req_to_rsp(MsgReqType type)
     case PAUSE_REQUEST:
         return PAUSE_RESPONSE;
     }
+
+    // Make -Werror happy, flow will never reach here
+    return DESTROY_RESPONSE;
 }
 
 static MsgReqType to_req_type(msg_type type)
@@ -181,6 +184,9 @@ static MsgReqType to_req_type(msg_type type)
     case STOP:
         return STOP_REQUEST;
     }
+
+    // Make -Werror happy, flow will never reach here
+    return DESTROY_REQUEST;
 }
 
 static void send_response(mediapipe_hddl_impl_t* hp, MsgResponse& response, bool async = true)

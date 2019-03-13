@@ -162,7 +162,7 @@ typedef struct {
     message_process_fun fun;
 } message_ctx;
 
-static mp_int_t
+static void
 subscribe_message(const char *message_name,
                   const char *subscriber_name, message_process_fun fun);
 static mp_int_t
@@ -557,7 +557,7 @@ push_buffer_to_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
                       gsize size, gpointer user_data)
 {
     branch_t *branch = (branch_t *) user_data;
-    mediapipe_branch_push_buffer(&branch->mp_branch, buffer);
+    return mediapipe_branch_push_buffer(&branch->mp_branch, buffer);
 }
 
 /* --------------------------------------------------------------------------*/
@@ -571,7 +571,7 @@ push_buffer_to_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
  * @Returns
  */
 /* ----------------------------------------------------------------------------*/
-static mp_int_t
+static void
 subscribe_message(const char *message_name,
                   const char *subscriber_name, message_process_fun fun)
 {
