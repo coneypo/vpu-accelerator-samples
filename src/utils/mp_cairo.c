@@ -5,6 +5,9 @@
 
 #include "mp_cairo.h"
 
+GList *g_caior_render_list = 0;
+static cairo_render_t *default_render = NULL;
+
 void
 cairo_render_destroy(cairo_render_t *render)
 {

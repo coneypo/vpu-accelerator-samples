@@ -38,8 +38,7 @@ cairo_render_get_suggest_font_size(const char *font_desc, guint *width,
 gchar *
 cairo_render_get_rgba_data(cairo_render_t *render, const char *text);
 
-static GList *g_caior_render_list = 0;
-static cairo_render_t *default_render = NULL;
+extern GList *g_caior_render_list;
 
 
 
