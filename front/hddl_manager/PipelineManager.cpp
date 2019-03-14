@@ -37,14 +37,18 @@ std::vector<int> PipelineManager::getAll()
 
 PipelineStatus PipelineManager::addPipeline(int id, std::string launch, std::string config)
 {
-    std::lock_guard<std::mutex> lock(m_mapMutex);
+    std::unique_lock<std::mutex> lock(m_mapMutex);
 
     if (m_map.find(id) != m_map.end())
         return PipelineStatus::ALREADY_CREATED;
 
     m_map.emplace(id, std::unique_ptr<Pipeline>(new Pipeline(id)));
 
-    auto status = m_map[id]->create(std::move(launch), std::move(config));
+    auto pipeline = m_map[id];
+
+    lock.unlock();
+    auto status = pipeline->create(std::move(launch), std::move(config));
+    lock.lock();
 
     if (status != PipelineStatus::SUCCESS)
         m_map.erase(id);
@@ -54,24 +58,25 @@ PipelineStatus PipelineManager::addPipeline(int id, std::string launch, std::str
 
 PipelineStatus PipelineManager::deletePipeline(int id)
 {
-    std::lock_guard<std::mutex> lock(m_mapMutex);
-
-    if (m_map.find(id) == m_map.end())
+    auto pipeline = getPipeline(id);
+    if (!pipeline)
         return PipelineStatus::NOT_EXIST;
+
     // ignore return code since it will be removed
-    m_map[id]->destroy();
-    m_map.erase(id);
+    pipeline->destroy();
+
+    cleanupPipeline(id, PipelineStatus::NOT_EXIST);
 
     return PipelineStatus::SUCCESS;
 }
 
 PipelineStatus PipelineManager::modifyPipeline(int id, std::string config)
 {
-    std::lock_guard<std::mutex> lock(m_mapMutex);
-
-    if (m_map.find(id) == m_map.end())
+    auto pipeline = getPipeline(id);
+    if (!pipeline)
         return PipelineStatus::NOT_EXIST;
-    auto status = m_map[id]->modify(std::move(config));
+
+    auto status = pipeline->modify(std::move(config));
 
     cleanupPipeline(id, status);
 
@@ -80,11 +85,11 @@ PipelineStatus PipelineManager::modifyPipeline(int id, std::string config)
 
 PipelineStatus PipelineManager::playPipeline(int id)
 {
-    std::lock_guard<std::mutex> lock(m_mapMutex);
-
-    if (m_map.find(id) == m_map.end())
+    auto pipeline = getPipeline(id);
+    if (!pipeline)
         return PipelineStatus::NOT_EXIST;
-    auto status = m_map[id]->play();
+
+    auto status = pipeline->play();
 
     cleanupPipeline(id, status);
 
@@ -93,11 +98,11 @@ PipelineStatus PipelineManager::playPipeline(int id)
 
 PipelineStatus PipelineManager::stopPipeline(int id)
 {
-    std::lock_guard<std::mutex> lock(m_mapMutex);
-
-    if (m_map.find(id) == m_map.end())
+    auto pipeline = getPipeline(id);
+    if (!pipeline)
         return PipelineStatus::NOT_EXIST;
-    auto status = m_map[id]->stop();
+
+    auto status = pipeline->stop();
 
     cleanupPipeline(id, status);
 
@@ -106,19 +111,31 @@ PipelineStatus PipelineManager::stopPipeline(int id)
 
 PipelineStatus PipelineManager::pausePipeline(int id)
 {
-    std::lock_guard<std::mutex> lock(m_mapMutex);
-
-    if (m_map.find(id) == m_map.end())
+    auto pipeline = getPipeline(id);
+    if (!pipeline)
         return PipelineStatus::NOT_EXIST;
-    auto status = m_map[id]->pause();
+
+    auto status = pipeline->pause();
 
     cleanupPipeline(id, status);
 
     return status;
 }
 
+std::shared_ptr<Pipeline> PipelineManager::getPipeline(int id)
+{
+    std::lock_guard<std::mutex> lock(m_mapMutex);
+
+    if (m_map.find(id) == m_map.end())
+        return nullptr;
+
+    return m_map[id];
+}
+
 void PipelineManager::cleanupPipeline(int id, PipelineStatus status)
 {
+    std::lock_guard<std::mutex> lock(m_mapMutex);
+
     if (status == PipelineStatus::NOT_EXIST)
         m_map.erase(id);
 }

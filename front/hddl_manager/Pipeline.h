@@ -56,6 +56,7 @@ private:
     PipelineStatus isNotInStates(StateSet notAllowedStates, PipelineStatus defaultErrorStatus = PipelineStatus::SUCCESS);
 
     PipelineStatus stateToStatus(MPState state);
+    void setState(MPState state);
 
     int m_id;
     std::mutex m_mutex;

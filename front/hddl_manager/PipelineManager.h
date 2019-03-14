@@ -2,13 +2,13 @@
 #define _PIPELINEMANAGER_H_
 
 #include <memory>
-#include <vector>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
-#include "PipelineStatus.h"
 #include "Pipeline.h"
+#include "PipelineStatus.h"
 #ifndef MANAGER_THREAD
 #include "PipelineIPC.h"
 #endif
@@ -43,13 +43,10 @@ private:
     PipelineManager() = default;
     ~PipelineManager() = default;
 
-    /*
-     * If NOT_EXIST, remove Pipeline id from map.
-     * This function should be called while m_mapMutex locked.
-     */
+    std::shared_ptr<Pipeline> getPipeline(int id);
     void cleanupPipeline(int id, PipelineStatus status);
 
-    using Map = std::unordered_map<int, std::unique_ptr<Pipeline>>;
+    using Map = std::unordered_map<int, std::shared_ptr<Pipeline>>;
     std::mutex m_mapMutex;
     Map m_map;
 

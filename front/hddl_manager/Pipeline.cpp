@@ -49,6 +49,7 @@ PipelineStatus Pipeline::stateToStatus(Pipeline::MPState state)
 
 PipelineStatus Pipeline::isInStates(Pipeline::StateSet allowedStates, PipelineStatus defaultErrorStatus)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     auto state = m_state;
     if (allowedStates.find(state) != allowedStates.end())
         return PipelineStatus::SUCCESS;
@@ -59,6 +60,7 @@ PipelineStatus Pipeline::isInStates(Pipeline::StateSet allowedStates, PipelineSt
 
 PipelineStatus Pipeline::isNotInStates(Pipeline::StateSet notAllowedStates, PipelineStatus defaultErrorStatus)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     auto state = m_state;
     if (notAllowedStates.find(state) == notAllowedStates.end())
         return PipelineStatus::SUCCESS;
@@ -67,25 +69,27 @@ PipelineStatus Pipeline::isNotInStates(Pipeline::StateSet notAllowedStates, Pipe
     return stateToStatus(state);
 }
 
-PipelineStatus Pipeline::create(std::string launch, std::string config)
+void Pipeline::setState(MPState state)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    m_state = state;
+}
 
+PipelineStatus Pipeline::create(std::string launch, std::string config)
+{
     ERROR_RET(isInStates({ MPState::NONEXIST }, PipelineStatus::ALREADY_CREATED));
 
     auto sts = m_impl->create(std::move(launch), std::move(config));
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
-    m_state = MPState::CREATED;
+    setState(MPState::CREATED);
 
     return PipelineStatus::SUCCESS;
 }
 
 PipelineStatus Pipeline::modify(std::string config)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
     ERROR_RET(isNotInStates({ MPState::NONEXIST, MPState::STOPPED }));
 
     return m_impl->modify(std::move(config));
@@ -93,60 +97,52 @@ PipelineStatus Pipeline::modify(std::string config)
 
 PipelineStatus Pipeline::destroy()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
     ERROR_RET(isNotInStates({ MPState::NONEXIST }, PipelineStatus::NOT_EXIST));
 
     auto sts = m_impl->destroy();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
-    m_state = MPState::NONEXIST;
+    setState(MPState::NONEXIST);
 
     return PipelineStatus::SUCCESS;
 }
 
 PipelineStatus Pipeline::play()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
     ERROR_RET(isInStates({ MPState::CREATED, MPState::PAUSED }));
 
     auto sts = m_impl->play();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
-    m_state = MPState::PLAYING;
+    setState(MPState::PLAYING);
 
     return PipelineStatus::SUCCESS;
 }
 
 PipelineStatus Pipeline::stop()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
     ERROR_RET(isInStates({ MPState::PLAYING, MPState::PAUSED }, PipelineStatus::NOT_PLAYING));
 
     auto sts = m_impl->stop();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
-    m_state = MPState::STOPPED;
+    setState(MPState::STOPPED);
 
     return PipelineStatus::SUCCESS;
 }
 
 PipelineStatus Pipeline::pause()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
     ERROR_RET(isInStates({ MPState::PLAYING }, PipelineStatus::NOT_PLAYING));
 
     auto sts = m_impl->pause();
     if (sts != PipelineStatus::SUCCESS)
         return sts;
 
-    m_state = MPState::PAUSED;
+    setState(MPState::PAUSED);
 
     return PipelineStatus::SUCCESS;
 }
