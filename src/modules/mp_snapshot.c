@@ -46,8 +46,9 @@ init_callback(mediapipe_t *mp);
 /*       mp_null_command */
 /* }; */
 
-static mp_core_module_t  mp_snapshot_module_ctx = {
+static mp_module_ctx_t  mp_snapshot_module_ctx = {
     mp_string("snapshot"),
+    NULL,
     NULL,
     NULL
 };

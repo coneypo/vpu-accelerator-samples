@@ -39,9 +39,9 @@ struct mediapipe_s {
     GstRTSPServer       *rtsp_server;
     GList               *probe_data_list;
     struct json_object  *config;
-    mp_module_t        **modules;
-    mp_uint_t          modules_n;
-    void                 ** **conf_ctx;
+    mp_module_t         **modules;
+    mp_uint_t           modules_n;
+    void                **module_ctx;
 };
 
 void

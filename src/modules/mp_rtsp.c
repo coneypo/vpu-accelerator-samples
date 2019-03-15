@@ -77,8 +77,9 @@ static mp_command_t  mp_rtsp_commands[] = {
     mp_null_command
 };
 
-static mp_core_module_t  mp_rtsp_module_ctx = {
+static mp_module_ctx_t  mp_rtsp_module_ctx = {
     mp_string("rtsp"),
+    NULL,
     NULL,
     NULL
 };

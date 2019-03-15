@@ -226,20 +226,24 @@ extern "C" {
 
 typedef struct {
     size_t      len;
-    u_char     *data;
+    const char  *data;
 } mp_str_t;
 
+typedef struct {
+    mp_str_t             name;
+    void                 *(*create_ctx)(mediapipe_t *mp);
+    char                 *(*init_ctx)(void *ctx);
+    void                 (*destroy_ctx)(void *ctx);
+} mp_module_ctx_t;
 
 struct mp_command_s {
     mp_str_t             name;
     mp_uint_t            type;
-    char                    *(*set)(mediapipe_t *mp, mp_command_t *cmd);
+    char                 *(*set)(mediapipe_t *mp, mp_command_t *cmd);
     mp_uint_t            conf;
     mp_uint_t            offset;
     void                 *post;
 };
-
-
 
 struct mp_module_s {
     mp_uint_t            ctx_index;
@@ -253,8 +257,8 @@ struct mp_module_s {
     mp_uint_t            version;
     const char           *signature;
 
-    void                 *ctx;
-    mp_command_t        *commands;
+    mp_module_ctx_t      *ctx;
+    mp_command_t         *commands;
     mp_uint_t            type;
 
     mp_int_t (*init_master)(void);
@@ -274,13 +278,6 @@ struct mp_module_s {
     uintptr_t             spare_hook6;
     uintptr_t             spare_hook7;
 };
-
-
-typedef struct {
-    mp_str_t             name;
-    void                    *(*create_conf)(mediapipe_t *mp);
-    char                    *(*init_conf)(mediapipe_t *mp);
-} mp_core_module_t;
 
 
 mp_int_t
@@ -306,6 +303,8 @@ mp_modules_init_callback(mediapipe_t *mp);
 
 void
 mp_modules_exit_master(mediapipe_t *mp);
+
+void *mp_modules_find_moudle_ctx(mediapipe_t *mp, const char *module_name);
 
 extern mp_module_t  *mp_modules[];
 extern mp_uint_t     mp_max_module;

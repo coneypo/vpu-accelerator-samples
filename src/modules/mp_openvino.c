@@ -251,8 +251,9 @@ static mp_command_t  mp_openvino_commands[] = {
     mp_null_command
 };
 
-static mp_core_module_t  mp_openvino_module_ctx = {
+static mp_module_ctx_t  mp_openvino_module_ctx = {
     mp_string("openvino"),
+    NULL,
     NULL,
     NULL
 };

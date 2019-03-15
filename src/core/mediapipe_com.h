@@ -54,7 +54,7 @@ typedef intptr_t        mp_flag_t;
 #define MP_CONF_ERROR       (void *) -1
 
 
-#define mp_string(str)     { sizeof(str) - 1, (u_char *) str }
+#define mp_string(str)     { sizeof(str) - 1, (const char *) str }
 #define mp_null_string     { 0, NULL }
 
 

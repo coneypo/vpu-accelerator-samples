@@ -46,8 +46,9 @@ static mp_command_t  mp_mbqp_commands[] = {
     mp_null_command
 };
 
-static mp_core_module_t  mp_mbqp_module_ctx = {
+static mp_module_ctx_t mp_mbqp_module_ctx = {
     mp_string("mbqp"),
+    NULL,
     NULL,
     NULL
 };

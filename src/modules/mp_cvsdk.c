@@ -109,8 +109,9 @@ static mp_command_t  mp_cvsdk_commands[] = {
 };
 
 
-static mp_core_module_t  mp_cvsdk_module_ctx = {
+static mp_module_ctx_t  mp_cvsdk_module_ctx = {
     mp_string("cvsdk"),
+    NULL,
     NULL,
     NULL
 };

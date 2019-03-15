@@ -40,19 +40,17 @@ mp_int_t
 mp_create_modules(mediapipe_t *mp)
 {
     int i;
-    void *rv;
-    mp_core_module_t *module;
-    mp->modules = (mp_module_t **) malloc((mp_max_module + 1) * sizeof(
-            mp_module_t *));
-    memset(mp->modules, 0x00, (mp_max_module + 1) * sizeof(mp_module_t *));
-
+    void *ctx;
+    mp_module_ctx_t *module;
+    mp->modules = (mp_module_t **)malloc((mp_max_module + 1) * sizeof(mp_module_t *));
     if (mp->modules == NULL) {
         return MP_ERROR;
     }
 
-    mp->conf_ctx = (void *) malloc((mp_max_module) * sizeof(void *));
+    memset(mp->modules, 0x00, (mp_max_module + 1) * sizeof(mp_module_t *));
 
-    if (mp->conf_ctx == NULL) {
+    mp->module_ctx = (void **)malloc(mp_max_module * sizeof(void *));
+    if (mp->module_ctx == NULL) {
         return MP_ERROR;
     }
 
@@ -67,14 +65,14 @@ mp_create_modules(mediapipe_t *mp)
 
         module = mp->modules[i]->ctx;
 
-        if (module->create_conf) {
-            rv = module->create_conf(mp);
+        if (module->create_ctx) {
+            ctx = module->create_ctx(mp);
 
-            if (rv == NULL) {
+            if (ctx == NULL) {
                 return MP_ERROR;
             }
 
-            mp->conf_ctx[mp->modules[i]->index] = rv;
+            mp->module_ctx[i] = ctx;
         }
     }
 
@@ -85,8 +83,8 @@ mp_create_modules(mediapipe_t *mp)
 
         module = mp->modules[i]->ctx;
 
-        if (module->init_conf) {
-            if (module->init_conf(mp) == MP_CONF_ERROR) {
+        if (module->init_ctx) {
+            if (module->init_ctx(mp->module_ctx[i]) == MP_CONF_ERROR) {
                 printf("%s, init conf failed\n", mp->modules[i]->name);
                 return MP_ERROR;
             }
@@ -240,11 +238,26 @@ mp_modules_exit_master(mediapipe_t *mp)
 {
     mp_uint_t  i;
 
+    if (!mp->modules)
+        return;
+
     for (i = 0; mp->modules[i]; i++) {
         if (mp->modules[i]->exit_master) {
             mp->modules[i]->exit_master();
         }
+
+        if (mp->modules[i]->type != MP_CORE_MODULE) {
+            continue;
+        }
+
+        mp_module_ctx_t *module = mp->modules[i]->ctx;
+
+        if (module->destroy_ctx)
+            module->destroy_ctx(mp->module_ctx[i]);
     }
+
+    free(mp->modules);
+    free(mp->module_ctx);
 }
 
 /* --------------------------------------------------------------------------*/
@@ -281,4 +294,13 @@ mp_modules_message_process(mediapipe_t *mp,  GstMessage* msg)
     }
 
     return MP_IGNORE;
+}
+
+void *mp_modules_find_moudle_ctx(mediapipe_t *mp, const char *module_name)
+{
+    for (mp_uint_t i = 0; mp->modules[i]; i++) {
+        if (g_strcmp0(mp->modules[i]->ctx->name.data, module_name) == 0)
+            return mp->module_ctx[i];
+    }
+    return NULL;
 }

@@ -31,8 +31,9 @@ static mp_command_t  mp_crop_commands[] = {
     mp_null_command
 };
 
-static mp_core_module_t  mp_crop_module_ctx = {
+static mp_module_ctx_t  mp_crop_module_ctx = {
     mp_string("crop"),
+    NULL,
     NULL,
     NULL
 };

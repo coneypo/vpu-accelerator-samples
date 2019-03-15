@@ -27,32 +27,33 @@ How to develop and build custom modules
     mp_null_command
     };
 
-    static mp_core_module_t  mp_rtsp_module_ctx = {
-    mp_string("rtsp"),
-    NULL,
-    NULL
+    static mp_module_ctx_t  mp_rtsp_module_ctx = {
+        mp_string("rtsp"),
+        NULL,
+        NULL,
+        NULL
     };
 
-   mp_module_t  mp_rtsp_module = {
-       MP_MODULE_V1,
-       &mp_rtsp_module_ctx,                /* module context */
-       mp_rtsp_commands,                   /* module directives */
-       MP_CORE_MODULE,                       /* module type */
-       NULL,                               /* init master */
-       NULL,                               /* init module */
-       NULL,                    /* keyshot_process*/
-       NULL,                               /* message_process */
-       NULL,                      /* init_callback */
-       NULL,                               /* netcommand_process */
-       NULL,                               /* exit master */
-       MP_MODULE_V1_PADDING
-   };
+    mp_module_t  mp_rtsp_module = {
+        MP_MODULE_V1,
+        &mp_rtsp_module_ctx,                /* module context */
+        mp_rtsp_commands,                   /* module directives */
+        MP_CORE_MODULE,                       /* module type */
+        NULL,                               /* init master */
+        NULL,                               /* init module */
+        NULL,                    /* keyshot_process*/
+        NULL,                               /* message_process */
+        NULL,                      /* init_callback */
+        NULL,                               /* netcommand_process */
+        NULL,                               /* exit master */
+        MP_MODULE_V1_PADDING
+    };
 
-   "mp_rtsp_commands" are usted to parse the config file 
-   mp_rtsp_block is one of real callback functions ptr to parse config file 
+    "mp_rtsp_commands" are usted to parse the config file
+    mp_rtsp_block is one of real callback functions ptr to parse config file
 
-   The function ptr in mp_rtsp_module is used to process runtime event ,
-   For example,  "keyshot_process" for keyboard event. 
+    The function ptr in mp_rtsp_module is used to process runtime event ,
+    For example,  "keyshot_process" for keyboard event.
 
 How to compile the modules into mediapipe
 The first way :
