@@ -5,7 +5,7 @@
 
 #include "../core/mediapipe_com.h"
 
-static void json_setup_elements(mediapipe_t *mp);
+static char *json_setup_elements(mediapipe_t *mp);
 
 static char *
 mp_element_block(mediapipe_t *mp, mp_command_t *cmd);
@@ -50,7 +50,7 @@ mp_module_t  mp_element_module = {
  * @Param mp
  */
 /* ----------------------------------------------------------------------------*/
-static void
+static char *
 json_setup_elements(mediapipe_t *mp)
 {
     struct json_object *parent, *ele, *ppty;
@@ -60,8 +60,10 @@ json_setup_elements(mediapipe_t *mp)
     unsigned int len, i;
     int ret = -1;
     struct json_object *root = mp->config;
-    assert(json_object_object_get_ex(root, "element", &parent));
-    assert(json_object_is_type(parent, json_type_array));
+    if (!json_object_object_get_ex(root, "element", &parent))
+        return MP_CONF_ERROR;
+    if (!json_object_is_type(parent, json_type_array))
+        return MP_CONF_ERROR;
     LOG_DEBUG("\n=====================begin config===================\n");
     len = json_object_array_length(parent);
 
@@ -74,9 +76,11 @@ json_setup_elements(mediapipe_t *mp)
             break;
         }
 
-        assert(0 == strcmp("name", json_object_iter_peek_name(&iter)));
+        if (0 != strcmp("name", json_object_iter_peek_name(&iter)))
+            return MP_CONF_ERROR;
         ppty = json_object_iter_peek_value(&iter);
-        assert(json_object_is_type(ppty, json_type_string));
+        if (!json_object_is_type(ppty, json_type_string))
+            return MP_CONF_ERROR;
         element_name = json_object_get_string(ppty);
         json_object_iter_next(&iter);
 
@@ -167,13 +171,13 @@ json_setup_elements(mediapipe_t *mp)
     }
 
     LOG_DEBUG("=====================end config====================\n\n");
+    return MP_CONF_OK;
 }
 
 static char *
 mp_element_block(mediapipe_t *mp, mp_command_t *cmd)
 {
-    json_setup_elements(mp);
-    return MP_CONF_OK;
+    return json_setup_elements(mp);
 }
 
 
