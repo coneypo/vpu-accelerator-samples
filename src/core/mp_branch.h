@@ -20,6 +20,7 @@ typedef struct {
 typedef struct mediapipe_branch_s  {
     guint input_width;
     guint input_height;
+    mediapipe_t *mp;
     GstElement *pipeline;
     GstElement *source;
     GList *probe_items;

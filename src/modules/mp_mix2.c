@@ -30,9 +30,7 @@ typedef struct {
     GHashTable *msg_pro_fun_hst;
     mix2_message_ctx msg_ctxs[MESSAGE_MIX2_MAX_NUM];
     guint msg_ctx_num;
-} mix2_mix_ctx;
-
-static mix2_mix_ctx mix2_ctx = {0};
+} mix2_ctx;
 
 static gboolean
 mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
@@ -44,30 +42,30 @@ mix2_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
 static char *
 mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd);
 
-static void
-exit_master(void);
-
 static gboolean
 json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name);
 
 static mp_int_t
-process_vehicle_detection_message(const char *message_name,
-                                  const char *subscribe_name, GstMessage *message);
+process_vehicle_detection_message(const char *message_name, const char *subscribe_name,
+                                  mediapipe_t *mp, GstMessage *message);
 
 static mp_int_t
-process_crossroad_detection_message(const char *message_name,
-                                    const char *subscribe_name, GstMessage *message);
+process_crossroad_detection_message(const char *message_name, const char *subscribe_name,
+                                    mediapipe_t *mp, GstMessage *message);
 
 static mp_int_t
-process_barrier_detection_message(const char *message_name,
-                                  const char *subscribe_name, GstMessage *message);
+process_barrier_detection_message(const char *message_name, const char *subscribe_name,
+                                  mediapipe_t *mp, GstMessage *message);
 
 static mp_int_t
-queue_message_from_observer(const char *message_name,
-                            const char *subscribe_name, GstMessage *message);
+queue_message_from_observer(const char *message_name, const char *subscribe_name,
+                            mediapipe_t *mp, GstMessage *message);
 static gboolean
 draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
                        GstBuffer *buffer, const char *element_name);
+
+static void *create_ctx(mediapipe_t *mp);
+static void destroy_ctx(void *ctx);
 
 static mp_command_t  mp_mix2_commands[] = {
     {
@@ -83,64 +81,65 @@ static mp_command_t  mp_mix2_commands[] = {
 
 static mp_module_ctx_t  mp_mix2_module_ctx = {
     mp_string("mix2"),
+    create_ctx,
     NULL,
-    NULL,
-    NULL
+    destroy_ctx
 };
 
 mp_module_t  mp_mix2_module = {
     MP_MODULE_V1,
     &mp_mix2_module_ctx,                /* module context */
     mp_mix2_commands,                   /* module directives */
-    MP_CORE_MODULE,                    /* module type */
+    MP_CORE_MODULE,                     /* module type */
     NULL,                               /* init master */
     NULL,                               /* init module */
-    NULL,                    /* keyshot_process*/
+    NULL,                               /* keyshot_process*/
     NULL,                               /* message_process */
-    NULL,                      /* init_callback */
+    NULL,                               /* init_callback */
     NULL,                               /* netcommand_process */
-    exit_master,                               /* exit master */
+    NULL,                               /* exit master */
     MP_MODULE_V1_PADDING
 };
 
 static mp_int_t
-queue_message_from_observer(const char *message_name,
-                            const char *subscribe_name, GstMessage *message)
+queue_message_from_observer(const char *message_name, const char *subscribe_name,
+                            mediapipe_t *mp, GstMessage *message)
 {
+    mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
     for (int i = 0; i < MESSAGE_MIX2_MAX_NUM; i++) {
-        if (0 == g_strcmp0(message_name, mix2_ctx.msg_ctxs[i].message_name)
-            && 0 == g_strcmp0(subscribe_name, mix2_ctx.msg_ctxs[i].elem_name)) {
-            g_mutex_lock(&mix2_ctx.msg_ctxs[i].lock);
-            g_queue_push_tail(mix2_ctx.msg_ctxs[i].message_queue,
+        if (0 == g_strcmp0(message_name, ctx->msg_ctxs[i].message_name)
+            && 0 == g_strcmp0(subscribe_name, ctx->msg_ctxs[i].elem_name)) {
+            g_mutex_lock(&ctx->msg_ctxs[i].lock);
+            g_queue_push_tail(ctx->msg_ctxs[i].message_queue,
                               gst_message_ref(message));
-            g_mutex_unlock(&mix2_ctx.msg_ctxs[i].lock);
+            g_mutex_unlock(&ctx->msg_ctxs[i].lock);
         }
     }
     return MP_OK;
 }
 
 static mp_int_t
-process_vehicle_detection_message(const char *message_name,
-                                  const char *subscribe_name, GstMessage *message)
+process_vehicle_detection_message(const char *message_name, const char *subscribe_name,
+                                  mediapipe_t *mp, GstMessage *message)
 {
     return queue_message_from_observer(message_name, subscribe_name,
-                                       message);
+                                       mp, message);
 }
 
 static mp_int_t
-process_crossroad_detection_message(const char *message_name,
-                                  const char *subscribe_name, GstMessage *message)
+process_crossroad_detection_message(const char *message_name, const char *subscribe_name,
+                                    mediapipe_t *mp, GstMessage *message)
 {
     return queue_message_from_observer(message_name, subscribe_name,
-                                       message);
+                                       mp, message);
 }
 
 static mp_int_t
-process_barrier_detection_message(const char *message_name,
-                                  const char *subscribe_name, GstMessage *message)
+process_barrier_detection_message(const char *message_name, const char *subscribe_name,
+                                  mediapipe_t *mp, GstMessage *message)
 {
     return queue_message_from_observer(message_name, subscribe_name,
-                                       message);
+                                       mp, message);
 }
 
 static char *
@@ -155,19 +154,6 @@ mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd)
         }
     }
     return MP_CONF_OK;
-}
-
-static void
-exit_master(void)
-{
-    for (int i = 0; i < mix2_ctx.msg_ctx_num; i++) {
-        g_queue_free_full(mix2_ctx.msg_ctxs[i].message_queue,
-                          (GDestroyNotify)gst_message_unref);
-        g_mutex_clear(&mix2_ctx.msg_ctxs[i].lock);
-    }
-    if (mix2_ctx.msg_pro_fun_hst) {
-        g_hash_table_unref(mix2_ctx.msg_pro_fun_hst);
-    }
 }
 
 /* --------------------------------------------------------------------------*/
@@ -384,17 +370,16 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
     struct json_object *mix_root;
     RETURN_VAL_IF_FAIL(json_object_object_get_ex(mp->config, elem_name,
                        &mix_root), FALSE);
+    mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
+
     //init message process fun hash table
-    if (NULL == mix2_ctx.msg_pro_fun_hst) {
-        mix2_ctx.msg_pro_fun_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                   (GDestroyNotify)g_free, NULL);
-        g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("vehicle_detection"),
-                            (gpointer) process_vehicle_detection_message);
-        g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("crossroad_detection"),
-                            (gpointer) process_crossroad_detection_message);
-        g_hash_table_insert(mix2_ctx.msg_pro_fun_hst, g_strdup("barrier_detection"),
-                            (gpointer) process_barrier_detection_message);
-    }
+    g_hash_table_insert(ctx->msg_pro_fun_hst, g_strdup("vehicle_detection"),
+                        (gpointer) process_vehicle_detection_message);
+    g_hash_table_insert(ctx->msg_pro_fun_hst, g_strdup("crossroad_detection"),
+                        (gpointer) process_crossroad_detection_message);
+    g_hash_table_insert(ctx->msg_pro_fun_hst, g_strdup("barrier_detection"),
+                        (gpointer) process_barrier_detection_message);
+
     //analyze config , post message , add callback
     struct json_object *array = NULL;
     struct json_object *message_obj = NULL;
@@ -421,16 +406,16 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
         for (guint i = 0; i < num_values; i++) {
             message_obj = json_object_array_get_idx(array, i);
             message_name = json_object_get_string(message_obj);
-            gpointer  fun = g_hash_table_lookup(mix2_ctx.msg_pro_fun_hst, message_name);
+            gpointer  fun = g_hash_table_lookup(ctx->msg_pro_fun_hst, message_name);
             if (NULL != fun) {
                 find = TRUE;
-                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].elem_name = element_name;
-                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].message_name = message_name;
-                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].pro_fun = fun;
-                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].message_queue = g_queue_new();
-                mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].delay_queue_name = delay_queue_name;
-                g_mutex_init(&mix2_ctx.msg_ctxs[mix2_ctx.msg_ctx_num].lock);
-                mix2_ctx.msg_ctx_num++;
+                ctx->msg_ctxs[ctx->msg_ctx_num].elem_name = element_name;
+                ctx->msg_ctxs[ctx->msg_ctx_num].message_name = message_name;
+                ctx->msg_ctxs[ctx->msg_ctx_num].pro_fun = fun;
+                ctx->msg_ctxs[ctx->msg_ctx_num].message_queue = g_queue_new();
+                ctx->msg_ctxs[ctx->msg_ctx_num].delay_queue_name = delay_queue_name;
+                g_mutex_init(&ctx->msg_ctxs[ctx->msg_ctx_num].lock);
+                ctx->msg_ctx_num++;
                 GstMessage *m;
                 GstStructure *s;
                 GstBus *bus = gst_element_get_bus(mp->pipeline);
@@ -453,7 +438,7 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
             for (guint i = 0; i < num_values && i < color_num_values; i++) {
                 message_obj = json_object_array_get_idx(array, i);
                 for (int y = 0; y < 3 && y < json_object_array_length(message_obj); y++) {
-                    mix2_ctx.msg_ctxs[i].draw_color_channel[y] =
+                    ctx->msg_ctxs[i].draw_color_channel[y] =
                         json_object_get_int(json_object_array_get_idx(message_obj, y));
                 }
             }
@@ -474,10 +459,11 @@ mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data)
 {
     const char *name = (const char *) user_data;
+    mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
     gint i;
     for (i = 0; i < MESSAGE_MIX2_MAX_NUM; i++) {
-        if (0 == g_strcmp0(mix2_ctx.msg_ctxs[i].elem_name, name)) {
-            draw_buffer_by_message(mp, &mix2_ctx.msg_ctxs[i],
+        if (0 == g_strcmp0(ctx->msg_ctxs[i].elem_name, name)) {
+            draw_buffer_by_message(mp, &ctx->msg_ctxs[i],
                                    buf, name);
         }
     }
@@ -535,3 +521,28 @@ mix2_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
     return ret;
 }
 
+static void *create_ctx(mediapipe_t *mp)
+{
+    mix2_ctx *ctx = g_new0(mix2_ctx, 1);
+    if (!ctx)
+        return NULL;
+
+    ctx->msg_pro_fun_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                                     (GDestroyNotify)g_free, NULL);
+
+    return ctx;
+}
+
+static void destroy_ctx(void *_ctx)
+{
+    mix2_ctx *ctx = (mix2_ctx *)_ctx;
+    for (int i = 0; i < ctx->msg_ctx_num; i++) {
+        g_queue_free_full(ctx->msg_ctxs[i].message_queue,
+                          (GDestroyNotify)gst_message_unref);
+        g_mutex_clear(&ctx->msg_ctxs[i].lock);
+    }
+    if (ctx->msg_pro_fun_hst) {
+        g_hash_table_unref(ctx->msg_pro_fun_hst);
+    }
+    g_free(ctx);
+}

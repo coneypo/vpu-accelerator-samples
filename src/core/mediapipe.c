@@ -512,6 +512,7 @@ mediapipe_setup_new_branch(mediapipe_t *mp, const gchar *element_name,
     if (width > 0 && height > 0) {
         branch->input_width = width;
         branch->input_height = height;
+        branch->mp = mp;
         /* success = mediapipe_branch_init (branch); */
         success = branch->branch_init(branch);
 

@@ -153,8 +153,8 @@ static bool is_gva_detection_meta(GstMeta *meta)
 
 
 //about subscriber_message start
-typedef int (*message_process_fun)(const char *message_name,
-                                   const char *subscribe_name, GstMessage *message);
+typedef int (*message_process_fun)(const char *message_name, const char *subscribe_name,
+                                   mediapipe_t *mp, GstMessage *message);
 
 typedef struct {
     const char *message_name;
@@ -163,11 +163,11 @@ typedef struct {
 } message_ctx;
 
 static void
-subscribe_message(const char *message_name,
-                  const char *subscriber_name, message_process_fun fun);
+subscribe_message(const char *message_name, const char *subscriber_name,
+                  mediapipe_t *mp, message_process_fun fun);
 static mp_int_t
-unsubscribe_message(const char *message_name,
-                    const char *subscriber_name, message_process_fun fun);
+unsubscribe_message(const char *message_name, const char *subscriber_name,
+                    mediapipe_t *mp, message_process_fun fun);
 
 //about subscriber_message end
 
@@ -195,11 +195,9 @@ typedef struct {
     mediapipe_t *mp;
     GHashTable  *msg_hst;
     gboolean openvino_use_new_plugins;
-    guint branch_num;
-    openvino_branch_t branch[1];
-} openvino_ctx_t;
-
-typedef  openvino_ctx_t ctx_t;
+    gint branch_num;
+    openvino_branch_t *branch;
+} openvino_ctx;
 
 static gboolean
 branch_init(mediapipe_branch_t *mp_branch);
@@ -227,17 +225,14 @@ get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer, GValue *object
 
 //get message and progress it end
 
-static ctx_t  *ctx = NULL;
-
-//module define start
-static void
-exit_master(void);
-
 static  mp_int_t
 message_process(mediapipe_t *mp, void *message);
 
 static char *
 mp_parse_config(mediapipe_t *mp, mp_command_t *cmd);
+
+static void *create_ctx(mediapipe_t *mp);
+static void destroy_ctx(void *_ctx);
 
 static mp_command_t  mp_openvino_commands[] = {
     {
@@ -253,23 +248,23 @@ static mp_command_t  mp_openvino_commands[] = {
 
 static mp_module_ctx_t  mp_openvino_module_ctx = {
     mp_string("openvino"),
+    create_ctx,
     NULL,
-    NULL,
-    NULL
+    destroy_ctx
 };
 
 mp_module_t  mp_openvino_module = {
     MP_MODULE_V1,
-    &mp_openvino_module_ctx,              /* module context */
-    mp_openvino_commands,                 /* module directives */
+    &mp_openvino_module_ctx,           /* module context */
+    mp_openvino_commands,              /* module directives */
     MP_CORE_MODULE,                    /* module type */
     NULL,                              /* init master */
     NULL,                              /* init module */
     NULL,                              /* keyshot_process*/
-    message_process,                              /* message_process */
+    message_process,                   /* message_process */
     NULL,                              /* init_callback */
     NULL,                              /* netcommand_process */
-    exit_master,                       /* exit master */
+    NULL,                              /* exit master */
     MP_MODULE_V1_PADDING
 };
 
@@ -416,6 +411,7 @@ branch_init(mediapipe_branch_t *mp_branch)
     const gchar *desc_format = NULL;
     gchar description[MAX_BUF_SIZE];
     branch_t *branch = (branch_t *) mp_branch;
+    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp_branch->mp, "openvino");
     if (branch->model_path3 != NULL) {
         snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1,
                  branch->model_path2, branch->model_path3);
@@ -464,14 +460,12 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     RETURN_IF_FAIL(mp != NULL);
     RETURN_IF_FAIL(mp->state != STATE_NOT_CREATE);
     RETURN_IF_FAIL(json_object_object_get_ex(root, "openvino_detection", &object));
+    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp, "openvino");
     int branch_num = json_object_array_length(object);
-    ctx = (ctx_t *)g_malloc0(sizeof(ctx_t) + sizeof(
-                                 branch_t) * branch_num);
+    ctx->branch_num = branch_num;
+    ctx->branch = (branch_t*)g_malloc0(sizeof(branch_t) * branch_num);
     ctx->openvino_use_new_plugins =
         json_check_enable_state(root, "openvino_use_new_plugins");
-
-    ctx->mp = mp;
-    ctx->branch_num = branch_num;
     for (int i = 0; i < branch_num; ++i) {
         detect = json_object_array_get_idx(object, i);
         if (json_check_enable_state(detect, "enable")) {
@@ -509,37 +503,6 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     }
 }
 
-static void
-/* --------------------------------------------------------------------------*/
-/**
- * @Synopsis when quit
- */
-/* ----------------------------------------------------------------------------*/
-exit_master(void)
-{
-    gint i;
-    if (!ctx) {
-        return;
-    }
-    for (i = 0; i < ctx->branch_num; i++) {
-        if (ctx->branch[i].enable) {
-            mediapipe_branch_destroy_internal(&ctx->branch[i].mp_branch);
-        }
-    }
-    if (ctx->msg_hst) {
-        GList *l = g_hash_table_get_values(ctx->msg_hst);
-        GList *p = l;
-        while (p != NULL) {
-            g_list_free_full((GList*)p->data, (GDestroyNotify)g_free);
-            p = p->next;
-        }
-        g_list_free(l);
-        g_hash_table_unref(ctx->msg_hst);
-    }
-    g_free(ctx);
-}
-
-
 /* --------------------------------------------------------------------------*/
 /**
  * @Synopsis push buffer to openvino branch
@@ -573,13 +536,10 @@ push_buffer_to_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
  */
 /* ----------------------------------------------------------------------------*/
 static void
-subscribe_message(const char *message_name,
-                  const char *subscriber_name, message_process_fun fun)
+subscribe_message(const char *message_name, const char *subscriber_name,
+                  mediapipe_t *mp, message_process_fun fun)
 {
-    if (NULL == ctx->msg_hst) {
-        ctx->msg_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                             (GDestroyNotify)g_free, NULL);
-    }
+    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp, "openvino");
     GList *msg_list = (GList *) g_hash_table_lookup(ctx->msg_hst, message_name);
     GList *l = msg_list;
     message_ctx *t_ctx;
@@ -617,9 +577,10 @@ subscribe_message(const char *message_name,
 /* ----------------------------------------------------------------------------*/
 
 static mp_int_t
-unsubscribe_message(const char *message_name,
-                    const char *subscriber_name, message_process_fun fun)
+unsubscribe_message(const char *message_name, const char *subscriber_name,
+                    mediapipe_t *mp, message_process_fun fun)
 {
+    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp, "openvino");
     if (NULL == ctx->msg_hst) {
         return MP_ERROR;
     }
@@ -675,7 +636,7 @@ message_process(mediapipe_t *mp, void *message)
                               "subscriber_name", G_TYPE_STRING, &subscriber_name,
                               "message_process_fun", G_TYPE_POINTER, &func,
                               NULL)) {
-            subscribe_message(msg_name_s, subscriber_name, (message_process_fun) func);
+            subscribe_message(msg_name_s, subscriber_name, mp, (message_process_fun)func);
         }
         return MP_OK;
     } else if (0 == g_strcmp0(name, "unsubscribe_message")) {
@@ -684,7 +645,7 @@ message_process(mediapipe_t *mp, void *message)
                               "subscriber_name", G_TYPE_STRING, &subscriber_name,
                               "message_process_fun", G_TYPE_POINTER, &func,
                               NULL)) {
-            unsubscribe_message(msg_name_s, subscriber_name, (message_process_fun) func);
+            unsubscribe_message(msg_name_s, subscriber_name, mp, (message_process_fun) func);
         }
         return MP_OK;
     }
@@ -923,6 +884,7 @@ static GstPadProbeReturn
 detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
     branch_t *branch = (branch_t *) user_data;
+    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(branch->mp_branch.mp, "openvino");
     if (NULL == ctx->msg_hst) {
         LOG_DEBUG("%s:%d : hash table in NULL", __FILE__, __LINE__);
         return GST_PAD_PROBE_REMOVE;
@@ -960,10 +922,48 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         message_ctx *t_ctx;
         while (l != NULL) {
             t_ctx  = (message_ctx *) l->data;
-            t_ctx->fun(t_ctx->message_name, t_ctx->subscriber_name, msg);
+            t_ctx->fun(t_ctx->message_name, t_ctx->subscriber_name, branch->mp_branch.mp, msg);
             l = l->next;
         }
     }
     gst_message_unref(msg);
     return GST_PAD_PROBE_OK;
+}
+
+static void *create_ctx(mediapipe_t *mp)
+{
+    openvino_ctx *ctx = g_new0(openvino_ctx, 1);
+    if (!ctx)
+        return NULL;
+
+    ctx->mp = mp;
+    ctx->msg_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                         (GDestroyNotify)g_free, NULL);
+
+    return ctx;
+}
+
+static void destroy_ctx(void *_ctx)
+{
+    openvino_ctx *ctx = (openvino_ctx *)_ctx;
+    if (!ctx) {
+        return;
+    }
+    for (gint i = 0; i < ctx->branch_num; i++) {
+        if (ctx->branch[i].enable) {
+            mediapipe_branch_destroy_internal(&ctx->branch[i].mp_branch);
+        }
+    }
+    if (ctx->msg_hst) {
+        GList *l = g_hash_table_get_values(ctx->msg_hst);
+        GList *p = l;
+        while (p != NULL) {
+            g_list_free_full((GList*)p->data, (GDestroyNotify)g_free);
+            p = p->next;
+        }
+        g_list_free(l);
+        g_hash_table_unref(ctx->msg_hst);
+    }
+    g_free(ctx->branch);
+    g_free(ctx);
 }
