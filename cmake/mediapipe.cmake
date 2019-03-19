@@ -31,7 +31,13 @@ function(mediapipe_library_build)
 
     #add modules source file
     foreach(_module ${MP_MODULES})
-        list(APPEND SRC_LIST "${BASE_MODULES_PATH}/mp_${_module}.c")
+        if(EXISTS "${BASE_MODULES_PATH}/mp_${_module}.c")
+            list(APPEND SRC_LIST "${BASE_MODULES_PATH}/mp_${_module}.c")
+        elseif(EXISTS "mp_${_module}.c")
+            list(APPEND SRC_LIST "mp_${_module}.c")
+        else()
+            message("cannot find mp_${_module}.c")
+        endif()
     endforeach(_module)
 
     #add addon moudle

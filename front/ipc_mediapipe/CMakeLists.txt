@@ -1,11 +1,12 @@
 mediapipe_library_build(NAME mediapipe2_lib MODULES element rtsp changeformat onvif openvino mix2 encoder)
 
-file(GLOB_RECURSE HDRS "*.h")
-file(GLOB_RECURSE SRCS "*.c")
+#file(GLOB_RECURSE HDRS "*.h")
+#file(GLOB_RECURSE SRCS "*.c")
 
 include_directories(${CMAKE_SOURCE_DIR}/front/ipc_mediapipe)
 
-add_executable(mediapipe2 ${SRCS} ${HDRS})
+#add_executable(mediapipe2 ${SRCS} ${HDRS})
+add_executable(mediapipe2 main.c)
 target_link_libraries(mediapipe2 mediapipe2_lib pthread)
 
 #set FOLDER for subdir install
@@ -34,3 +35,5 @@ configure_file(./labels/detect_person_vehicle_bike.txt  ${CMAKE_CURRENT_BINARY_D
 configure_file(./labels/pedestrian_attributes.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/pedestrian_attributes.txt COPYONLY)
 configure_file(./labels/vehicle_types.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_types.txt COPYONLY)
 configure_file(./labels/vehicle_colors.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_colors.txt COPYONLY)
+
+add_subdirectory(demo)

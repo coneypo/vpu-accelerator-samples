@@ -222,7 +222,7 @@ extern "C" {
 #define MP_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
 #define mp_null_command  { mp_null_string, 0, NULL, 0, 0, NULL }
-
+#define mp_custom_command0(name) { mp_string("name"), MP_MAIN_CONF, NULL, 0, 0, NULL }
 
 typedef struct {
     size_t      len;
