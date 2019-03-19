@@ -1,5 +1,6 @@
 #include "Pipeline.h"
 #include "PipelineIPC.h"
+#include "PipelineIpcClient.h"
 #include "SubProcess.h"
 
 namespace hddl {
@@ -29,6 +30,7 @@ public:
         if (m_proc->poll())
             m_proc->terminate();
         m_proc.reset();
+        m_ipc.cleanupIpcClient(m_pipe.m_id);
     }
 
     PipelineStatus create(std::string launch, std::string config)
@@ -41,7 +43,11 @@ public:
             m_pipe.m_state = MPState::NONEXIST;
         });
 
-        auto sts = m_ipc.create(m_pipe.m_id, std::move(launch), std::move(config));
+        m_ipcClient = m_ipc.getIpcClient(m_pipe.m_id, 10);
+        if (!m_ipcClient)
+            return PipelineStatus::COMM_TIMEOUT;
+
+        auto sts = m_ipcClient->create(std::move(launch), std::move(config));
         if (sts != PipelineStatus::SUCCESS)
             return sts;
 
@@ -50,12 +56,12 @@ public:
 
     PipelineStatus modify(std::string config)
     {
-        return m_ipc.modify(m_pipe.m_id, std::move(config));
+        return m_ipcClient->modify(std::move(config));
     }
 
     PipelineStatus destroy()
     {
-        auto sts = m_ipc.destroy(m_pipe.m_id);
+        auto sts = m_ipcClient->destroy();
         if (sts != PipelineStatus::SUCCESS)
             return sts;
 
@@ -64,7 +70,7 @@ public:
 
     PipelineStatus play()
     {
-        auto sts = m_ipc.play(m_pipe.m_id);
+        auto sts = m_ipcClient->play();
         if (sts != PipelineStatus::SUCCESS)
             return sts;
 
@@ -73,7 +79,7 @@ public:
 
     PipelineStatus stop()
     {
-        auto sts = m_ipc.stop(m_pipe.m_id);
+        auto sts = m_ipcClient->stop();
         if (sts != PipelineStatus::SUCCESS)
             return sts;
 
@@ -82,7 +88,7 @@ public:
 
     PipelineStatus pause()
     {
-        auto sts = m_ipc.pause(m_pipe.m_id);
+        auto sts = m_ipcClient->pause();
         if (sts != PipelineStatus::SUCCESS)
             return sts;
 
@@ -92,6 +98,7 @@ public:
 private:
     std::unique_ptr<SubProcess> m_proc;
     PipelineIPC& m_ipc = PipelineIPC::getInstance();
+    PipelineIpcClient::Ptr m_ipcClient;
     Pipeline& m_pipe;
 };
 

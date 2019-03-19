@@ -22,8 +22,8 @@ if(MANAGER_THREAD)
 else(MANAGER_THREAD)
     protobuf_generate_cpp(PROTO_PROC_SRC PROTO_PROC_HDR ../message/hddl_message.proto)
 
-    list(APPEND SRC PipelineProcess.cpp PipelineIPC.cpp SubProcess.cpp)
-    list(APPEND HDR PipelineIPC.h SubProcess.h)
+    list(APPEND SRC PipelineProcess.cpp PipelineIPC.cpp SubProcess.cpp PipelineIpcClient.cpp)
+    list(APPEND HDR PipelineIPC.h SubProcess.h PipelineIpcClient.h)
     add_executable(hddl_manager ${SRC} ${HDR} ${PROTO_SRC} ${PROTO_HDR} ${PROTO_PROC_SRC} ${PROTO_PROC_HDR})
 
     target_compile_definitions(hddl_manager PRIVATE -DINSTALL_DIR=${CMAKE_INSTALL_PREFIX})

@@ -1,7 +1,4 @@
 #include "Pipeline.h"
-#include <arpa/inet.h>
-#include <chrono>
-#include <thread>
 
 #ifdef MANAGER_THREAD
 #include "PipelineThread.cpp"
