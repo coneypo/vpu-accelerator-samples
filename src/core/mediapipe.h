@@ -42,6 +42,8 @@ struct mediapipe_s {
     mp_module_t         **modules;
     mp_uint_t           modules_n;
     void                **module_ctx;
+
+    int                 xlink_channel_id;
 };
 
 void

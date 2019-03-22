@@ -2,9 +2,10 @@
 #define _XLINKCONNECTOR_H_
 
 #include <atomic>
+#include <set>
 #include <string>
 
-#include <Xlink.h>
+#include <XLink.h>
 
 #include "PipelineManager.h"
 #include "hal_message.pb.h"
@@ -45,7 +46,7 @@ private:
     /*
      * Return response message, empty string if error
      */
-    std::string generateResponse(streamPacketDesc_t* packet);
+    std::string generateResponse(const uint8_t* message, uint32_t size);
     void handleCreate(HalMsgRequest& request, HalMsgResponse& response);
     void handleDestroy(HalMsgRequest& request, HalMsgResponse& response);
     void handleModify(HalMsgRequest& request, HalMsgResponse& response);
@@ -53,12 +54,20 @@ private:
     void handlePause(HalMsgRequest& request, HalMsgResponse& response);
     void handleStop(HalMsgRequest& request, HalMsgResponse& response);
 
+    channelId_t openXLinkChannel();
+    void closeXLinkChannel(channelId_t channelId);
+
     PipelineManager* m_pipeManager;
 
     std::atomic<bool> m_init;
     XLinkGlobalHandler_t m_ghandler;
-};
+    XLinkHandler_t m_handler;
 
+    std::mutex m_channelMutex;
+    std::set<channelId_t> m_channelSet;
+
+    const channelId_t m_commChannel = 0x400;
+};
 }
 
 #endif // _XLINKCONNECTOR_H_

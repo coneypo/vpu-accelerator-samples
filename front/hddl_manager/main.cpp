@@ -8,13 +8,6 @@
 
 using namespace hddl;
 
-static auto& connector = XLinkConnector::getInstance();
-
-static void uninitialize(int sig)
-{
-    connector.stop();
-}
-
 static int usage()
 {
     std::cerr << "hddl_manager [-id|--id socket_id]" << std::endl;
@@ -45,9 +38,9 @@ int main(int argc, char* argv[])
     auto& pipeMgr = PipelineManager::getInstance();
     pipeMgr.init(socketId);
 
-    connector.init(pipeMgr);
+    auto& connector = XLinkConnector::getInstance();
 
-    signal(SIGINT, uninitialize);
+    connector.init(pipeMgr);
 
     connector.run();
     connector.uninit();

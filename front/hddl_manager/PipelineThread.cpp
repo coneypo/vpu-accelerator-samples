@@ -1,7 +1,7 @@
 #include "Pipeline.h"
 #include "mediapipe.h"
-#include <thread>
 #include <gst/gst.h>
+#include <thread>
 
 namespace {
 
@@ -73,78 +73,78 @@ gboolean set_property(const char* desc, mediapipe_t* mp)
             ppty_type = json_object_get_type(ppty);
 
             switch (ppty_type) {
-                case json_type_string:
-                    ppty_valuestring = json_object_get_string(ppty);
+            case json_type_string:
+                ppty_valuestring = json_object_get_string(ppty);
 
-                    if (strcmp(ppty_name, "caps")) {
-                        if (!strchr(ppty_valuestring, '/')) {
-                            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name, ppty_valuestring,
-                                                   NULL);
-                        } else {
-                            int a, b;
-
-                            if (sscanf(ppty_valuestring, "%d/%d", &a, &b)) {
-                                MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name, a, b, NULL);
-                            }
-                        }
+                if (strcmp(ppty_name, "caps")) {
+                    if (!strchr(ppty_valuestring, '/')) {
+                        MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name, ppty_valuestring,
+                            NULL);
                     } else {
-                        GstCaps* caps = gst_caps_from_string(ppty_valuestring);
-                        MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "caps", caps, NULL);
-                        gst_caps_unref(caps);
+                        int a, b;
+
+                        if (sscanf(ppty_valuestring, "%d/%d", &a, &b)) {
+                            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name, a, b, NULL);
+                        }
                     }
-
-                    if (!ret) {
-                        g_print("Set element: %s %s=%s\n", element_name, ppty_name, ppty_valuestring);
-                    }
-
-                    break;
-
-                case json_type_int:
-                    MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name,
-                                           json_object_get_int(ppty), NULL);
-
-                    if (!ret) {
-                        g_print("Set element: %s %s=%d\n", element_name, ppty_name,
-                                json_object_get_int(ppty));
-                    }
-
-                    break;
-
-                case json_type_double:
-                    MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name,
-                                           json_object_get_double(ppty), NULL);
-
-                    if (!ret) {
-                        g_print("Set element: %s %s=%f\n", element_name, ppty_name,
-                                json_object_get_double(ppty));
-                    }
-
-                    break;
-
-                case json_type_array: {
-                    unsigned int l = json_object_array_length(ppty);
-                    unsigned int j;
-                    struct json_object* jv;
-                    GValueArray* array = g_value_array_new(1); //for scaling list
-                    GValue v = {
-                            0,
-                    };
-                    g_value_init(&v, G_TYPE_UCHAR);
-
-                    for (j = 0; j < l; ++j) {
-                        jv = json_object_array_get_idx(ppty, j);
-                        g_value_set_uchar(&v, json_object_get_int(jv));
-                        g_value_array_append(array, &v);
-                    }
-
-                    MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name, array, NULL);
-                    g_value_array_free(array);
-                    break;
+                } else {
+                    GstCaps* caps = gst_caps_from_string(ppty_valuestring);
+                    MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "caps", caps, NULL);
+                    gst_caps_unref(caps);
                 }
 
-                default:
-                    g_print("Unkown property type!\n");
-                    break;
+                if (!ret) {
+                    g_print("Set element: %s %s=%s\n", element_name, ppty_name, ppty_valuestring);
+                }
+
+                break;
+
+            case json_type_int:
+                MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name,
+                    json_object_get_int(ppty), NULL);
+
+                if (!ret) {
+                    g_print("Set element: %s %s=%d\n", element_name, ppty_name,
+                        json_object_get_int(ppty));
+                }
+
+                break;
+
+            case json_type_double:
+                MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name,
+                    json_object_get_double(ppty), NULL);
+
+                if (!ret) {
+                    g_print("Set element: %s %s=%f\n", element_name, ppty_name,
+                        json_object_get_double(ppty));
+                }
+
+                break;
+
+            case json_type_array: {
+                unsigned int l = json_object_array_length(ppty);
+                unsigned int j;
+                struct json_object* jv;
+                GValueArray* array = g_value_array_new(1); //for scaling list
+                GValue v = {
+                    0,
+                };
+                g_value_init(&v, G_TYPE_UCHAR);
+
+                for (j = 0; j < l; ++j) {
+                    jv = json_object_array_get_idx(ppty, j);
+                    g_value_set_uchar(&v, json_object_get_int(jv));
+                    g_value_array_append(array, &v);
+                }
+
+                MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, ppty_name, array, NULL);
+                g_value_array_free(array);
+                break;
+            }
+
+            default:
+                g_print("Unkown property type!\n");
+                break;
             }
 
             json_object_iter_next(&iter);
@@ -154,7 +154,6 @@ gboolean set_property(const char* desc, mediapipe_t* mp)
 
     return TRUE;
 }
-
 }
 
 namespace hddl {
@@ -164,7 +163,8 @@ public:
     Impl(Pipeline* parent)
         : m_mp(nullptr)
         , m_pipe(*parent)
-    {}
+    {
+    }
 
     ~Impl() {}
 
@@ -173,6 +173,7 @@ public:
         m_mp = g_new0(mediapipe_t, 1);
         if (!m_mp)
             return PipelineStatus::ERROR;
+        m_mp->xlink_channel_id = m_pipe.m_id;
         auto ret = mediapipe_init_from_string(config.c_str(), launch.c_str(), m_mp);
         if (ret == FALSE)
             return PipelineStatus::INVALID_PARAMETER;
@@ -218,8 +219,7 @@ public:
     }
 
 private:
-    mediapipe_t*    m_mp;
-    Pipeline&       m_pipe;
+    mediapipe_t* m_mp;
+    Pipeline& m_pipe;
 };
-
 }

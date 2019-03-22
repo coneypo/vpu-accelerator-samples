@@ -129,6 +129,7 @@ mediapipe_hddl_t* hddl_mediapipe_setup(const char* server_uri, int pipe_id)
     mediapipe_hddl_t* hp_cast = (mediapipe_hddl_t*)hp;
 
     hp->hp.pipe_id = pipe_id;
+    hp->hp.mp.xlink_channel_id = pipe_id;
     hp->is_running = FALSE;
     hp->is_mp_created = FALSE;
 

@@ -1,5 +1,9 @@
 #include "XLinkConnector.h"
 
+/* Not really used in xlink simulator, place holder for now */
+const uint32_t DATA_FRAGMENT_SIZE = 8192;
+const uint32_t TIMEOUT = 0;
+
 namespace hddl {
 
 XLinkConnector::XLinkConnector()
@@ -15,15 +19,22 @@ int XLinkConnector::init(PipelineManager& pipeMgr)
     if (status != X_LINK_SUCCESS)
         return -1;
 
+    m_handler.deviceType = PCIE_DEVICE;
+
+    OperationMode_t operationType = RXB_TXB;
+
+    if (XLinkOpenChannel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
+        return -1;
+
     m_init = true;
     return 0;
 }
 
 void XLinkConnector::uninit()
 {
+    XLinkCloseChannel(&m_handler, m_commChannel);
     m_init = false;
     m_pipeManager = nullptr;
-    XLinkUninitialize();
 }
 
 void XLinkConnector::stop()
@@ -33,39 +44,68 @@ void XLinkConnector::stop()
 
 void XLinkConnector::run()
 {
-    channelId_t channelId = -1;
-    streamPacketDesc_t packetDesc;
-    streamPacketDesc_t* packet = &packetDesc;
+    uint8_t* message = nullptr;
+    uint32_t size = 0;
 
     while (m_init) {
-        auto status = XLinkReadDataARM(&channelId, &packet);
+        auto status = XLinkReadData(&m_handler, m_commChannel, &message, &size);
         if (status != X_LINK_SUCCESS)
             continue;
 
-        std::string response = generateResponse(packet);
+        std::string response = generateResponse(message, size);
 
-        status = XLinkReleaseDataARM(channelId);
+        status = XLinkReleaseData(&m_handler, m_commChannel, message);
         if (status != X_LINK_SUCCESS)
             continue;
 
         if (!response.empty()) {
-            status = XLinkWriteDataARM(channelId, (const uint8_t*)response.c_str(), response.length());
+            status = XLinkWriteData(&m_handler, m_commChannel, (const uint8_t*)response.c_str(), response.length());
             if (status != X_LINK_SUCCESS)
                 continue;
         }
     }
 }
 
-std::string XLinkConnector::generateResponse(streamPacketDesc_t* packet)
+channelId_t XLinkConnector::openXLinkChannel()
+{
+    std::lock_guard<std::mutex> lock(m_channelMutex);
+
+    channelId_t channelId = 0x401;
+    for (auto& it : m_channelSet) {
+        if (it > channelId)
+            break;
+        channelId++;
+    }
+
+    OperationMode_t operationType = RXB_TXB;
+
+    if (XLinkOpenChannel(&m_handler, channelId, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
+        return 0;
+
+    m_channelSet.insert(channelId);
+    return channelId;
+}
+
+void XLinkConnector::closeXLinkChannel(channelId_t channelId)
+{
+    std::lock_guard<std::mutex> lock(m_channelMutex);
+
+    XLinkCloseChannel(&m_handler, channelId);
+
+    m_channelSet.erase(channelId);
+}
+
+std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t size)
 {
     std::string rsp;
     HalMsgRequest request;
     HalMsgResponse response;
 
-    if (!request.ParseFromArray(packet->data, packet->length))
+    if (!request.ParseFromArray(message, size))
         return rsp;
 
     response.set_req_seq_no(request.req_seq_no());
+    response.set_pipeline_id(request.pipeline_id());
     response.set_ret_code(RC_ERROR);
 
     switch (request.req_type()) {
@@ -99,11 +139,19 @@ std::string XLinkConnector::generateResponse(streamPacketDesc_t* packet)
 
 void XLinkConnector::handleCreate(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto status = m_pipeManager->addPipeline(request.pipeline_id(),
-        request.create().launch_data(), request.create().config_data());
+    auto channelId = static_cast<int>(openXLinkChannel());
 
+    if (channelId != 0) {
+        auto status = m_pipeManager->addPipeline(channelId,
+            request.create().launch_data(), request.create().config_data());
+
+        response.set_ret_code(mapStatus(status));
+    } else {
+        response.set_ret_code(RC_XLINK_ERROR);
+    }
+
+    response.set_pipeline_id(channelId);
     response.set_rsp_type(CREATE_PIPELINE_RESPONSE);
-    response.set_ret_code(mapStatus(status));
 }
 
 void XLinkConnector::handleDestroy(HalMsgRequest& request, HalMsgResponse& response)
@@ -112,6 +160,8 @@ void XLinkConnector::handleDestroy(HalMsgRequest& request, HalMsgResponse& respo
 
     response.set_rsp_type(DESTROY_PIPELINE_RESPONSE);
     response.set_ret_code(mapStatus(status));
+
+    closeXLinkChannel(static_cast<channelId_t>(request.pipeline_id()));
 }
 
 void XLinkConnector::handleModify(HalMsgRequest& request, HalMsgResponse& response)
@@ -184,5 +234,4 @@ HalRetCode XLinkConnector::mapStatus(PipelineStatus status)
 
     return rc;
 }
-
 }

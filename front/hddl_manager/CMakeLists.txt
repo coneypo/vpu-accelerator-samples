@@ -1,4 +1,4 @@
-find_package(XLinkFake REQUIRED)
+find_package(XLink REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Protobuf REQUIRED)
 
@@ -33,4 +33,4 @@ target_compile_options(hddl_manager PRIVATE -std=c++11 -Wall -pthread)
 target_include_directories(hddl_manager PRIVATE
         $<BUILD_INTERFACE:${PROTOBUF_INCLUDE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
-target_link_libraries(hddl_manager pthread XLinkFake::xlinkfake_arm ${Boost_LIBRARIES} ${PROTOBUF_LITE_LIBRARY})
+target_link_libraries(hddl_manager pthread XLink::XLinkARM ${Boost_LIBRARIES} ${PROTOBUF_LITE_LIBRARY})
