@@ -44,6 +44,8 @@ public:
         });
 
         m_ipcClient = m_ipc.getIpcClient(m_pipe.m_id, 10);
+        m_ipcClient->setIpcClient(&m_pipe);
+
         if (!m_ipcClient)
             return PipelineStatus::COMM_TIMEOUT;
 

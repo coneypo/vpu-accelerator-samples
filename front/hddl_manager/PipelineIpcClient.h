@@ -10,6 +10,7 @@
 
 #include "PipelineStatus.h"
 #include "hddl_message.pb.h"
+#include "Pipeline.h"
 
 namespace hddl {
 
@@ -25,6 +26,7 @@ public:
     PipelineIpcClient& operator=(const PipelineIpcClient&) = delete;
 
     void readResponse();
+    void setIpcClient(Pipeline* pipeline) { m_pipe = pipeline; }
 
     PipelineStatus create(std::string launch, std::string config);
     PipelineStatus modify(std::string config);
@@ -61,6 +63,7 @@ private:
     uint64_t m_seq_no;
     int m_pipeId;
     int m_timeout;
+    Pipeline* m_pipe;
 };
 }
 

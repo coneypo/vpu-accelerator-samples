@@ -31,6 +31,8 @@ struct probe_context_s {
     GstClockTime        timestamp;
 };
 
+typedef void(*message_callback_t)(mediapipe_t* mp, GstMessage *msg);
+
 struct mediapipe_s {
     MEDIAPIPE_STATE     state;
     GMainLoop           *loop;
@@ -44,6 +46,8 @@ struct mediapipe_s {
     void                **module_ctx;
 
     int                 xlink_channel_id;
+    message_callback_t  message_callback;
+    void                *private_data;
 };
 
 void

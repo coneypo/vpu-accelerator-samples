@@ -12,6 +12,16 @@ namespace hddl {
 
 class Pipeline {
 public:
+    enum class MPState : int {
+        NONEXIST,
+        CREATED,
+        PLAYING,
+        PAUSED,
+        STOPPED,
+        RUNTIME_ERROR,
+        PIPELINE_EOS
+    };
+
     Pipeline(int pipeId);
     ~Pipeline();
 
@@ -25,15 +35,9 @@ public:
     PipelineStatus stop();
     PipelineStatus pause();
 
-private:
-    enum class MPState : int {
-        NONEXIST,
-        CREATED,
-        PLAYING,
-        PAUSED,
-        STOPPED
-    };
+    void setState(MPState state);
 
+private:
     // Using enum class in set/map directly is not allowed in C++11, this 'Hash' won't be necessary in C++14.
     struct Hash {
         template <typename T>
@@ -56,7 +60,6 @@ private:
     PipelineStatus isNotInStates(StateSet notAllowedStates, PipelineStatus defaultErrorStatus = PipelineStatus::SUCCESS);
 
     PipelineStatus stateToStatus(MPState state);
-    void setState(MPState state);
 
     int m_id;
     std::mutex m_mutex;

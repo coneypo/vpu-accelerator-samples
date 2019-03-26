@@ -221,6 +221,8 @@ static gboolean
 bus_callback(GstBus *bus, GstMessage *msg, gpointer data)
 {
     mediapipe_t *mp = (mediapipe_t *) data;
+    if (mp->message_callback)
+        mp->message_callback(mp, msg);
 
     switch (GST_MESSAGE_TYPE(msg)) {
     case GST_MESSAGE_ERROR: {

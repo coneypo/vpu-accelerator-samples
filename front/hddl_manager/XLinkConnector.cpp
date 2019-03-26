@@ -204,6 +204,12 @@ HalRetCode XLinkConnector::mapStatus(PipelineStatus status)
     case PipelineStatus::SUCCESS:
         rc = RC_SUCCESS;
         break;
+    case PipelineStatus::PIPELINE_EOS:
+        rc = RC_PIPELINE_EOS;
+        break;
+    case PipelineStatus::RUNTIME_ERROR:
+        rc = RC_RUNTIME_ERROR;
+        break;
     case PipelineStatus::ERROR:
         rc = RC_ERROR;
         break;

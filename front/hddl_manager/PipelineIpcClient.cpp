@@ -10,6 +10,7 @@ PipelineIpcClient::PipelineIpcClient(int pipeId, Socket socket)
     , m_seq_no(0)
     , m_pipeId(pipeId)
     , m_timeout(6000)
+    , m_pipe()
 {
 }
 
@@ -53,6 +54,18 @@ void PipelineIpcClient::handleResponse(std::unique_ptr<MsgResponse> response)
         auto request = fetchRequestBySeqNo(response->req_seq_no());
         if (request)
             onResponseReceived(request, std::move(response));
+        break;
+    }
+    case METADATA_EVENT: {
+        //TODO::send_matadata()
+        break;
+    }
+    case EOS_EVENT: {
+        m_pipe->setState(Pipeline::MPState::PIPELINE_EOS);
+        break;
+    }
+    case ERROR_EVENT: {
+        m_pipe->setState(Pipeline::MPState::RUNTIME_ERROR);
         break;
     }
     default:

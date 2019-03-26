@@ -120,11 +120,28 @@ static void message_callback(void* private_data, void* data, int len)
     }
 }
 
+static void pipeline_callback(mediapipe_t* mp, GstMessage* msg)
+{
+    mediapipe_hddl_impl_t* hp = (mediapipe_hddl_impl_t*)mp;
+    if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS) {
+        if (!send_eos(hp)) {
+            LOG_ERROR("failed to send EOS event to manager\n");
+        }
+    }
+    if ((GST_MESSAGE_TYPE(msg)) == GST_MESSAGE_ERROR) {
+        if (!send_error(hp)) {
+            LOG_ERROR("failed to send ERROR event to manager\n");
+        }
+    }
+}
+
 mediapipe_hddl_t* hddl_mediapipe_setup(const char* server_uri, int pipe_id)
 {
     mediapipe_hddl_impl_t* hp = g_new0(mediapipe_hddl_impl_t, 1);
     if (!hp)
         return NULL;
+
+    hp->hp.mp.message_callback = (message_callback_t)pipeline_callback;
 
     mediapipe_hddl_t* hp_cast = (mediapipe_hddl_t*)hp;
 

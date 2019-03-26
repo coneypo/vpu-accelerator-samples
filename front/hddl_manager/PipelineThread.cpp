@@ -174,6 +174,10 @@ public:
         if (!m_mp)
             return PipelineStatus::ERROR;
         m_mp->xlink_channel_id = m_pipe.m_id;
+
+        m_mp->private_data = &m_pipe;
+        m_mp->message_callback = (message_callback_t)(&Pipeline::Impl::pipeline_callback);
+
         auto ret = mediapipe_init_from_string(config.c_str(), launch.c_str(), m_mp);
         if (ret == FALSE)
             return PipelineStatus::INVALID_PARAMETER;
@@ -220,6 +224,16 @@ public:
     }
 
 private:
+    static void pipeline_callback(mediapipe_t* mp, GstMessage* msg)
+    {
+        auto pipe = (Pipeline*)mp->private_data;
+        if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS) {
+            pipe->setState(MPState::PIPELINE_EOS);
+        } else if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
+            pipe->setState(MPState::RUNTIME_ERROR);
+        }
+    }
+
     mediapipe_t* m_mp;
     Pipeline& m_pipe;
 };

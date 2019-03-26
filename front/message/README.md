@@ -8,6 +8,8 @@ The mediapipe, at any given time, will be at one of these states:
 - PLAYING
 - PAUSED
 - STOPPED
+- ERROR
+- EOS
 
 ## 2 Pipeline Message Definitions
 
@@ -72,7 +74,7 @@ Each request message is of one of the `MsgReqType`. The `req_seq_no` is an uniqu
 |||
 |---|---|
 | Description | Manager sends this message to mediapipe to destroy pipeline. |
-| Allowed mediapipe state | CREATED, PLAYING, PAUSED, STOPPED |
+| Allowed mediapipe state | CREATED, PLAYING, PAUSED, STOPPED, ERROR, EOS |
 | Next mediapipe state | NONEXIST |
 
 #### 2.1.3 ModifyPipelineRequest
@@ -104,7 +106,7 @@ Each request message is of one of the `MsgReqType`. The `req_seq_no` is an uniqu
 |||
 |---|---|
 | Description | Manager sends this message to mediapipe to stop pipeline. |
-| Allowed mediapipe state | PLAYING, PAUSED |
+| Allowed mediapipe state | PLAYING, PAUSED, ERROR, EOS |
 | Next mediapipe state | STOPPED |
 
 ### 2.2 Response/Event messages (mediapipe -> manager)
@@ -128,6 +130,8 @@ message MsgResponse {
 
         RegisterEvent           register = 20;
         MetadataEvent           metadata = 21;
+        EosEvent                eos = 22;
+        ErrorEvent              error = 23;
     }
 }
 
@@ -141,6 +145,8 @@ enum MsgRspType {
 
     REGISTER_EVENT = 10;
     METADATA_EVENT = 11;
+    EOS_EVENT = 12;
+    ERROR_EVENT = 13;
 }
 ```
 

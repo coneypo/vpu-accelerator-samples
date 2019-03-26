@@ -41,6 +41,26 @@ extern "C" {
 gboolean send_register(mediapipe_hddl_impl_t* hp);
 
 /**
+ * @Synopsis  send eos message.
+ *
+ * @Param hp        hddl_mediapipe
+ *
+ * @Returns TRUE  - if response is sent;
+ *          FALSE - failed to sent response.
+ */
+gboolean send_eos(mediapipe_hddl_impl_t* hp);
+
+/**
+ * @Synopsis  send error message.
+ *
+ * @Param hp        hddl_mediapipe
+ *
+ * @Returns TRUE  - if response is sent;
+ *          FALSE - failed to sent response.
+ */
+gboolean send_error(mediapipe_hddl_impl_t* hp);
+
+/**
  * @Synopsis  send metadata message.
  *
  * @Param hp        hddl_mediapipe

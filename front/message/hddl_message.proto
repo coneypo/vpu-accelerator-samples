@@ -23,6 +23,8 @@ enum MsgRspType {
 
     REGISTER_EVENT = 10;
     METADATA_EVENT = 11;
+    EOS_EVENT = 12;
+    ERROR_EVENT = 13;
 }
 
 message CreatePipelineRequest {
@@ -71,6 +73,11 @@ message MetadataEvent {
     optional string metadata = 1;
 }
 
+message EosEvent {
+}
+
+message ErrorEvent {
+}
 
 message MsgBase {
     optional uint64 send_time = 1;
@@ -110,5 +117,7 @@ message MsgResponse {
 
         RegisterEvent           register = 20;
         MetadataEvent           metadata = 21;
+        EosEvent                eos = 22;
+        ErrorEvent              error = 23;
     }
 }

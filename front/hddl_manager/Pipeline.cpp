@@ -39,6 +39,10 @@ PipelineStatus Pipeline::stateToStatus(Pipeline::MPState state)
         return PipelineStatus::NOT_PLAYING;
     case MPState::STOPPED:
         return PipelineStatus::STOPPED;
+    case MPState::PIPELINE_EOS:
+        return PipelineStatus::PIPELINE_EOS;
+    case MPState::RUNTIME_ERROR:
+        return PipelineStatus::RUNTIME_ERROR;
     default:
         return PipelineStatus::ERROR;
     }
@@ -50,7 +54,7 @@ PipelineStatus Pipeline::isInStates(Pipeline::StateSet allowedStates, PipelineSt
     auto state = m_state;
     if (allowedStates.find(state) != allowedStates.end())
         return PipelineStatus::SUCCESS;
-    if (state != MPState::NONEXIST && defaultErrorStatus != PipelineStatus::SUCCESS)
+    if (state != MPState::NONEXIST && state != MPState::PIPELINE_EOS && state != MPState::RUNTIME_ERROR && defaultErrorStatus != PipelineStatus::SUCCESS)
         return defaultErrorStatus;
     return stateToStatus(state);
 }
@@ -61,7 +65,7 @@ PipelineStatus Pipeline::isNotInStates(Pipeline::StateSet notAllowedStates, Pipe
     auto state = m_state;
     if (notAllowedStates.find(state) == notAllowedStates.end())
         return PipelineStatus::SUCCESS;
-    if (state != MPState::NONEXIST && defaultErrorStatus != PipelineStatus::SUCCESS)
+    if (state != MPState::NONEXIST && state != MPState::PIPELINE_EOS && state != MPState::RUNTIME_ERROR && defaultErrorStatus != PipelineStatus::SUCCESS)
         return defaultErrorStatus;
     return stateToStatus(state);
 }
@@ -87,7 +91,7 @@ PipelineStatus Pipeline::create(std::string launch, std::string config)
 
 PipelineStatus Pipeline::modify(std::string config)
 {
-    ERROR_RET(isNotInStates({ MPState::NONEXIST, MPState::STOPPED }));
+    ERROR_RET(isNotInStates({ MPState::NONEXIST, MPState::STOPPED , MPState::PIPELINE_EOS, MPState::RUNTIME_ERROR }));
 
     return m_impl->modify(std::move(config));
 }
@@ -120,15 +124,20 @@ PipelineStatus Pipeline::play()
 
 PipelineStatus Pipeline::stop()
 {
-    ERROR_RET(isInStates({ MPState::PLAYING, MPState::PAUSED }, PipelineStatus::NOT_PLAYING));
+    ERROR_RET(isInStates({ MPState::PLAYING, MPState::PAUSED, MPState::RUNTIME_ERROR, MPState::PIPELINE_EOS }, PipelineStatus::NOT_PLAYING));
+
+    auto tmp = m_state;
 
     auto sts = m_impl->stop();
-    if (sts != PipelineStatus::SUCCESS)
+    if (sts < PipelineStatus::SUCCESS)
         return sts;
 
     setState(MPState::STOPPED);
 
-    return PipelineStatus::SUCCESS;
+    if (tmp == MPState::PIPELINE_EOS || tmp == MPState::RUNTIME_ERROR)
+        return stateToStatus(tmp);
+    else
+        return PipelineStatus::SUCCESS;
 }
 
 PipelineStatus Pipeline::pause()

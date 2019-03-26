@@ -5,6 +5,8 @@ namespace hddl {
 
 enum class PipelineStatus : int {
     SUCCESS = 0,
+    PIPELINE_EOS = 1,
+    RUNTIME_ERROR = 2,
     ERROR = -1,
     COMM_TIMEOUT = -2,
     INVALID_PARAMETER = -3,

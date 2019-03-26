@@ -6,6 +6,8 @@ package hddl;
 
 enum HalRetCode {
     RC_SUCCESS = 0;
+    RC_PIPELINE_EOS = 1;
+    RC_RUNTIME_ERROR = 2;
     RC_ERROR = -1;
     RC_COMM_TIMEOUT = -2;
     RC_INVALID_PARAMETER = -3;

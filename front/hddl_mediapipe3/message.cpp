@@ -260,9 +260,6 @@ static gboolean handle(mediapipe_hddl_impl_t* hp, MsgRequest& request, MsgRespon
         if (hp->is_running) {
             mediapipe_stop(&hp->hp.mp);
             hp->is_running = FALSE;
-        } else {
-            response.set_ret_code(1);
-            ret = FALSE;
         }
         break;
     default:
@@ -279,6 +276,26 @@ gboolean send_register(mediapipe_hddl_impl_t* hp)
 {
     MsgResponse msg;
     msg.set_rsp_type(REGISTER_EVENT);
+    msg.set_pipeline_id(hp->hp.pipe_id);
+
+    send_response(hp, msg);
+    return TRUE;
+}
+
+gboolean send_eos(mediapipe_hddl_impl_t* hp)
+{
+    MsgResponse msg;
+    msg.set_rsp_type(EOS_EVENT);
+    msg.set_pipeline_id(hp->hp.pipe_id);
+
+    send_response(hp, msg);
+    return TRUE;
+}
+
+gboolean send_error(mediapipe_hddl_impl_t* hp)
+{
+    MsgResponse msg;
+    msg.set_rsp_type(ERROR_EVENT);
     msg.set_pipeline_id(hp->hp.pipe_id);
 
     send_response(hp, msg);

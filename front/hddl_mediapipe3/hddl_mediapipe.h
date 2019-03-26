@@ -37,7 +37,6 @@ typedef struct mediapipe_hddl_s {
     int             pipe_id;
 } mediapipe_hddl_t;
 
-
 mediapipe_hddl_t* hddl_mediapipe_setup(const char* server_uri, int pipe_id);
 void hddl_mediapipe_run(mediapipe_hddl_t* hp);
 void hddl_mediapipe_destroy(mediapipe_hddl_t* hp);
