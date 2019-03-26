@@ -47,6 +47,8 @@ public:
         if (!m_ipcClient)
             return PipelineStatus::COMM_TIMEOUT;
 
+        m_ipcClient->readResponse();
+
         auto sts = m_ipcClient->create(std::move(launch), std::move(config));
         if (sts != PipelineStatus::SUCCESS)
             return sts;
