@@ -6,7 +6,8 @@ mediapipe_library_build(NAME mediapipe2_lib MODULES element rtsp changeformat on
 include_directories(${CMAKE_SOURCE_DIR}/front/ipc_mediapipe)
 
 #add_executable(mediapipe2 ${SRCS} ${HDRS})
-add_executable(mediapipe2 main.c)
+
+add_executable(mediapipe2 ./main.c)
 target_link_libraries(mediapipe2 mediapipe2_lib pthread)
 
 #set FOLDER for subdir install
@@ -36,4 +37,8 @@ configure_file(./labels/pedestrian_attributes.txt  ${CMAKE_CURRENT_BINARY_DIR}/l
 configure_file(./labels/vehicle_types.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_types.txt COPYONLY)
 configure_file(./labels/vehicle_colors.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_colors.txt COPYONLY)
 
-add_subdirectory(demo)
+set(BUILD_IPC_DEMO "NO" CACHE STRING "whether build ipc_demo")
+if(${BUILD_IPC_DEMO} STREQUAL YES)
+        add_subdirectory(demo)
+endif()
+

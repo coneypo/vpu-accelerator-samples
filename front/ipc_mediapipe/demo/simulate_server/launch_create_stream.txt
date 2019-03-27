@@ -1,0 +1,4 @@
+videotestsrc num-buffers=500 ! video/x-raw, width=1920, height=1080 ! vaapih264enc !
+h264parse name=proc_src !
+video/x-h264,stream-format=byte-stream,alignment=au !
+fakesink

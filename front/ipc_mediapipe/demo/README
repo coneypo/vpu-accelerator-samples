@@ -1,0 +1,18 @@
+  mkdir build
+  cmake -DBUILD_APP=ipc -DBUILD_IPC_DEMO=YES  -DCMAKE_BUILD_TYPE=Debug ..
+  make
+
+  usage
+
+  cd build/front/ipc_mediapipe/demo/multi_client/
+  ./multi_client -l launch_test_stream.txt -c config_test_stream.json
+  this program will read data from xlink , parse  and decode it, crop the image
+  and encode into jpeg, at last the app will package jpeg and meta ,then write back to
+  xlink
+
+  cd build/front/ipc_mediapipe/demo/simulate_server
+  ./simulate_server -l launch_create_stream.txt -c config_create_stream.json
+  this program will create package 264 stream and write to xlink, and launch a
+  thread to read data from xlink
+
+  if ererything is ok, simulate_serve will print the size that it read
