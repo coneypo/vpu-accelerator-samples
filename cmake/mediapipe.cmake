@@ -78,8 +78,15 @@ function(mediapipe_library_build)
     list(APPEND SRC_LIST ${modulecfile})
 
     # set some module compiled by CXX
-    set_source_files_properties(${BASE_MODULES_PATH}/mp_crop.c ${BASE_MODULES_PATH}/mp_mix.c ${BASE_MODULES_PATH}/mp_mix2.c ${BASE_MODULES_PATH}/mp_metadata.c PROPERTIES LANGUAGE CXX)
-    set_source_files_properties(${BASE_MODULES_PATH}/mp_openvino.c PROPERTIES LANGUAGE CXX)
+    set_source_files_properties(
+        ${BASE_MODULES_PATH}/mp_crop.c
+        ${BASE_MODULES_PATH}/mp_crop_va.c
+        ${BASE_MODULES_PATH}/mp_mix.c
+        ${BASE_MODULES_PATH}/mp_mix2.c
+        ${BASE_MODULES_PATH}/mp_metadata.c
+        ${BASE_MODULES_PATH}/mp_openvino.c
+        PROPERTIES LANGUAGE CXX
+    )
 
     add_library(${MEDIAPIPE_NAME} STATIC ${SRC_LIST})
 
@@ -100,16 +107,16 @@ function(mediapipe_library_build)
     target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/meta)
     target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/utils)
 
-    target_link_libraries(${MEDIAPIPE_NAME} ${JSON-C_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${GLIB_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${GLIB_GOBJECT_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${GSTREAMER_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${GSTREAMER_BASE_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${GSTREAMER_APP_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${GSTREAMER_VIDEO_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${GSTREAMER_RTSPSERVER_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${CAIRO_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${LIBPANGO_LIBRARIES})
-    target_link_libraries(${MEDIAPIPE_NAME} ${LIBPANGO_CAIRO_LIBRARY})
-    target_link_libraries(${MEDIAPIPE_NAME} ${ADDON_MODULES_DEP_LIBS})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${JSON-C_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GLIB_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GLIB_GOBJECT_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_BASE_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_APP_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_VIDEO_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_RTSPSERVER_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${CAIRO_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${LIBPANGO_LIBRARIES})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${LIBPANGO_CAIRO_LIBRARY})
+    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${ADDON_MODULES_DEP_LIBS})
 endfunction()
