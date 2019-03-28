@@ -1,5 +1,6 @@
 #include <gst/app/app.h>
 #include <thread>
+#include <vector>
 
 #include "XLink.h"
 #include "mediapipe_com.h"
@@ -7,7 +8,7 @@
 struct XLinkWriterContext {
 public:
     XLinkWriterContext()
-        : header(nullptr)
+        : frameIndex(0)
         , headerSize(0)
         , numObject(1)
         , channelId(0x400)
@@ -19,8 +20,9 @@ public:
     }
 
 public:
-    uint8_t* header;
+    guint32 frameIndex;
     uint32_t headerSize;
+    std::vector<uint8_t> package;
     guint8 numObject;
     channelId_t channelId;
     OperationMode_t opMode;
@@ -42,7 +44,7 @@ static mp_command_t mp_xlinkwriter_commands[] = {
 static mp_module_ctx_t mp_xlinkwriter_module_ctx = {
     mp_string("xlinkwriter"),
     create_context,
-    NULL,
+    nullptr,
     destroy_context
 };
 
@@ -51,13 +53,13 @@ mp_module_t mp_xlinkwriter_module = {
     &mp_xlinkwriter_module_ctx,    /* module context */
     mp_xlinkwriter_commands,       /* module directives */
     MP_CORE_MODULE,                /* module type */
-    NULL,                          /* init master */
-    NULL,                          /* init module */
-    NULL,                          /* keyshot_process*/
-    NULL,                          /* message_process */
+    nullptr,                       /* init master */
+    nullptr,                       /* init module */
+    nullptr,                       /* keyshot_process*/
+    nullptr,                       /* message_process */
     init_callback,                 /* init_callback */
-    NULL,                          /* netcommand_process */
-    NULL,                          /* exit master */
+    nullptr,                       /* netcommand_process */
+    nullptr,                       /* exit master */
     MP_MODULE_V1_PADDING
 };
 
@@ -93,29 +95,31 @@ typedef struct {
     Position height;
 } ObjectBorder;
 
-static void init_package_head(XLinkWriterContext* ctx)
+static void init_package(XLinkWriterContext* ctx)
 {
     if (!ctx) {
         return;
     }
 
     ctx->headerSize = sizeof(Header) + sizeof(Metadata) + ctx->numObject * sizeof(ObjectBorder);
-    ctx->header = new uint8_t[ctx->headerSize];
+    ctx->package.resize(ctx->headerSize, 0);
 
-    auto header = reinterpret_cast<Header*>(ctx->header);
+    auto pData = ctx->package.data();
+
+    auto header = reinterpret_cast<Header*>(pData);
     header->magic = 0xA;
     header->version = 1;
     header->meta_size = ctx->headerSize - sizeof(Header);
     header->package_size = ctx->headerSize;
 
-    auto metaData = reinterpret_cast<Metadata*>(ctx->header + sizeof(Header));
+    auto metaData = reinterpret_cast<Metadata*>(pData + sizeof(Header));
     metaData->version = 1;
     metaData->packet_type = 1;
     metaData->stream_id = 1;
     metaData->of_objects = ctx->numObject;
     metaData->frame_number = 0;
 
-    auto border = reinterpret_cast<ObjectBorder*>(ctx->header + sizeof(Header) + sizeof(Metadata));
+    auto border = reinterpret_cast<ObjectBorder*>(pData + sizeof(Header) + sizeof(Metadata));
     for (int i = 0; i < ctx->numObject; ++i) {
         border->top.u = 50;
         border->left.u = 50;
@@ -124,22 +128,20 @@ static void init_package_head(XLinkWriterContext* ctx)
     }
 }
 
-static void deinit_package_header(XLinkWriterContext* ctx)
+static void copy_to_package(XLinkWriterContext* ctx, const uint8_t* data, const gsize bufferSize)
 {
-    if (ctx && ctx->header) {
-        delete[] ctx->header;
-        ctx->header = nullptr;
-        ctx->headerSize = 0;
-    }
-}
+    auto totalSize = ctx->headerSize + bufferSize;
+    ctx->package.resize(totalSize);
 
-static void update_package_header(XLinkWriterContext* ctx, gsize bufferSize)
-{
-    auto header = reinterpret_cast<Header*>(ctx->header);
-    header->package_size = ctx->headerSize + bufferSize;
+    auto pData = ctx->package.data();
 
-    auto metaData = reinterpret_cast<Metadata*>(ctx->header + sizeof(Header));
-    ++metaData->frame_number;
+    auto header = reinterpret_cast<Header*>(pData);
+    header->package_size = totalSize;
+
+    auto metaData = reinterpret_cast<Metadata*>(pData + sizeof(Header));
+    metaData->frame_number = ctx->frameIndex++;
+
+    memcpy(pData + ctx->headerSize, data, bufferSize);
 }
 
 static void read_xlink_routine(XLinkWriterContext* ctx)
@@ -169,8 +171,6 @@ static void read_xlink_routine(XLinkWriterContext* ctx)
 
 void* create_context(mediapipe_t* mp)
 {
-    printf("create_context\n");
-
     auto ctx = new XLinkWriterContext();
 
     auto status = XLinkInitialize(&ctx->ghandler);
@@ -220,7 +220,7 @@ void* create_context(mediapipe_t* mp)
 
     LOG_DEBUG("XLinkOpenChannel success");
 
-    init_package_head(ctx);
+    init_package(ctx);
 
     ctx->xlinkreader = std::thread(read_xlink_routine, ctx);
 
@@ -243,45 +243,26 @@ void destroy_context(void* context)
         ctx->xlinkreader.join();
     }
 
-    deinit_package_header(ctx);
-
     delete ctx;
 }
 
-static gboolean process_data(XLinkWriterContext* ctx, uint8_t* data, gsize size)
+static gboolean process_data(XLinkWriterContext* ctx, const uint8_t* data, const gsize size)
 {
-    update_package_header(ctx, size);
+    copy_to_package(ctx, data, size);
 
     auto handler = &ctx->handler;
     auto channelId = ctx->channelId;
+    auto& package = ctx->package;
 
-    auto status = XLinkWriteData(handler, channelId, ctx->header, ctx->headerSize);
+    auto status = XLinkWriteData(handler, channelId, package.data(), package.size());
     if (status != X_LINK_SUCCESS) {
         LOG_ERROR("xlinkwriter: XLinkWriteData failed, status=%d", status);
         return FALSE;
     }
 
-    gsize offset = 0;
-    gsize fragmentSize = XLinkWriterContext::fragmentSize;
+    LOG_DEBUG("XLinkWriteData success, frameIndex-%u frameSize=%lu", ctx->frameIndex-1, package.size());
 
-    while (offset + fragmentSize <= size) {
-        auto status = XLinkWriteData(handler, channelId, data + offset, fragmentSize);
-        if (status != X_LINK_SUCCESS) {
-            LOG_ERROR("xlinkwriter: XLinkWriteData failed, status=%d", status);
-            return FALSE;
-        }
-        offset += fragmentSize;
-    }
-
-    if (offset < size) {
-        auto status = XLinkWriteData(handler, channelId, data + offset, size - offset);
-        if (status != X_LINK_SUCCESS) {
-            LOG_ERROR("xlinkwriter: XLinkWriteData failed, status=%d", status);
-            return FALSE;
-        }
-    }
-
-    return true;
+    return TRUE;
 }
 
 static gboolean
