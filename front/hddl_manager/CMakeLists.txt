@@ -34,3 +34,8 @@ target_include_directories(hddl_manager PRIVATE
         $<BUILD_INTERFACE:${PROTOBUF_INCLUDE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
 target_link_libraries(hddl_manager pthread XLink::XLinkARM ${Boost_LIBRARIES} ${PROTOBUF_LITE_LIBRARY})
+
+install(TARGETS hddl_manager
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib)
