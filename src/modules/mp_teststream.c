@@ -8,7 +8,6 @@
 typedef struct {
     GstElement *decode_appsrc;
     GstElement *xlink_appsink;
-    GstElement *gva_appsrc;
     GstElement *decode_pipeline;
     GstElement *xlink_pipeline;
     char data_head[1024];
@@ -280,34 +279,6 @@ vaapih264decode_src_callback(GstPad *pad, GstPadProbeInfo *info,
 
 /* --------------------------------------------------------------------------*/
 /**
- * @Synopsis videoconvert src callback to pushbufer to mp->pipeline
- *
- * @Param pad
- * @Param info
- * @Param user_data
- *
- * @Returns
- */
-/* ----------------------------------------------------------------------------*/
-static GstPadProbeReturn Videoconvert_src_callback(GstPad *pad,
-        GstPadProbeInfo *info,
-        gpointer user_data)
-{
-    GstCaps *caps = NULL;
-    GstElement *appsrc = NULL;
-    GstBuffer *buffer = NULL;
-    g_assert(user_data != NULL);
-    caps = gst_pad_get_current_caps(pad);
-    appsrc = (GstElement *)user_data;
-    g_object_set(appsrc, "caps", caps, NULL);
-    gst_caps_unref(caps);
-    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
-    g_signal_emit_by_name(appsrc, "push-buffer", buffer, NULL);
-    return GST_PAD_PROBE_OK;
-}
-
-/* --------------------------------------------------------------------------*/
-/**
  * @Synopsis  recursion progress all data in the buffer, get meta data, spilt or merge
  *            data into a whole frame data. and then push data to decode pipeline
  *
@@ -487,13 +458,8 @@ init_module(mediapipe_t *mp)
     GstStateChangeReturn ret =  GST_STATE_CHANGE_SUCCESS;
     stream_ctx_t *ctx = (stream_ctx_t *)mp_modules_find_moudle_ctx(mp,
                         "teststream");
+    ctx->decode_pipeline = mp->pipeline;
     //create branch pipeline
-    ctx->decode_pipeline =
-        mediapipe_branch_create_pipeline("appsrc name=mysrc ! video/x-h264,\
-                width=1920,height=1088,stream-format=byte-stream,alignment=au, \
-                profile=(string)constrained-baseline, framerate=(fraction)0/1 ! \
-                vaapih264dec name=my264dec ! videoconvert name=myconvert ! \
-                video/x-raw, format=BGRA ! fakesink");
     ctx->xlink_pipeline =
         mediapipe_branch_create_pipeline("xlinksrc ! appsink name=sink");
     if (ctx->decode_pipeline == NULL || ctx->xlink_pipeline == NULL) {
@@ -504,16 +470,13 @@ init_module(mediapipe_t *mp)
     ctx->decode_appsrc = gst_bin_get_by_name(GST_BIN(ctx->decode_pipeline),
                          "mysrc");
     ctx->xlink_appsink = gst_bin_get_by_name(GST_BIN(ctx->xlink_pipeline), "sink");
-    ctx->gva_appsrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src12");
     //record and set
     g_object_set(G_OBJECT(ctx->decode_appsrc),
                  "stream-type", 0,
                  "format", GST_FORMAT_TIME, NULL);
     g_signal_connect(ctx->decode_appsrc, "need-data", G_CALLBACK(decode_need_data),
                      ctx);
-    g_object_set(G_OBJECT(ctx->gva_appsrc),
-                 "stream-type", 0,
-                 "format", GST_FORMAT_TIME, NULL);
+
     //Add callback to vaapih264dec
     h264decode = gst_bin_get_by_name(GST_BIN(ctx->decode_pipeline), "my264dec");
     if (h264decode == NULL) {
@@ -528,23 +491,7 @@ init_module(mediapipe_t *mp)
         gst_object_unref(h264srcpad);
     }
     gst_object_unref(h264decode);
-    //Add callback to videoconvert
-    Videoconvert = gst_bin_get_by_name(GST_BIN(ctx->decode_pipeline),
-                                       "myconvert");
-    if (Videoconvert == NULL) {
-        LOG_ERROR("can't find element myconvert");
-        return MP_ERROR;
-    }
-    convertpad = gst_element_get_static_pad(Videoconvert, "src");
-    if (convertpad == NULL) {
-        LOG_ERROR("can't find pad convert src pad");
-        return MP_ERROR;
-    }
-    gst_pad_add_probe(convertpad, GST_PAD_PROBE_TYPE_BUFFER,
-                      Videoconvert_src_callback, ctx->gva_appsrc,
-                      NULL);
-    gst_object_unref(convertpad);
-    gst_object_unref(Videoconvert);
+
     //run pipeline
     ret = gst_element_set_state(ctx->decode_pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
@@ -582,15 +529,11 @@ destroy_ctx(void *_ctx)
     if (ctx->decode_appsrc) {
         gst_object_unref(ctx->decode_appsrc);
     };
-    if (ctx->gva_appsrc) {
-        gst_object_unref(ctx->gva_appsrc);
-    };
+
     if (ctx->xlink_appsink) {
         gst_object_unref(ctx->xlink_pipeline);
     };
-    if (ctx->decode_pipeline) {
-        gst_object_unref(ctx->decode_pipeline);
-    };
+
     if (ctx->xlink_pipeline) {
         gst_object_unref(ctx->xlink_pipeline);
     };

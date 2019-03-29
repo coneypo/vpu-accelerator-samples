@@ -1,4 +1,8 @@
-appsrc name=src12 !
+appsrc name=mysrc !
+video/x-h264, width=1920,height=1088,stream-format=byte-stream,alignment=au, profile=(string)constrained-baseline, framerate=(fraction)0/1 !
+vaapih264dec name=my264dec !
+videoconvert name=myconvert !
+video/x-raw, format=BGRA !
 queue max-size-buffers=1 leaky=2 !
 gvaclassify
 model=/opt/intel/computer_vision_sdk/deployment_tools/intel_models/person-attributes-recognition-crossroad-0200/FP32/person-attributes-recognition-crossroad-0200.xml name=detect !
