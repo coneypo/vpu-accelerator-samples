@@ -142,6 +142,8 @@ static void copy_to_package(XLinkWriterContext* ctx, const uint8_t* data, const 
     metaData->frame_number = ctx->frameIndex++;
 
     memcpy(pData + ctx->headerSize, data, bufferSize);
+
+    LOG_DEBUG("[id:%u] %02X %02X %02X %02X", metaData->frame_number, data[64], data[128], data[256], data[512]);
 }
 
 static void read_xlink_routine(XLinkWriterContext* ctx)
