@@ -85,6 +85,7 @@ function(mediapipe_library_build)
         ${BASE_MODULES_PATH}/mp_mix2.c
         ${BASE_MODULES_PATH}/mp_metadata.c
         ${BASE_MODULES_PATH}/mp_openvino.c
+        ${BASE_MODULES_PATH}/mp_teststream.c
         PROPERTIES LANGUAGE CXX
     )
 

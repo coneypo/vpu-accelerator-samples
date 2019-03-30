@@ -1,4 +1,4 @@
-appsrc name=mysrc !
+xlinksrc name=src !
 video/x-h264, width=1920,height=1088,stream-format=byte-stream,alignment=au, profile=(string)constrained-baseline, framerate=(fraction)0/1 !
 vaapih264dec name=my264dec !
 videoconvert name=myconvert !
