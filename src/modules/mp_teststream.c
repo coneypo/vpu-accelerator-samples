@@ -99,7 +99,7 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
     guint top, left, width, height;
 
     GstStructure* s = (GstStructure*)g_queue_pop_head(queue);
-    if (!gst_structure_get_uint(s, "frameId", &frameId)) {
+    if (!gst_structure_get_uint(s, "frame_number", &frameId)) {
         LOG_WARNING("unexpected GstStructure object");
         gst_structure_free(s);
         return TRUE;
@@ -137,7 +137,7 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
 
         guint frameIdNext = 0;
         s = (GstStructure*)g_queue_peek_head(queue);
-        if (!gst_structure_get_uint(s, "frameId", &frameIdNext)) {
+        if (!gst_structure_get_uint(s, "frame_number", &frameIdNext)) {
             LOG_WARNING("unexpected GstStructure object");
             break;
         }
@@ -192,9 +192,20 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
         GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
             buffer, "label", border[i].left.u, border[i].top.u, border[i].width.u, border[i].height.u);
         GstStructure* s = gst_structure_new(
-            "detection", "reserved", G_TYPE_UINT, border[i].reserved, "object_id", G_TYPE_UINT, border[i].object_id,
-            "classfication_GT", G_TYPE_UINT, border[i].classfication_GT, "frameId", G_TYPE_UINT, frameId, "left", G_TYPE_UINT, border[i].left.u,
-            "top", G_TYPE_UINT, border[i].top.u, "width", G_TYPE_UINT, border[i].width.u, "height", G_TYPE_UINT, border[i].height.u, NULL);
+            "detection",
+            "magic", G_TYPE_UINT, header->magic,
+            "version", G_TYPE_UINT, header->version,
+            "metaversion", G_TYPE_UINT, metaData->version,
+            "stream_id", G_TYPE_UINT, metaData->stream_id,
+            "frame_number", G_TYPE_UINT, metaData->frame_number,
+            "num_rois", G_TYPE_UINT, metaData->of_objects,
+            "classification_index", G_TYPE_UINT, border[i].classfication_GT,
+            "reserved", G_TYPE_UINT, border[i].reserved,
+            "object_id", G_TYPE_UINT, border[i].object_id,
+            "left", G_TYPE_UINT, border[i].left.u,
+            "top", G_TYPE_UINT, border[i].top.u,
+            "width", G_TYPE_UINT, border[i].width.u,
+            "height", G_TYPE_UINT, border[i].height.u, NULL);
         gst_video_region_of_interest_meta_add_param(meta, s);
         g_queue_push_tail(ctx->meta_queue, gst_structure_copy(s));
     }

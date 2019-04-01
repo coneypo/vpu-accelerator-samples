@@ -335,10 +335,11 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         cv::Mat frame_mat(branch_ctx->height, branch_ctx->width, CV_8UC(4),
                           map.data);               //RGBA \RGBX channels 4
         //get rectangle pointer(left top and right bottom)
+
         xmin = (int)(meta->x);
         ymin = (int)(meta->y);
         xmax = (int)(meta->x + meta->w);
-        ymax = (int)(meta->x + meta->y);
+        ymax = (int)(meta->y + meta->h);
         if (xmin < 0) {
             xmin = 0;
         }
@@ -383,6 +384,15 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
     }
 }
 
+#define PARSE_STRUCTURE(dest, key) \
+    { \
+        guint value; \
+        if (!gst_structure_get_uint(structure, key, &value)) { \
+            continue; \
+        } \
+        dest = value;\
+    }
+
 static gboolean
 push_data(gpointer user_data)
 {
@@ -408,26 +418,21 @@ push_data(gpointer user_data)
             continue ;
         }
         meta = (GstVideoRegionOfInterestMeta *)gst_meta;
-        l = meta->params;
-        structure = (GstStructure *) l->data;
-        if (!gst_structure_has_field(structure, "structure")) {
-            continue;
-        };
-        struct_tmp = gst_structure_get_value(structure, "structure");
-        params = (param_data_t *)g_value_get_pointer(struct_tmp);
-        branch_ctx->Jpeg_pag.header.magic = params->magic;
-        branch_ctx->Jpeg_pag.header.version = params->version;
-        branch_ctx->Jpeg_pag.meta.version = params->metaversion;
-        branch_ctx->Jpeg_pag.meta.stream_id = params->stream_id;
-        branch_ctx->Jpeg_pag.meta.frame_number = params->frame_number;
-        branch_ctx->Jpeg_pag.meta.num_rois = params->num_rois;
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index =
-            params->classification_index;
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index =
-            branch_ctx->roi_index + 1;
-        branch_ctx->Jpeg_pag.header.meta_size = sizeof(classification_result_t) *
-                                                params->num_rois;
-        if (branch_ctx->roi_index < params->num_rois) {
+        structure = gst_video_region_of_interest_meta_get_param(meta, "detection");
+
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.header.magic, "magic");
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.header.version, "version");
+
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.version, "metaversion");
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.stream_id, "stream_id");
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.frame_number, "frame_number");
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois");
+
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index, "classification_index");
+
+        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index = branch_ctx->roi_index + 1;
+        branch_ctx->Jpeg_pag.header.meta_size = sizeof(classification_result_t) * branch_ctx->Jpeg_pag.meta.num_rois;
+        if (branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
             crop_and_push_buffer(buffer, branch_ctx, meta);
         } else {
             //the roi info on a buffer is all processed, so pop and release
@@ -438,7 +443,6 @@ push_data(gpointer user_data)
             g_queue_pop_head(branch_ctx->queue);
             gst_buffer_unref(buffer);
         }
-        /* g_free(params);//release here */
         break;
     }
     return TRUE;
