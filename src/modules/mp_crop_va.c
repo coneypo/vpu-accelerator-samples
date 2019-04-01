@@ -218,11 +218,15 @@ typedef struct {
     GstPad *detect_pad;
     GMainContext *loop_context;
     GstElement *xlink_pipeline;
+    guint channel;
 } crop_va_ctx_t;
 
 static GstPadProbeReturn
 detect_src_callback_for_crop_jpeg(GstPad *pad, GstPadProbeInfo *info,
                                   gpointer user_data);
+
+static char *
+mp_parse_config(mediapipe_t *mp, mp_command_t *cmd);
 
 static gboolean
 push_data(gpointer user_data);
@@ -244,6 +248,14 @@ static void
 exit_master(void);
 
 static mp_command_t  mp_crop_va_commands[] = {
+   {
+        mp_string("crop_va"),
+        MP_MAIN_CONF,
+        mp_parse_config,
+        0,
+        0,
+        NULL
+    },
     mp_null_command
 };
 
@@ -365,7 +377,7 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         snprintf(caps_string, MAX_BUF_SIZE,
                  "video/x-raw,format=BGRx,width=%u,height=%u,framerate=30/1",
                  xmax - xmin, ymax - ymin);
-        g_print("caps = [%s]\n", caps_string);
+        LOG_DEBUG("caps = [%s]\n", caps_string);
         src = gst_bin_get_by_name(GST_BIN(pipeline), "mysrc");
         caps = gst_caps_from_string(caps_string);
         gst_element_set_state(src, GST_STATE_NULL);
@@ -677,6 +689,7 @@ init_module(mediapipe_t *mp)
     GstVideoInfo video_info;
     gchar caps_string[MAX_BUF_SIZE];
     GstPad *jpeg_src_pad = NULL;
+    char xlink_pipeline_str[200];
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)mp_modules_find_moudle_ctx(mp, "crop_va");
     ctx->branch_ctx = g_new0(jpeg_branch_ctx_t, 1);
@@ -688,8 +701,10 @@ init_module(mediapipe_t *mp)
         LOG_ERROR("create jpeg encode pipeline failed");
         return  MP_ERROR;
     }
+    snprintf(xlink_pipeline_str, 200,
+            "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", ctx->channel);
     ctx->xlink_pipeline =
-        mediapipe_branch_create_pipeline("appsrc name=myxlinksrc ! xlinksink");
+        mediapipe_branch_create_pipeline(xlink_pipeline_str);
     if (ctx->xlink_pipeline == NULL) {
         LOG_ERROR("create pipeline1 pipeline failed");
         return  MP_ERROR;
@@ -743,4 +758,25 @@ init_module(mediapipe_t *mp)
         return MP_ERROR;
     }
     return MP_OK;
+}
+
+static char *
+mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
+{
+
+    guint channel = 0x400;
+    GstElement  *xlinksrc = NULL;
+    struct json_object *xlinkconf = NULL;
+
+    crop_va_ctx_t *ctx = (crop_va_ctx_t *)mp_modules_find_moudle_ctx(mp,
+                        "crop_va");
+    //TODO:set xlinksrc channel property
+    if (!(json_object_object_get_ex(mp->config, "xlink",  &xlinkconf)) ||
+        !(json_get_uint(xlinkconf, "channel", &channel))) {
+        LOG_WARNING("xlinksrc: can't find channel property use default 1024 !");
+    }
+
+    ctx->channel = channel;
+
+    return MP_CONF_OK;
 }

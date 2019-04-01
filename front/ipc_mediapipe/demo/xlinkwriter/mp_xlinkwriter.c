@@ -11,7 +11,7 @@ public:
         : frameIndex(0)
         , headerSize(0)
         , numObject(3)
-        , channelId(0x400)
+        , channelId(0x401)
         , opMode(RXB_TXB)
     {
         handler.devicePath = (char*)"/tmp/xlink_mock";
