@@ -98,7 +98,12 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
     guint frameId = 0;
     guint top, left, width, height;
 
-    GstStructure* s = (GstStructure*)g_queue_pop_head(queue);
+
+    if (g_queue_is_empty(queue)) {
+        return TRUE;
+    }
+
+    GstStructure* s = (GstStructure*)g_queue_peek_head(queue);
     if (!gst_structure_get_uint(s, "frame_number", &frameId)) {
         LOG_WARNING("unexpected GstStructure object");
         gst_structure_free(s);
@@ -131,6 +136,7 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
             buffer, "label", left, top, width, height);
         gst_video_region_of_interest_meta_add_param(meta, s);
 
+        g_queue_pop_head(queue);
         if (g_queue_is_empty(queue)) {
             break;
         }

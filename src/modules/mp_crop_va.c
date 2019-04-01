@@ -433,6 +433,7 @@ push_data(gpointer user_data)
         branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index = branch_ctx->roi_index + 1;
         branch_ctx->Jpeg_pag.header.meta_size = sizeof(classification_result_t) * branch_ctx->Jpeg_pag.meta.num_rois;
         if (branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
+            LOG_DEBUG("roi_index:%d", branch_ctx->roi_index);
             crop_and_push_buffer(buffer, branch_ctx, meta);
         } else {
             //the roi info on a buffer is all processed, so pop and release

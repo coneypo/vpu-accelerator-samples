@@ -10,7 +10,7 @@ public:
     XLinkWriterContext()
         : frameIndex(0)
         , headerSize(0)
-        , numObject(1)
+        , numObject(3)
         , channelId(0x400)
         , opMode(RXB_TXB)
     {
@@ -125,6 +125,7 @@ static void init_package(XLinkWriterContext* ctx)
         border->left.u = 50;
         border->width.u = 50;
         border->height.u = 50;
+        border += 1;
     }
 }
 
