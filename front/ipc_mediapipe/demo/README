@@ -10,8 +10,7 @@
   and encode into jpeg, at last the app will package jpeg and meta ,then write back to
   xlink
 
-  cd build/front/ipc_mediapipe/demo/simulate_server
-  ./simulate_server -l launch_create_stream.txt -c config_create_stream.json
+  ./build/front/ipc_mediapipe/demo/xlinkwriter/xlinkwriter
   this program will create package 264 stream and write to xlink, and launch a
   thread to read data from xlink
 
