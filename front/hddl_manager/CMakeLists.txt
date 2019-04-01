@@ -1,4 +1,5 @@
 find_package(XLink REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Protobuf REQUIRED)
 
@@ -13,7 +14,10 @@ set(HDR XLinkConnector.h PipelineManager.h PipelineStatus.h Pipeline.h)
 option(MANAGER_THREAD "Build HDDL Manager to create mediapipe in thread" OFF)
 
 if(MANAGER_THREAD)
-    mediapipe_library_build(NAME hddl_manager_lib MODULES element openvino mix2)
+    mediapipe_library_build(NAME hddl_manager_lib MODULES element element teststream crop_va)
+    target_compile_definitions(hddl_manager_lib PRIVATE $<$<CONFIG:Debug>:DEBUG>)
+    target_include_directories(hddl_manager_lib PRIVATE ${OpenCV_INCLUDE_DIR})
+    target_link_libraries(hddl_manager_lib PRIVATE ${OpenCV_LIBRARIES})
 
     list(APPEND SRC PipelineThread.cpp)
     add_executable(hddl_manager ${SRC} ${HDR} ${PROTO_SRC} ${PROTO_HDR} ${SRC_LIST})

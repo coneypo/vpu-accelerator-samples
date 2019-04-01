@@ -148,6 +148,26 @@ handle_keyboard(GIOChannel* source, GIOCondition cond, gpointer data)
     return TRUE;
 }
 
+static void config_pipeline(mediapipe_t* mp)
+{
+    GstElement* xlinksrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src");
+    if (xlinksrc) {
+        if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "channel")) {
+            g_object_set(xlinksrc, "channel", mp->xlink_channel_id, NULL);
+        } else {
+            printf("Error: cannot find property 'channel' in xlinksrc\n");
+        }
+        if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "init-xlink")) {
+            g_object_set(xlinksrc, "init-xlink", FALSE, NULL);
+        } else {
+            printf("Error: cannot find property 'init-xlink' in xlinksrc\n");
+        }
+        gst_object_unref(xlinksrc);
+    } else {
+        printf("Error: cannot find xlinksrc\n");
+    }
+}
+
 static int setup_modules(mediapipe_t* mp)
 {
     if (mp_preinit_modules() != MP_OK) {
@@ -155,7 +175,6 @@ static int setup_modules(mediapipe_t* mp)
     }
 
     if (MP_OK != mp_create_modules(mp)) {
-
         printf("create_modules failed\n");
         return -1;
     }
@@ -164,6 +183,8 @@ static int setup_modules(mediapipe_t* mp)
         printf("modules_prase_json_config failed\n");
         return -1;
     }
+
+    config_pipeline(mp);
 
     if (MP_OK != mp_init_modules(mp)) {
         printf("modules_init_modules failed\n");

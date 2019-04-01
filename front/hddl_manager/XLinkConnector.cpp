@@ -15,11 +15,13 @@ int XLinkConnector::init(PipelineManager& pipeMgr)
 {
     m_pipeManager = &pipeMgr;
     m_ghandler.protocol = PCIE;
+    m_ghandler.profEnable = 1;
     auto status = XLinkInitialize(&m_ghandler);
     if (status != X_LINK_SUCCESS)
         return -1;
 
     m_handler.deviceType = PCIE_DEVICE;
+    m_handler.devicePath = (char*)"/tmp/xlink_mock";
 
     OperationMode_t operationType = RXB_TXB;
 

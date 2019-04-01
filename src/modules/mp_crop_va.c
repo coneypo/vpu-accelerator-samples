@@ -702,7 +702,7 @@ init_module(mediapipe_t *mp)
         return  MP_ERROR;
     }
     snprintf(xlink_pipeline_str, 200,
-            "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", ctx->channel);
+            "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", mp->xlink_channel_id);
     ctx->xlink_pipeline =
         mediapipe_branch_create_pipeline(xlink_pipeline_str);
     if (ctx->xlink_pipeline == NULL) {
