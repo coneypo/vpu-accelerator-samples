@@ -487,12 +487,22 @@ mediapipe_playing(mediapipe_t *mp)
 
     @param mp Pointer to mediapipe.
 */
-void
+gboolean
 mediapipe_pause(mediapipe_t *mp)
 {
     g_assert(mp);
-    gst_element_set_state(mp->pipeline, GST_STATE_NULL);
+
+    GstStateChangeReturn ret = gst_element_set_state(mp->pipeline, GST_STATE_PAUSED);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        return FALSE;
+    } else if (ret == GST_STATE_CHANGE_ASYNC) {
+        if (gst_element_get_state(mp->pipeline, NULL, NULL, GST_CLOCK_TIME_NONE)
+                == GST_STATE_CHANGE_FAILURE)
+            return FALSE;
+    }
+
     mp->state = STATE_READY;
+    return TRUE;
 }
 
 /* --------------------------------------------------------------------------*/

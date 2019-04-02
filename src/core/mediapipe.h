@@ -68,7 +68,7 @@ mediapipe_stop(mediapipe_t *mp);
 void
 mediapipe_playing(mediapipe_t *mp);
 
-void
+gboolean
 mediapipe_pause(mediapipe_t *mp);
 
 int

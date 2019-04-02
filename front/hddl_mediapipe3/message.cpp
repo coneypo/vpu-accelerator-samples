@@ -251,7 +251,10 @@ static gboolean handle(mediapipe_hddl_impl_t* hp, MsgRequest& request, MsgRespon
         mediapipe_playing(&hp->hp.mp);
         break;
     case PAUSE_REQUEST:
-        mediapipe_pause(&hp->hp.mp);
+        if (!mediapipe_pause(&hp->hp.mp)) {
+            response.set_ret_code(1);
+            ret = FALSE;
+        }
         break;
     case STOP_REQUEST:
         if (hp->is_running) {

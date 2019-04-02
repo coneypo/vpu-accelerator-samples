@@ -214,7 +214,8 @@ public:
 
     PipelineStatus pause()
     {
-        mediapipe_pause(m_mp);
+        if (!mediapipe_pause(m_mp))
+            return PipelineStatus::ERROR;
         return PipelineStatus::SUCCESS;
     }
 
