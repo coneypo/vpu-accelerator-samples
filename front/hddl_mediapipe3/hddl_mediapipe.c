@@ -195,13 +195,18 @@ void hddl_mediapipe_run(mediapipe_hddl_t* hp)
     hp_impl->is_running = FALSE;
 
     /*
-     * Wait for DESTROY message received
-     * If pipeline is running STOP won't reach here, it'll be sent to bus
-     * If pipeline reaches EOS STOP will reach here and send ret_code(1) for now since it's not DESTROY
+     * STOP will reach here after GST_MESSAGE_EOS/GST_MESSAGE_ERROR happened, and it'll be sent to queue;
+     * Otherwise, STOP will not reach here, and it will be sent to bus.
+     * Anyway, wait for DESTROY received in queue.
      */
-    type = DESTROY;
-    if (!wait_message_for(hp_impl, &type))
+    type = STOP;
+    if (!wait_message_for(hp_impl, &type) || type == DESTROY)
         return;
+
+    if (type == STOP) {
+        type = DESTROY;
+        wait_message_for(hp_impl, &type);
+    }
 }
 
 void hddl_mediapipe_destroy(mediapipe_hddl_t* hp)
