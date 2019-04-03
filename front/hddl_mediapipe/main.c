@@ -120,7 +120,7 @@ handle_keyboard(GIOChannel *source, GIOCondition cond, gpointer data)
             printf(" ===== 'q' : quit                                        =====\n");
             printf(" =============================================================\n");
         } else {
-            printf("Push command falid\n");
+            printf("Push command failed\n");
         }
     }
     
@@ -200,17 +200,17 @@ int main(int argc, char *argv[])
 
     if (MP_OK != mp_create_modules(&hp->mp)) {
 
-        printf("create_modules falid\n");
+        printf("create_modules failed\n");
         return -1;
     }
 
     if (MP_OK != mp_modules_prase_json_config(&hp->mp)) {
-        printf("modules_prase_json_config falid\n");
+        printf("modules_prase_json_config failed\n");
         return -1;
     }
 
     if (MP_OK != mp_init_modules(&hp->mp)) {
-        printf("modules_init_modules falid\n");
+        printf("modules_init_modules failed\n");
         return -1;
     }
 
@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
     g_io_add_watch(io_stdin, G_IO_IN, (GIOFunc)handle_keyboard, &hp->mp);
 
     if (MP_OK != mp_modules_init_callback(&hp->mp)) {
-        printf("modules_init_callback falid\n");
+        printf("modules_init_callback failed\n");
         return -1;
     }
     mediapipe_start(&hp->mp);

@@ -53,7 +53,7 @@ handle_keyboard(GIOChannel* source, GIOCondition cond, gpointer data)
             printf(" ===== 'q' : quit                                        =====\n");
             printf(" =============================================================\n");
         } else {
-            printf("Push command falid\n");
+            printf("Push command failed\n");
         }
     }
 
