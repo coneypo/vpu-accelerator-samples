@@ -25,21 +25,15 @@ typedef struct {
     guint32 frame_number;
 } Metadata;
 
-#pragma pack(push)
-#pragma pack(1)
-typedef struct {
-    unsigned u : 24;
-} Position;
-#pragma pack(pop)
-
 typedef struct {
     guint8 reserved;
     guint8 object_id;
     guint16 classfication_GT;
-    Position left;
-    Position top;
-    Position width;
-    Position height;
+    guint16 left;
+    guint16 top;
+    guint16 width;
+    guint16 height;
+    guint32 reserved2;
 } ObjectBorder;
 
 static mp_int_t
@@ -192,11 +186,11 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
     auto border = reinterpret_cast<ObjectBorder*>(pData + sizeof(Header) + sizeof(Metadata));
 
     auto frameId = metaData->frame_number;
-    auto headerSize = header->meta_size + sizeof(header);
+    auto headerSize = header->meta_size + sizeof(header) + (metaData->of_objects * sizeof(ObjectBorder));
 
     for (int i = 0; i < metaData->of_objects; i++) {
         GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
-            buffer, "label", border[i].left.u, border[i].top.u, border[i].width.u, border[i].height.u);
+            buffer, "label", border[i].left, border[i].top, border[i].width, border[i].height);
         GstStructure* s = gst_structure_new(
             "detection",
             "magic", G_TYPE_UINT, header->magic,
@@ -208,10 +202,10 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
             "classification_index", G_TYPE_UINT, border[i].classfication_GT,
             "reserved", G_TYPE_UINT, border[i].reserved,
             "object_id", G_TYPE_UINT, border[i].object_id,
-            "left", G_TYPE_UINT, border[i].left.u,
-            "top", G_TYPE_UINT, border[i].top.u,
-            "width", G_TYPE_UINT, border[i].width.u,
-            "height", G_TYPE_UINT, border[i].height.u, NULL);
+            "left", G_TYPE_UINT, border[i].left,
+            "top", G_TYPE_UINT, border[i].top,
+            "width", G_TYPE_UINT, border[i].width,
+            "height", G_TYPE_UINT, border[i].height, NULL);
         gst_video_region_of_interest_meta_add_param(meta, s);
         g_queue_push_tail(ctx->meta_queue, gst_structure_copy(s));
     }

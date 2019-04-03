@@ -14,3 +14,5 @@ target_compile_definitions(${TargetName} PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 configure_file(./launch_test_stream.txt  ${CMAKE_CURRENT_BINARY_DIR}/launch_test_stream.txt COPYONLY)
 configure_file(./config_test_stream.json  ${CMAKE_CURRENT_BINARY_DIR}/config_test_stream.json COPYONLY)
 
+configure_file(./launch_test_h265_stream.txt  ${CMAKE_CURRENT_BINARY_DIR}/launch_test_h265_stream.txt COPYONLY)
+configure_file(./config_test_h265_stream.json  ${CMAKE_CURRENT_BINARY_DIR}/config_test_h265_stream.json COPYONLY)

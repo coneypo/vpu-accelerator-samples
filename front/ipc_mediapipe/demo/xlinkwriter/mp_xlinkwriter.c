@@ -78,21 +78,15 @@ typedef struct {
     guint32 frame_number;
 } Metadata;
 
-#pragma pack(push)
-#pragma pack(1)
-typedef struct {
-    unsigned u : 24;
-} Position;
-#pragma pack(pop)
-
 typedef struct {
     guint8 reserved;
     guint8 object_id;
     guint16 classfication_GT;
-    Position left;
-    Position top;
-    Position width;
-    Position height;
+    guint16 left;
+    guint16 top;
+    guint16 width;
+    guint16 height;
+    guint32 reserved2;
 } ObjectBorder;
 
 static void init_package(XLinkWriterContext* ctx)
@@ -109,7 +103,7 @@ static void init_package(XLinkWriterContext* ctx)
     auto header = reinterpret_cast<Header*>(pData);
     header->magic = 0xA;
     header->version = 1;
-    header->meta_size = ctx->headerSize - sizeof(Header);
+    header->meta_size = 8;
     header->package_size = ctx->headerSize;
 
     auto metaData = reinterpret_cast<Metadata*>(pData + sizeof(Header));
@@ -121,10 +115,10 @@ static void init_package(XLinkWriterContext* ctx)
 
     auto border = reinterpret_cast<ObjectBorder*>(pData + sizeof(Header) + sizeof(Metadata));
     for (int i = 0; i < ctx->numObject; ++i) {
-        border->top.u = 50;
-        border->left.u = 50;
-        border->width.u = 50;
-        border->height.u = 50;
+        border->top = 50;
+        border->left = 50;
+        border->width = 50;
+        border->height = 50;
         border += 1;
     }
 }

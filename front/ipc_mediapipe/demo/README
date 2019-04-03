@@ -15,3 +15,21 @@
   thread to read data from xlink
 
   if ererything is ok, simulate_serve will print the size that it read
+
+  testh265stream usage
+
+  cd build/front/ipc_mediapipe/demo/multi_client/
+  ./multi_client -l launch_test_h265_stream.txt  -c config_test_h265_stream.json
+  this program will read data from xlink , parse  and decode it, crop the image
+  and encode into jpeg, at last the app will package jpeg and meta ,then write back to
+  xlink
+
+  Download h265 stream bin file and put the packet directory in ./build/front/ipc_mediapipe/demo/xlinkwriter/
+
+  ./build/front/ipc_mediapipe/demo/xlinkwriter/testh265stream
+  this program will create package 265 stream and write to xlink, and launch a
+  thread to read data from xlink
+
+  if ererything is ok, simulate_serve will print the size that it read
+
+
