@@ -7,7 +7,8 @@ namespace hddl {
 
 #define TOKEN(x) #x
 #define PREFIX(x) TOKEN(x)
-#define MP_PATH PREFIX(INSTALL_DIR) "/bin/hddl_mediapipe3"
+#define MP_PATH PREFIX(INSTALL_DIR) \
+"/bin/hddl_mediapipe3"
 
 class Pipeline::Impl {
 public:
@@ -16,11 +17,11 @@ public:
     {
         auto socketName = m_ipc.getSocketName();
         std::vector<std::string> argv = {
-                MP_PATH,
-                "-u",
-                socketName,
-                "-i",
-                std::to_string(m_pipe.m_id)
+            MP_PATH,
+            "-u",
+            socketName,
+            "-i",
+            std::to_string(m_pipe.m_id)
         };
         m_proc = std::unique_ptr<SubProcess>(new SubProcess(argv));
     }
@@ -105,5 +106,4 @@ private:
     PipelineIpcClient::Ptr m_ipcClient;
     Pipeline& m_pipe;
 };
-
 }

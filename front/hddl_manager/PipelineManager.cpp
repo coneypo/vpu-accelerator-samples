@@ -139,5 +139,4 @@ void PipelineManager::cleanupPipeline(int id, PipelineStatus status)
     if (status == PipelineStatus::NOT_EXIST)
         m_map.erase(id);
 }
-
 }

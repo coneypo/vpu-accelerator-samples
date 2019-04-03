@@ -16,7 +16,6 @@ enum class PipelineStatus : int {
     NOT_PLAYING = -7,
     STOPPED = -8
 };
-
 }
 
 #endif // _PIPELINESTATUS_H_

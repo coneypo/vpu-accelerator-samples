@@ -1,7 +1,7 @@
 #include "PipelineIPC.h"
 #include <arpa/inet.h>
-#include <cstdio>
 #include <chrono>
+#include <cstdio>
 #include <thread>
 
 using boost::asio::local::stream_protocol;
@@ -30,12 +30,12 @@ void PipelineIPC::createSocket(int socketId)
         m_socketName += std::to_string(socketId);
     std::remove(m_socketName.c_str());
     std::thread server = std::thread(
-            [this]() {
-                m_acceptor = std::unique_ptr<stream_protocol::acceptor>(
-                        new stream_protocol::acceptor(m_ioContext, stream_protocol::endpoint(m_socketName)));
-                accept();
-                m_ioContext.run();
-            });
+        [this]() {
+            m_acceptor = std::unique_ptr<stream_protocol::acceptor>(
+                new stream_protocol::acceptor(m_ioContext, stream_protocol::endpoint(m_socketName)));
+            accept();
+            m_ioContext.run();
+        });
     server.detach();
 }
 
@@ -43,12 +43,12 @@ void PipelineIPC::accept()
 {
     m_tempSocket.reset(new boost::asio::local::stream_protocol::socket(m_ioContext));
     m_acceptor->async_accept(
-            *m_tempSocket,
-            [this](const boost::system::error_code& ec) {
-                if (!ec)
-                    registerPipelineConnection();
-                accept();
-            });
+        *m_tempSocket,
+        [this](const boost::system::error_code& ec) {
+            if (!ec)
+                registerPipelineConnection();
+            accept();
+        });
 }
 
 void PipelineIPC::registerPipelineConnection()
@@ -65,7 +65,7 @@ void PipelineIPC::registerPipelineConnection()
     if (msg.ParseFromArray(m_buffer.data(), static_cast<int>(length)) && msg.rsp_type() == REGISTER_EVENT) {
         auto pipeId = msg.pipeline_id();
         auto ipcClient = PipelineIpcClient::Ptr(
-                new PipelineIpcClient(pipeId, std::move(m_tempSocket)));
+            new PipelineIpcClient(pipeId, std::move(m_tempSocket)));
         std::lock_guard<std::mutex> lock(m_mapMutex);
         if (m_map.find(pipeId) == m_map.end())
             m_map[pipeId] = std::promise<PipelineIpcClient::Ptr>();
@@ -96,5 +96,4 @@ void PipelineIPC::cleanupIpcClient(int pipeId)
     std::lock_guard<std::mutex> lock(m_mapMutex);
     m_map.erase(pipeId);
 }
-
 }

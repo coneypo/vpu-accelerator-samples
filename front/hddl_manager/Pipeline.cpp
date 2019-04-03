@@ -91,7 +91,7 @@ PipelineStatus Pipeline::create(std::string launch, std::string config)
 
 PipelineStatus Pipeline::modify(std::string config)
 {
-    ERROR_RET(isNotInStates({ MPState::NONEXIST, MPState::STOPPED , MPState::PIPELINE_EOS, MPState::RUNTIME_ERROR }));
+    ERROR_RET(isNotInStates({ MPState::NONEXIST, MPState::STOPPED, MPState::PIPELINE_EOS, MPState::RUNTIME_ERROR }));
 
     return m_impl->modify(std::move(config));
 }
@@ -152,5 +152,4 @@ PipelineStatus Pipeline::pause()
 
     return PipelineStatus::SUCCESS;
 }
-
 }

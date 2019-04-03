@@ -54,7 +54,6 @@ private:
     PipelineIPC& m_ipc = PipelineIPC::getInstance();
 #endif
 };
-
 }
 
 #endif // _PIPELINEMANAGER_H_

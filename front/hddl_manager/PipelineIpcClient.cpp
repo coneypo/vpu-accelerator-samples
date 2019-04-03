@@ -18,29 +18,29 @@ void PipelineIpcClient::readResponse()
 {
     std::lock_guard<std::mutex> lock(m_socketMutex);
     boost::asio::async_read(
-            *m_socket, boost::asio::buffer(&m_length, sizeof(m_length)),
-            [this](boost::system::error_code ec, std::size_t) {
-                if (!ec) {
-                    std::lock_guard<std::mutex> lock(m_socketMutex);
-                    m_buffer = {};
-                    m_length = ntohl(m_length);
-                    boost::asio::async_read(
-                            *m_socket, boost::asio::buffer(m_buffer, m_length),
-                            boost::bind(&PipelineIpcClient::parseResponse, this, _1));
-                }
-            });
+        *m_socket, boost::asio::buffer(&m_length, sizeof(m_length)),
+        [this](boost::system::error_code ec, std::size_t) {
+            if (!ec) {
+                std::lock_guard<std::mutex> lock(m_socketMutex);
+                m_buffer = {};
+                m_length = ntohl(m_length);
+                boost::asio::async_read(
+                    *m_socket, boost::asio::buffer(m_buffer, m_length),
+                    boost::bind(&PipelineIpcClient::parseResponse, this, _1));
+            }
+        });
 }
 
 void PipelineIpcClient::parseResponse(boost::system::error_code ec)
 {
-     if (!ec) {
-         std::lock_guard<std::mutex> lock(m_socketMutex);
-         auto response = std::unique_ptr<MsgResponse>(new MsgResponse);
-         if (response->ParseFromArray(m_buffer.data(), static_cast<int>(m_length)))
-             handleResponse(std::move(response));
-     }
+    if (!ec) {
+        std::lock_guard<std::mutex> lock(m_socketMutex);
+        auto response = std::unique_ptr<MsgResponse>(new MsgResponse);
+        if (response->ParseFromArray(m_buffer.data(), static_cast<int>(m_length)))
+            handleResponse(std::move(response));
+    }
 
-     readResponse();
+    readResponse();
 }
 
 void PipelineIpcClient::handleResponse(std::unique_ptr<MsgResponse> response)
@@ -77,7 +77,7 @@ std::shared_ptr<PipelineIpcClient::Request> PipelineIpcClient::fetchRequestBySeq
 {
     std::lock_guard<std::mutex> lock(m_requestSentMutex);
     auto it = find_if(m_reqSentList.begin(), m_reqSentList.end(),
-            [seqNo](const std::shared_ptr<Request>& req) { return req->reqMsg.req_seq_no() == seqNo; });
+        [seqNo](const std::shared_ptr<Request>& req) { return req->reqMsg.req_seq_no() == seqNo; });
     if (it != m_reqSentList.end()) {
         std::shared_ptr<Request> item = *it;
         m_reqSentList.erase(it);
@@ -217,5 +217,4 @@ PipelineStatus PipelineIpcClient::pause()
 
     return PipelineStatus::SUCCESS;
 }
-
 }

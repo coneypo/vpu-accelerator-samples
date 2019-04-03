@@ -4,13 +4,13 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <condition_variable>
+#include <list>
 #include <memory>
 #include <mutex>
-#include <list>
 
+#include "Pipeline.h"
 #include "PipelineStatus.h"
 #include "hddl_message.pb.h"
-#include "Pipeline.h"
 
 namespace hddl {
 
@@ -36,7 +36,7 @@ public:
     PipelineStatus pause();
 
 private:
-    struct Request{
+    struct Request {
         MsgRequest reqMsg;
         std::condition_variable responseReceived;
         std::mutex mutex;

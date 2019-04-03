@@ -1,17 +1,17 @@
 #ifndef _PIPELINEIPC_H_
 #define _PIPELINEIPC_H_
 
-#include <string>
 #include <array>
+#include <boost/asio.hpp>
+#include <future>
 #include <memory>
 #include <mutex>
-#include <future>
+#include <string>
 #include <unordered_map>
-#include <boost/asio.hpp>
 
-#include "hddl_message.pb.h"
-#include "PipelineStatus.h"
 #include "PipelineIpcClient.h"
+#include "PipelineStatus.h"
+#include "hddl_message.pb.h"
 
 namespace hddl {
 
@@ -54,7 +54,6 @@ private:
     std::mutex m_mapMutex;
     std::map<int, std::promise<PipelineIpcClient::Ptr>> m_map;
 };
-
 }
 
 #endif // _PIPELINEIPC_H_
