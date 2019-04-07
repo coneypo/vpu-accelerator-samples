@@ -7,8 +7,9 @@ namespace hddl {
 
 #define TOKEN(x) #x
 #define PREFIX(x) TOKEN(x)
-#define MP_PATH PREFIX(INSTALL_DIR) \
-"/bin/hddl_mediapipe3"
+#define MP_PATH         \
+    PREFIX(INSTALL_DIR) \
+    "/bin/hddl_mediapipe3"
 
 class Pipeline::Impl {
 public:

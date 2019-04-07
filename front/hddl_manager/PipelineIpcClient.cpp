@@ -61,11 +61,11 @@ void PipelineIpcClient::handleResponse(std::unique_ptr<MsgResponse> response)
         break;
     }
     case EOS_EVENT: {
-        m_pipe->setState(Pipeline::MPState::PIPELINE_EOS);
+        m_pipe->setState(MPState::PIPELINE_EOS);
         break;
     }
     case ERROR_EVENT: {
-        m_pipe->setState(Pipeline::MPState::RUNTIME_ERROR);
+        m_pipe->setState(MPState::RUNTIME_ERROR);
         break;
     }
     default:

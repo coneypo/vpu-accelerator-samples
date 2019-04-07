@@ -9,6 +9,7 @@
 #include <mutex>
 
 #include "Pipeline.h"
+#include "PipelineState.h"
 #include "PipelineStatus.h"
 #include "hddl_message.pb.h"
 

@@ -9,7 +9,7 @@ protobuf_generate_cpp(PROTO_SRC PROTO_HDR hal_message.proto)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRC main.cpp XLinkConnector.cpp PipelineManager.cpp Pipeline.cpp)
-set(HDR XLinkConnector.h PipelineManager.h PipelineStatus.h Pipeline.h)
+set(HDR XLinkConnector.h PipelineManager.h PipelineStatus.h Pipeline.h PipelineState.h)
 
 option(MANAGER_THREAD "Build HDDL Manager to create mediapipe in thread" OFF)
 
