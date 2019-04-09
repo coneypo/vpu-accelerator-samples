@@ -37,6 +37,11 @@ configure_file(./labels/pedestrian_attributes.txt  ${CMAKE_CURRENT_BINARY_DIR}/l
 configure_file(./labels/vehicle_types.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_types.txt COPYONLY)
 configure_file(./labels/vehicle_colors.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_colors.txt COPYONLY)
 
+set(MANAGER_THREAD "NO" CACHE STRING "whether build multi media pipeline")
+if(${MANAGER_THREAD} STREQUAL YES)
+        add_definitions(-DMANAGER_THREAD)
+endif()
+
 set(BUILD_IPC_DEMO "NO" CACHE STRING "whether build ipc_demo")
 if(${BUILD_IPC_DEMO} STREQUAL YES)
         add_subdirectory(demo)

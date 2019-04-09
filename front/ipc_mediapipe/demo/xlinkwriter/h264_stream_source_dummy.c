@@ -60,8 +60,73 @@ handle_keyboard(GIOChannel* source, GIOCondition cond, gpointer data)
     return TRUE;
 }
 
+void* mp_thread(void* data)
+{
+    guint channel =*((guint*)data);
+    if (mp_preinit_modules() != MP_OK) {
+        return NULL;
+    }
+
+    const char* launchData = "videotestsrc ! video/x-raw, width=1920, height=1080 ! "
+                             "vaapih264enc ! h264parse name=proc_src ! "
+                             "video/x-h264,stream-format=byte-stream,alignment=au ! fakesink";
+    char configData[100];
+    sprintf(configData, "{\"xlink\":{\"channel\":%d}, \"element\":[]}", channel);
+    g_print("str:%s\n", configData);
+
+    mediapipe_t* mp = g_new0(mediapipe_t, 1);
+
+    if (!mediapipe_init_from_string(configData, launchData, mp)) {
+        return NULL;
+    }
+
+    if (MP_OK != mp_create_modules(mp)) {
+        printf("create_modules failed\n");
+        mediapipe_destroy(mp);
+        return NULL;
+    }
+
+    if (MP_OK != mp_modules_prase_json_config(mp)) {
+        printf("modules_prase_json_config failed\n");
+        return NULL;
+    }
+
+    if (MP_OK != mp_init_modules(mp)) {
+        printf("modules_init_modules failed\n");
+        mediapipe_destroy(mp);
+        return NULL;
+    }
+
+    if (MP_OK != mp_modules_init_callback(mp)) {
+        printf("modules_init_callback failed\n");
+        mediapipe_destroy(mp);
+        return NULL;
+    }
+
+    mediapipe_start(mp);
+    mediapipe_destroy(mp);
+
+    return NULL;
+}
+
 int main(int argc, char* argv[])
 {
+#ifdef MANAGER_THREAD
+#define THREAD_NUM 3
+    static guint channel[THREAD_NUM];
+    for(int i=0;i<THREAD_NUM;i++){
+        channel[i] = 1025 + i;
+    }
+    static GThread* a[THREAD_NUM];
+    for(int i=0;i<THREAD_NUM;i++){
+        a[i] = g_thread_new("test", mp_thread, &channel[i]);
+    }
+    for(int i=0;i<THREAD_NUM;i++){
+        g_thread_join (a[i]);
+    }
+    return  0;
+#endif
+
     if (mp_preinit_modules() != MP_OK) {
         return MP_ERROR;
     }

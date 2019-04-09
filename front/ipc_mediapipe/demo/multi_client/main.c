@@ -61,8 +61,82 @@ handle_keyboard(GIOChannel *source, GIOCondition cond, gpointer data)
     return TRUE;
 }
 
-int main(int argc, char *argv[])
+void* mp_thread(void* data)
 {
+    guint channel =*((guint*)data);
+    if (mp_preinit_modules() != MP_OK) {
+        return NULL;
+    }
+
+    const char* launchData =
+        "xlinksrc name=src ! \
+        video/x-h264, width=1920,height=1088,stream-format=byte-stream,alignment=au, profile=(string)constrained-baseline, framerate=(fraction)0/1 ! \
+        vaapih264dec name=my264dec ! \
+        videoconvert name=myconvert ! \
+        video/x-raw, format=BGRA ! \
+        queue max-size-buffers=1 leaky=2 ! \
+        gvaclassify \
+        model=/opt/intel/computer_vision_sdk/deployment_tools/intel_models/person-attributes-recognition-crossroad-0200/FP32/person-attributes-recognition-crossroad-0200.xml name=detect ! \
+        queue ! \
+        fakesink";
+    char configData[100];
+    sprintf(configData, "{\"xlink\":{\"channel\":%u},\"element\":[{\"name\":\"src\",\"channel\":%u,\"init-xlink\":1}]}", channel, channel);
+    LOG_DEBUG("configData:%s\n", configData);
+
+    mediapipe_t* mp = g_new0(mediapipe_t, 1);
+    mp->xlink_channel_id = channel;
+
+    if (!mediapipe_init_from_string(configData, launchData, mp)) {
+        return NULL;
+    }
+
+    if (MP_OK != mp_create_modules(mp)) {
+        printf("create_modules failed\n");
+        mediapipe_destroy(mp);
+        return NULL;
+    }
+
+    if (MP_OK != mp_modules_prase_json_config(mp)) {
+        printf("modules_prase_json_config failed\n");
+        return NULL;
+    }
+
+    if (MP_OK != mp_init_modules(mp)) {
+        printf("modules_init_modules failed\n");
+        mediapipe_destroy(mp);
+        return NULL;
+    }
+
+    if (MP_OK != mp_modules_init_callback(mp)) {
+        printf("modules_init_callback failed\n");
+        mediapipe_destroy(mp);
+        return NULL;
+    }
+
+    mediapipe_start(mp);
+    mediapipe_destroy(mp);
+
+    return NULL;
+}
+
+int main(int argc, char* argv[])
+{
+#ifdef MANAGER_THREAD
+#define THREAD_NUM 3
+    static guint channel[THREAD_NUM];
+    for(int i=0;i<THREAD_NUM;i++){
+        channel[i] = 1025 + i;
+    }
+    static GThread* a[THREAD_NUM];
+    for(int i=0;i<THREAD_NUM;i++){
+        a[i] = g_thread_new("test", mp_thread, &channel[i]);
+    }
+    for(int i=0;i<THREAD_NUM;i++){
+        g_thread_join (a[i]);
+    }
+    return  0;
+#endif
+
     mediapipe_t *mp;
     GIOChannel *io_stdin;
 

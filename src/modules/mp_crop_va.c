@@ -476,10 +476,10 @@ start_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid == 0) {
 #ifdef MANAGER_THREAD
-        ctx->branch_ctx->source = g_idle_source_new();
-        g_source_set_callback(ctx->branch->source, (GSourceFunc) push_data, ctx, NULL);
-        ctx->branch_ctx->sourceid = g_source_attach(ctx->loop_context,
-                                    ctx->branch_ctx->source);
+        ctx->branch_ctx->idle_source = g_idle_source_new();
+        g_source_set_callback(ctx->branch_ctx->idle_source, (GSourceFunc) push_data, ctx, NULL);
+        ctx->branch_ctx->sourceid = g_source_attach(ctx->branch_ctx->idle_source,
+                                                    ctx->loop_context);
 #else
         ctx->branch_ctx->sourceid = g_idle_add((GSourceFunc) push_data, ctx);
 #endif
@@ -501,7 +501,7 @@ stop_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid != 0) {
 #ifdef MANAGER_THREAD
-        g_source_destroy(ctx->branch_ctx->source);
+        g_source_destroy(ctx->branch_ctx->idle_source);
 #else
         g_source_remove(ctx->branch_ctx->sourceid);
 #endif
@@ -701,8 +701,13 @@ init_module(mediapipe_t *mp)
         LOG_ERROR("create jpeg encode pipeline failed");
         return  MP_ERROR;
     }
-    snprintf(xlink_pipeline_str, 200,
-            "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", mp->xlink_channel_id);
+    if(mp->xlink_channel_id != 0){
+        snprintf(xlink_pipeline_str, 200,
+                "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", mp->xlink_channel_id);
+    }else{
+        snprintf(xlink_pipeline_str, 200,
+                "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", ctx->channel);
+    }
     ctx->xlink_pipeline =
         mediapipe_branch_create_pipeline(xlink_pipeline_str);
     if (ctx->xlink_pipeline == NULL) {

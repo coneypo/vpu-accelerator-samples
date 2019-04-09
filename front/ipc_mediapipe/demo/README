@@ -32,4 +32,11 @@
 
   if ererything is ok, simulate_serve will print the size that it read
 
+  when test multi thread mediapipe
+  cmake -DBUILD_APP=ipc -DBUILD_IPC_DEMO=YES  -DCMAKE_BUILD_TYPE=Debug  -DMANAGER_THREAD=YES ..
+  make
+  cd build/front/ipc_mediapipe/demo/multi_client/
+  ./multi_client
 
+  cd ./build/front/ipc_mediapipe/demo/xlinkwriter/
+  ./xlinkwriter

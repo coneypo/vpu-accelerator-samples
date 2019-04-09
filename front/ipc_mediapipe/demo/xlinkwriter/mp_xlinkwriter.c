@@ -35,9 +35,19 @@ public:
 static mp_int_t init_callback(mediapipe_t* mp);
 static void* create_context(mediapipe_t* mp);
 static void destroy_context(void* context);
+static mp_int_t init_module(mediapipe_t *mp);
+static char *
+mp_parse_config(mediapipe_t *mp, mp_command_t *cmd);
 
 static mp_command_t mp_xlinkwriter_commands[] = {
-    mp_custom_command0("xlinkwriter"),
+    {
+        mp_string("xlinkwriter"),
+        MP_MAIN_CONF,
+        mp_parse_config,
+        0,
+        0,
+        NULL
+    },
     mp_null_command
 };
 
@@ -54,7 +64,7 @@ mp_module_t mp_xlinkwriter_module = {
     mp_xlinkwriter_commands,       /* module directives */
     MP_CORE_MODULE,                /* module type */
     nullptr,                       /* init master */
-    nullptr,                       /* init module */
+    init_module,                       /* init module */
     nullptr,                       /* keyshot_process*/
     nullptr,                       /* message_process */
     init_callback,                 /* init_callback */
@@ -156,7 +166,7 @@ static void read_xlink_routine(XLinkWriterContext* ctx)
             return;
         }
 
-        LOG_DEBUG("XLinkReadData success, readBytes=%u", msg_size);
+        LOG_DEBUG("XLinkReadData success,channel:%d, readBytes=%u",channelId, msg_size);
 
         status = XLinkReleaseData(handler, channelId, message);
         if (status != X_LINK_SUCCESS) {
@@ -169,58 +179,6 @@ static void read_xlink_routine(XLinkWriterContext* ctx)
 void* create_context(mediapipe_t* mp)
 {
     auto ctx = new XLinkWriterContext();
-
-    auto status = XLinkInitialize(&ctx->ghandler);
-    if (status != X_LINK_SUCCESS) {
-        LOG_ERROR("XLinkInitialize failed, status=%d", status);
-        delete ctx;
-        return nullptr;
-    }
-
-    LOG_DEBUG("XLinkInitialize success");
-
-    auto handler = &ctx->handler;
-    auto channelId = ctx->channelId;
-
-    status = XLinkBootRemote(handler, DEFAULT_NOMINAL_MAX);
-    if (status != X_LINK_SUCCESS) {
-        LOG_ERROR("XLinkBootRemote failed, status=%d", status);
-        delete ctx;
-        return nullptr;
-    }
-
-    LOG_DEBUG("XLinkBootRemote success");
-
-    status = XLinkConnect(handler);
-    if (status != X_LINK_SUCCESS) {
-        LOG_ERROR("XLinkConnect failed, status=%d", status);
-        delete ctx;
-        return nullptr;
-    }
-
-    LOG_DEBUG("XLinkConnect success");
-
-    for (int i = 0; i < 16; ++i) {
-        status = XLinkOpenChannel(handler, channelId, ctx->opMode, XLinkWriterContext::fragmentSize, 0);
-        if (status == X_LINK_SUCCESS) {
-            break;
-        } else {
-            LOG_ERROR("%dth XLinkOpenChannel failed, status=%d", i, status);
-        }
-    }
-
-    if (status != X_LINK_SUCCESS) {
-        LOG_ERROR("XLinkOpenChannel failed, status=%d", status);
-        delete ctx;
-        return nullptr;
-    }
-
-    LOG_DEBUG("XLinkOpenChannel success");
-
-    init_package(ctx);
-
-    ctx->xlinkreader = std::thread(read_xlink_routine, ctx);
-
     return ctx;
 }
 
@@ -290,4 +248,94 @@ static mp_int_t init_callback(mediapipe_t* mp)
     mediapipe_set_user_callback(mp, "proc_src", "src", proc_src_callback, ctx);
 
     return MP_OK;
+}
+
+static char *
+mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
+{
+
+    guint channel = 0x400;
+    GstElement  *xlinksrc = NULL;
+    struct json_object *xlinkconf = NULL;
+
+    auto ctx = reinterpret_cast<XLinkWriterContext*>(mp_modules_find_moudle_ctx(mp, "xlinkwriter"));
+    if (!ctx) {
+        LOG_ERROR("xlinkwriter: find module context failed");
+    }
+
+    //TODO:set xlinksrc channel property
+    if (!(json_object_object_get_ex(mp->config, "xlink",  &xlinkconf)) ||
+        !(json_get_uint(xlinkconf, "channel", &channel))) {
+        LOG_WARNING("xlinksrc: can't find channel property use default 1024 !");
+    }
+
+    ctx->channelId = channel;
+
+    return MP_CONF_OK;
+}
+
+static mp_int_t init_module(mediapipe_t *mp)
+{
+
+    XLinkError_t status;
+    auto ctx = reinterpret_cast<XLinkWriterContext*>(mp_modules_find_moudle_ctx(mp, "xlinkwriter"));
+    if (!ctx) {
+        LOG_ERROR("xlinkwriter: find module context failed");
+    }
+    auto handler = &ctx->handler;
+    auto channelId = ctx->channelId;
+    static volatile gsize init = 0;
+    if (g_once_init_enter(&init)) {
+        gsize setup_init;
+        status = XLinkInitialize(&ctx->ghandler);
+        if (status != X_LINK_SUCCESS) {
+            LOG_ERROR("XLinkInitialize failed, status=%d", status);
+            delete ctx;
+            return MP_ERROR;
+        }
+
+        LOG_DEBUG("XLinkInitialize success");
+
+
+        status = XLinkBootRemote(handler, DEFAULT_NOMINAL_MAX);
+        if (status != X_LINK_SUCCESS) {
+            LOG_ERROR("XLinkBootRemote failed, status=%d", status);
+            delete ctx;
+            return MP_ERROR;
+        }
+
+        LOG_DEBUG("XLinkBootRemote success");
+
+        status = XLinkConnect(handler);
+        if (status != X_LINK_SUCCESS) {
+            LOG_ERROR("XLinkConnect failed, status=%d", status);
+            delete ctx;
+            return MP_ERROR;
+        }
+
+        setup_init = 1;
+        g_once_init_leave(&init, setup_init);
+    }
+    LOG_DEBUG("XLinkConnect success");
+
+    for (int i = 0; i < 16; ++i) {
+        status = XLinkOpenChannel(handler, channelId, ctx->opMode, XLinkWriterContext::fragmentSize, 0);
+        if (status == X_LINK_SUCCESS) {
+            break;
+        } else {
+            LOG_ERROR("%dth XLinkOpenChannel failed, status=%d", i, status);
+        }
+    }
+
+    if (status != X_LINK_SUCCESS) {
+        LOG_ERROR("XLinkOpenChannel failed, status=%d", status);
+        delete ctx;
+        return MP_ERROR;
+    }
+
+    LOG_DEBUG("XLinkOpenChannel success");
+
+    init_package(ctx);
+
+    ctx->xlinkreader = std::thread(read_xlink_routine, ctx);
 }
