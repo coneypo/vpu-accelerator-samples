@@ -14,7 +14,9 @@ enum class PipelineStatus : int {
     ALREADY_CREATED = -5,
     ALREADY_STARTED = -6,
     NOT_PLAYING = -7,
-    STOPPED = -8
+    STOPPED = -8,
+    INVALID_DST_PATH = -9,
+    FILE_ALREADY_EXIST = -10
 };
 }
 

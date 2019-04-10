@@ -51,6 +51,8 @@ private:
     void handlePlay(HalMsgRequest& request, HalMsgResponse& response);
     void handlePause(HalMsgRequest& request, HalMsgResponse& response);
     void handleStop(HalMsgRequest& request, HalMsgResponse& response);
+    void handleLoadFile(HalMsgRequest& request, HalMsgResponse& response);
+    void handleUnloadFile(HalMsgRequest& request, HalMsgResponse& response);
 
     channelId_t openXLinkChannel();
     void closeXLinkChannel(channelId_t channelId);

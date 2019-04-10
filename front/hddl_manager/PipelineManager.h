@@ -17,6 +17,12 @@ namespace hddl {
 
 class PipelineManager {
 public:
+    enum class LoadFileType : uint8_t {
+        CREATE = 0,
+        OVERWRITE = 1,
+        APPEND = 2
+    };
+
     PipelineManager(const PipelineManager&) = delete;
     PipelineManager& operator=(const PipelineManager&) = delete;
 
@@ -33,6 +39,9 @@ public:
     PipelineStatus stopPipeline(int id);
     PipelineStatus pausePipeline(int id);
 
+    PipelineStatus loadFile(const std::string& data, const std::string& dstPath, uint64_t fileMode, LoadFileType flag);
+    PipelineStatus unloadFile(const std::string& filePath);
+
     static PipelineManager& getInstance()
     {
         static PipelineManager instance;
@@ -45,6 +54,9 @@ private:
 
     std::shared_ptr<Pipeline> getPipeline(int id);
     void cleanupPipeline(int id, PipelineStatus status);
+    bool exist(const char* path);
+    bool exist(const std::string& path);
+    bool changeFileMode(const char* file, int mode);
 
     using Map = std::unordered_map<int, std::shared_ptr<Pipeline>>;
     std::mutex m_mapMutex;

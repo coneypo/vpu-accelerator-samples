@@ -124,6 +124,12 @@ std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t si
     case PAUSE_PIPELINE_REQUEST:
         handlePause(request, response);
         break;
+    case LOAD_FILE_REQUEST:
+        handleLoadFile(request, response);
+        break;
+    case UNLOAD_FILE_REQUEST:
+        handleUnloadFile(request, response);
+        break;
     default:
         response.set_ret_code(RC_ERROR);
         break;
@@ -194,6 +200,21 @@ void XLinkConnector::handlePause(HalMsgRequest& request, HalMsgResponse& respons
     response.set_ret_code(mapStatus(status));
 }
 
+void XLinkConnector::handleLoadFile(hddl::HalMsgRequest& request, hddl::HalMsgResponse& response)
+{
+    auto status = m_pipeManager->loadFile(request.load_file().src_data(), request.load_file().dst_path(), request.load_file().file_mode(),
+        static_cast<PipelineManager::LoadFileType>(request.load_file().flag()));
+    response.set_rsp_type(LOAD_FILE_RESPONSE);
+    response.set_ret_code(mapStatus(status));
+}
+
+void XLinkConnector::handleUnloadFile(hddl::HalMsgRequest& request, hddl::HalMsgResponse& response)
+{
+    auto status = m_pipeManager->unloadFile(request.unload_file().file_path());
+    response.set_rsp_type(UNLOAD_FILE_RESPONSE);
+    response.set_ret_code(mapStatus(status));
+}
+
 HalRetCode XLinkConnector::mapStatus(PipelineStatus status)
 {
     HalRetCode rc;
@@ -230,6 +251,12 @@ HalRetCode XLinkConnector::mapStatus(PipelineStatus status)
         break;
     case PipelineStatus::STOPPED:
         rc = RC_STOPPED;
+        break;
+    case PipelineStatus::INVALID_DST_PATH:
+        rc = RC_INVALID_DST_PATH;
+        break;
+    case PipelineStatus::FILE_ALREADY_EXIST:
+        rc = RC_FILE_ALREADY_EXIST;
         break;
     default:
         rc = RC_ERROR;

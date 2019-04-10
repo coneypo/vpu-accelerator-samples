@@ -16,7 +16,9 @@ enum HalRetCode {
     RC_ALREADY_STARTED = -6;
     RC_NOT_PLAYING = -7;
     RC_STOPPED = -8;
-    RC_XLINK_ERROR = -9;
+    RC_INVALID_DST_PATH = -9;
+    RC_FILE_ALREADY_EXIST = -10;
+    RC_XLINK_ERROR = -11;
 }
 
 enum HalMsgReqType {
@@ -26,6 +28,8 @@ enum HalMsgReqType {
     PLAY_PIPELINE_REQUEST = 3;
     PAUSE_PIPELINE_REQUEST = 4;
     STOP_PIPELINE_REQUEST = 5;
+    LOAD_FILE_REQUEST = 6;
+    UNLOAD_FILE_REQUEST = 7;
 }
 
 enum HalMsgRspType {
@@ -35,81 +39,131 @@ enum HalMsgRspType {
     PLAY_PIPELINE_RESPONSE = 3;
     PAUSE_PIPELINE_RESPONSE = 4;
     STOP_PIPELINE_RESPONSE = 5;
+    LOAD_FILE_RESPONSE = 6;
+    UNLOAD_FILE_RESPONSE = 7;
 }
 
-message HalCreatePipelineRequest {
+enum HalLoadFileType {
+    CREATE_FILE = 0;
+    OVERWRITE_FILE = 1;
+    APPEND_FILE = 2;
+}
+
+message HalCreatePipelineRequest
+{
     optional string launch_data = 1;
     optional string config_data = 2;
 }
 
-message HalCreatePipelineResponse {
+message HalCreatePipelineResponse
+{
 }
 
-message HalDestroyPipelineRequest {
+message HalDestroyPipelineRequest
+{
 }
 
-message HalDestroyPipelineResponse {
+message HalDestroyPipelineResponse
+{
 }
 
-message HalModifyPipelineRequest {
+message HalModifyPipelineRequest
+{
     optional string config_data = 1;
 }
 
-message HalModifyPipelineResponse {
+message HalModifyPipelineResponse
+{
 }
 
-message HalPlayPipelineRequest {
+message HalPlayPipelineRequest
+{
 }
 
-message HalPlayPipelineResponse {
+message HalPlayPipelineResponse
+{
 }
 
-message HalPausePipelineRequest {
+message HalPausePipelineRequest
+{
 }
 
-message HalPausePipelineResponse {
+message HalPausePipelineResponse
+{
 }
 
-message HalStopPipelineRequest {
+message HalStopPipelineRequest
+{
 }
 
-message HalStopPipelineResponse {
+message HalStopPipelineResponse
+{
 }
 
-message HalMsgBase {
+message HalLoadFileRequest
+{
+    optional string src_data = 1;
+    optional string dst_path = 2;
+    optional uint64 file_mode = 3;
+    optional HalLoadFileType flag = 4;
+}
+
+message HalLoadFileResponse
+{
+}
+
+message HalUnloadFileRequest
+{
+    optional string file_path = 1;
+}
+
+message HalUnloadFileResponse
+{
+}
+
+message HalMsgBase
+{
     optional uint64 send_time = 1;
     optional uint64 receive_time = 2;
 }
 
-message HalMsgRequest {
-    optional HalMsgBase        base = 1;
-    optional HalMsgReqType     req_type = 2;
-    optional uint64            req_seq_no = 3;
-    optional int32             pipeline_id = 4;
+message HalMsgRequest
+{
+    optional HalMsgBase base = 1;
+    optional HalMsgReqType req_type = 2;
+    optional uint64 req_seq_no = 3;
+    optional int32 pipeline_id = 4;
 
-    oneof msg {
-        HalCreatePipelineRequest  create = 10;
+    oneof msg
+    {
+        HalCreatePipelineRequest create = 10;
         HalDestroyPipelineRequest destroy = 11;
-        HalModifyPipelineRequest  modify = 12;
-        HalPlayPipelineRequest    play = 13;
-        HalPausePipelineRequest   pause = 14;
-        HalStopPipelineRequest    stop = 15;
+        HalModifyPipelineRequest modify = 12;
+        HalPlayPipelineRequest play = 13;
+        HalPausePipelineRequest pause = 14;
+        HalStopPipelineRequest stop = 15;
+        HalLoadFileRequest load_file = 30;
+        HalUnloadFileRequest unload_file = 31;
     }
 }
 
-message HalMsgResponse {
-    optional HalMsgBase         base = 1;
-    optional HalMsgRspType      rsp_type = 2;
-    optional uint64             req_seq_no = 3;
-    optional HalRetCode         ret_code = 4;
-    optional int32              pipeline_id = 5;
+message HalMsgResponse
+{
+    optional HalMsgBase base = 1;
+    optional HalMsgRspType rsp_type = 2;
+    optional uint64 req_seq_no = 3;
+    optional HalRetCode ret_code = 4;
+    optional int32 pipeline_id = 5;
 
-    oneof msg {
-        HalCreatePipelineResponse  create = 10;
+    oneof msg
+    {
+        HalCreatePipelineResponse create = 10;
         HalDestroyPipelineResponse destroy = 11;
-        HalModifyPipelineResponse  modify = 12;
-        HalPlayPipelineResponse    play = 13;
-        HalPausePipelineResponse   pause = 14;
-        HalStopPipelineResponse    stop = 15;
+        HalModifyPipelineResponse modify = 12;
+        HalPlayPipelineResponse play = 13;
+        HalPausePipelineResponse pause = 14;
+        HalStopPipelineResponse stop = 15;
+        HalLoadFileResponse load_file = 30;
+        HalUnloadFileResponse unload_file = 31;
     }
 }

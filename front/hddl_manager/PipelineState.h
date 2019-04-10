@@ -27,6 +27,5 @@ enum class MPState : int {
 };
 
 extern const std::map<std::pair<ReqType, MPState>, PipelineStatus> stateMap;
-
 }
 #endif //_PIPELINESTATE_H_
