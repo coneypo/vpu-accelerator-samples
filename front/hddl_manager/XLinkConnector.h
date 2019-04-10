@@ -29,8 +29,6 @@ public:
      */
     void run();
 
-    void stop();
-
     static XLinkConnector& getInstance()
     {
         static XLinkConnector instance;

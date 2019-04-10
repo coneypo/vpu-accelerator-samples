@@ -39,11 +39,6 @@ void XLinkConnector::uninit()
     m_pipeManager = nullptr;
 }
 
-void XLinkConnector::stop()
-{
-    m_init = false;
-}
-
 void XLinkConnector::run()
 {
     uint8_t* message = nullptr;
