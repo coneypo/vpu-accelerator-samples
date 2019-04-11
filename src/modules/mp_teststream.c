@@ -78,6 +78,12 @@ mp_module_t
         MP_MODULE_V1_PADDING
       };
 
+static void free_first_structure(GQueue* queue)
+{
+    gpointer first = g_queue_pop_head(queue);
+    gst_structure_free(reinterpret_cast<GstStructure*>(first));
+}
+
 static gboolean
 myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
 {
@@ -100,29 +106,29 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
     GstStructure* s = (GstStructure*)g_queue_peek_head(queue);
     if (!gst_structure_get_uint(s, "frame_number", &frameId)) {
         LOG_WARNING("unexpected GstStructure object");
-        gst_structure_free(s);
+        free_first_structure(queue);
         return TRUE;
     }
 
     while (TRUE) {
         if (!gst_structure_get_uint(s, "left", &left)) {
             LOG_WARNING("unexpected GstStructure object");
-            gst_structure_free(s);
+            free_first_structure(queue);
             break;
         }
         if (!gst_structure_get_uint(s, "top", &top)) {
             LOG_WARNING("unexpected GstStructure object");
-            gst_structure_free(s);
+            free_first_structure(queue);
             break;
         }
         if (!gst_structure_get_uint(s, "width", &width)) {
             LOG_WARNING("unexpected GstStructure object");
-            gst_structure_free(s);
+            free_first_structure(queue);
             break;
         }
         if (!gst_structure_get_uint(s, "height", &height)) {
             LOG_WARNING("unexpected GstStructure object");
-            gst_structure_free(s);
+            free_first_structure(queue);
             break;
         }
 
@@ -139,6 +145,7 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
         s = (GstStructure*)g_queue_peek_head(queue);
         if (!gst_structure_get_uint(s, "frame_number", &frameIdNext)) {
             LOG_WARNING("unexpected GstStructure object");
+            free_first_structure(queue);
             break;
         }
 
@@ -189,8 +196,8 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
     auto headerSize = header->meta_size + sizeof(header) + (metaData->of_objects * sizeof(ObjectBorder));
 
     for (int i = 0; i < metaData->of_objects; i++) {
-        GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
-            buffer, "label", border[i].left, border[i].top, border[i].width, border[i].height);
+        //GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
+        //   buffer, "label", border[i].left, border[i].top, border[i].width, border[i].height);
         GstStructure* s = gst_structure_new(
             "detection",
             "magic", G_TYPE_UINT, header->magic,
@@ -206,8 +213,8 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
             "top", G_TYPE_UINT, border[i].top,
             "width", G_TYPE_UINT, border[i].width,
             "height", G_TYPE_UINT, border[i].height, NULL);
-        gst_video_region_of_interest_meta_add_param(meta, s);
-        g_queue_push_tail(ctx->meta_queue, gst_structure_copy(s));
+        // gst_video_region_of_interest_meta_add_param(meta, s);
+        g_queue_push_tail(ctx->meta_queue, s);
     }
 
     gst_buffer_unmap(buffer, &info);
