@@ -8,6 +8,12 @@ include(${CMAKE_SOURCE_DIR}/cmake/mediapipe.cmake)
 
 set(BUILD_APP "all" CACHE STRING "Choose application to build")
 set_property(CACHE BUILD_APP PROPERTY STRINGS ipc hddl manager all)
+
+option(MULTI_THREAD_MODE "Create mediapipe in standalone thread" OFF)
+if(MULTI_THREAD_MODE)
+    add_definitions(-DMULTI_THREAD_MODE)
+endif()
+
 if(${BUILD_APP} STREQUAL ipc)
     message(STATUS "will build ipc")
     add_subdirectory(front/ipc_mediapipe)

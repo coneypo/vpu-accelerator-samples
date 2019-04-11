@@ -9,7 +9,7 @@
 
 #include "Pipeline.h"
 #include "PipelineStatus.h"
-#ifndef MANAGER_THREAD
+#ifndef MULTI_THREAD_MODE
 #include "PipelineIPC.h"
 #endif
 
@@ -50,7 +50,7 @@ private:
     std::mutex m_mapMutex;
     Map m_map;
 
-#ifndef MANAGER_THREAD
+#ifndef MULTI_THREAD_MODE
     PipelineIPC& m_ipc = PipelineIPC::getInstance();
 #endif
 };

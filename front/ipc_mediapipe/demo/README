@@ -19,7 +19,7 @@
   testh265stream usage
 
   cd build/front/ipc_mediapipe/demo/multi_client/
-  ./multi_client -l launch_test_h265_stream.txt  -c config_test_h265_stream.json
+  ./multi_client -l launch_test_h265_stream.txt -c config_test_h265_stream.json
   this program will read data from xlink , parse  and decode it, crop the image
   and encode into jpeg, at last the app will package jpeg and meta ,then write back to
   xlink
@@ -33,7 +33,7 @@
   if ererything is ok, simulate_serve will print the size that it read
 
   when test multi thread mediapipe
-  cmake -DBUILD_APP=ipc -DBUILD_IPC_DEMO=YES  -DCMAKE_BUILD_TYPE=Debug  -DMANAGER_THREAD=YES ..
+  cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_APP=ipc -DBUILD_IPC_DEMO=YES -DMULTI_THREAD_MODE=ON ..
   make
   cd build/front/ipc_mediapipe/demo/multi_client/
   ./multi_client

@@ -1,6 +1,6 @@
 #include "Pipeline.h"
 
-#ifdef MANAGER_THREAD
+#ifdef MULTI_THREAD_MODE
 #include "PipelineThread.cpp"
 #else
 #include "PipelineProcess.cpp"

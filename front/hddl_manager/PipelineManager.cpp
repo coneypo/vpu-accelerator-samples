@@ -4,14 +4,14 @@ namespace hddl {
 
 void PipelineManager::init(int socketId)
 {
-#ifndef MANAGER_THREAD
+#ifndef MULTI_THREAD_MODE
     m_ipc.init(socketId);
 #endif
 }
 
 void PipelineManager::uninit()
 {
-#ifndef MANAGER_THREAD
+#ifndef MULTI_THREAD_MODE
     m_ipc.uninit();
 #endif
     removeAll();

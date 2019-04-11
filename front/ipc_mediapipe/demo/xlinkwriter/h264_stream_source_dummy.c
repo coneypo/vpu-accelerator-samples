@@ -111,7 +111,7 @@ void* mp_thread(void* data)
 
 int main(int argc, char* argv[])
 {
-#ifdef MANAGER_THREAD
+#ifdef MULTI_THREAD_MODE
 #define THREAD_NUM 3
     static guint channel[THREAD_NUM];
     for(int i=0;i<THREAD_NUM;i++){
