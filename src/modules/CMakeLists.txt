@@ -9,6 +9,7 @@ list(REMOVE_ITEM SRCS ./mp_crop.c ./mp_mix.c ./mp_metadata.c)
 # set some module compiled by CXX
 set_source_files_properties(
     ./mp_crop_va.c
+    ./mp_feeder.c
     ./mp_mix2.c
     ./mp_metadata.c
     ./mp_openvino.c
@@ -39,6 +40,7 @@ target_link_libraries(
     ${TARGET_NAME} PRIVATE
     mp_meta_static
     mp_utils_static
+    ${Boost_LIBRARIES}
     ${CAIRO_LIBRARIES}
     ${OpenCV_LIBRARIES}
     ${LIBPANGO_CAIRO_LIBRARY}

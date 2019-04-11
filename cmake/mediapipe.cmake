@@ -129,6 +129,7 @@ function(mediapipe_library_build)
     set_source_files_properties(
         ${BASE_MODULES_PATH}/mp_crop.c
         ${BASE_MODULES_PATH}/mp_crop_va.c
+        ${BASE_MODULES_PATH}/mp_feeder.c
         ${BASE_MODULES_PATH}/mp_mix.c
         ${BASE_MODULES_PATH}/mp_mix2.c
         ${BASE_MODULES_PATH}/mp_metadata.c
