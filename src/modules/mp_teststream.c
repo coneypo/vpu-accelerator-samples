@@ -214,13 +214,6 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
 
     gst_buffer_resize(buffer, headerSize, -1);
 
-#ifdef DEBUG
-    gst_buffer_map(buffer, &info, GST_MAP_READ);
-    pData = info.data;
-    LOG_INFO("[id:%u] %02X %02X %02X %02X", frameId, pData[64], pData[128], pData[256], pData[512]);
-    gst_buffer_unmap(buffer, &info);
-#endif
-
     return TRUE;
 }
 
