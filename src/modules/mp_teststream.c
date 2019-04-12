@@ -171,7 +171,7 @@ destroy_ctx(void* _ctx)
 {
     stream_ctx_t* ctx = (stream_ctx_t*)_ctx;
     if (ctx->meta_queue) {
-        g_queue_free_full(ctx->meta_queue, g_free);
+        g_queue_free_full(ctx->meta_queue, (GDestroyNotify)gst_structure_free);
     }
     g_free(_ctx);
 }

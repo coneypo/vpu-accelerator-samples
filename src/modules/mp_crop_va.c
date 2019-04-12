@@ -387,6 +387,7 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         branch_ctx->can_pushed = FALSE;
         //push buffer to appsrc
         g_signal_emit_by_name(GST_APP_SRC(src), "push-buffer", new_buf, &ret);
+        gst_buffer_unref(new_buf);
         if (ret != GST_FLOW_OK) {
             LOG_ERROR(" push buffer error\n");
         }
@@ -558,6 +559,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         xlink_appsrc = (GstElement *)branch_ctx->other_data;
         g_assert(xlink_appsrc != NULL);
         g_signal_emit_by_name(xlink_appsrc, "push-buffer", bufferTemp, &ret);
+        gst_buffer_unref(bufferTemp);
         if (ret != GST_FLOW_OK) {
             LOG_ERROR(" push buffer error\n");
         }
@@ -632,7 +634,6 @@ init_callback(mediapipe_t *mp)
                                   detect_src_callback_for_crop_jpeg, ctx,
                                   NULL);
         ctx->detect_pad = pad;
-        gst_object_unref(pad);
     }
     gst_object_unref(detect);
     return MP_OK;
@@ -669,9 +670,15 @@ static void destroy_ctx(void *_ctx)
         g_free(branch_ctx->Jpeg_pag.jpegs);
         g_free(branch_ctx);
     }
-    if (ctx->detect_callback_id != 0 && !ctx->detect_pad) {
-        gst_pad_remove_probe(ctx->detect_pad, ctx->detect_callback_id);
+
+    if (ctx->detect_pad) {
+        if (ctx->detect_callback_id) {
+            gst_pad_remove_probe(ctx->detect_pad, ctx->detect_callback_id);
+        }
+        gst_object_unref(ctx->detect_pad);
     }
+
+
     if (ctx->xlink_pipeline) {
         gst_element_set_state(ctx->xlink_pipeline, GST_STATE_NULL);
         gst_object_unref(ctx->xlink_pipeline);
