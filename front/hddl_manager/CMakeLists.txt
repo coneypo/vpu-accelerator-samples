@@ -12,7 +12,7 @@ set(SRC main.cpp XLinkConnector.cpp PipelineManager.cpp Pipeline.cpp PipelineSta
 set(HDR XLinkConnector.h PipelineManager.h PipelineStatus.h Pipeline.h PipelineState.h)
 
 if(MULTI_THREAD_MODE)
-    mediapipe_library_build(NAME hddl_manager_lib MODULES element element teststream crop_va)
+    mediapipe_library_build(NAME hddl_manager_lib MODULES element openvino mix2)
     target_compile_definitions(hddl_manager_lib PRIVATE $<$<CONFIG:Debug>:DEBUG>)
     target_include_directories(hddl_manager_lib PRIVATE ${OpenCV_INCLUDE_DIR})
     target_link_libraries(hddl_manager_lib PRIVATE ${OpenCV_LIBRARIES})

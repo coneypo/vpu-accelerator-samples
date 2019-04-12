@@ -812,60 +812,50 @@ get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer,
     }
     gst_caps_unref(caps);
     while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
-        if (is_gva_detection_meta(gst_meta)) {
-            GstGVADetectionMeta *meta = (GstGVADetectionMeta *)gst_meta;
-            for (int i = 0; i < meta->bboxes->len; i++) {
-                GVADetection *bbox = &g_array_index(meta->bboxes, GVADetection, i);
-                int label_id = bbox->label_id;
-                float confidence = bbox->confidence;
-                float xmin = bbox->x_min * info.width;
-                float ymin = bbox->y_min * info.height;
-                float xmax = bbox->x_max * info.width;
-                float ymax = bbox->y_max * info.height;
-                const char *attributes_str = NULL;
-                const char *color_str = NULL;
-                const char *vehicle_str = NULL;
-                const char *license_plate_str = NULL;
-                int object_id = bbox->object_id;
-                std::string text;
-                if (bbox->text_attributes) {
-                    for (int i = 0; i < bbox->text_attributes->len; i++) {
-                        text += (gchar *)g_ptr_array_index(bbox->text_attributes, i);
-                        text += " ";
-                    }
-                    attributes_str = g_strdup(text.c_str());
-                }
-                //create content list
-                GValue tmp_value = { 0 };
-                g_value_init(&tmp_value, GST_TYPE_STRUCTURE);
-                GstStructure *s =
-                    gst_structure_new("object",
-                            "x", G_TYPE_UINT, int(xmin),
-                            "y", G_TYPE_UINT, int(ymin),
-                            "width", G_TYPE_UINT, int(xmax - xmin),
-                            "height", G_TYPE_UINT, int(ymax - ymin),
-                            "attributes", G_TYPE_STRING, attributes_str,
-                            "orign_width", G_TYPE_UINT, info.width, //add for mix2 paint Rectangle
-                            "orign_height", G_TYPE_UINT, info.height,//add for mix2 paint Rectangle
-                            "label_id", G_TYPE_INT, label_id,
-                            "confidence", G_TYPE_FLOAT, confidence,
-                            "color", G_TYPE_STRING, color_str, // will delete later
-                            "vehicle", G_TYPE_STRING, vehicle_str, // will delete later
-                            "license_plate", G_TYPE_STRING, license_plate_str, // will delete later
-                            "object_id", G_TYPE_INT, object_id,
-                            NULL);
-                g_value_take_boxed(&tmp_value, s);
-                gst_value_list_append_value(objectlist, &tmp_value);
-                g_value_unset(&tmp_value);
-                LOG_DEBUG("meta data:%d,%d,%d,%d,%d,%f,%s,%s,%s,%s,%d, %ld", int(xmin), int(ymin),
-                        int(xmax - xmin), int(ymax - ymin), label_id, confidence,
-                        attributes_str, color_str, vehicle_str, license_plate_str,
-                        object_id, GST_BUFFER_PTS(buffer));
+        GstVideoRegionOfInterestMeta *meta = (GstVideoRegionOfInterestMeta *)gst_meta;
 
-            }
-        }
-    }
-    return TRUE;
+        // maybe need to checkout if it's GVA meta
+        GstStructure *meta_struct = gst_video_region_of_interest_meta_get_param(meta, "detection");
+        if (meta_struct == NULL)
+            continue;
+
+        int label_id;
+        double confidence, x_min, y_min, x_max, y_max;
+        gst_structure_get_int(meta_struct, "label_id", &label_id);
+        gst_structure_get_double(meta_struct, "confidence", &confidence);
+        gst_structure_get_double(meta_struct, "x_min", &x_min);
+        gst_structure_get_double(meta_struct, "y_min", &y_min);
+        gst_structure_get_double(meta_struct, "x_max", &x_max);
+        gst_structure_get_double(meta_struct, "y_max", &y_max);
+        const char *model_name = gst_structure_get_string(meta_struct, "model_name");
+        const char *layer_name = gst_structure_get_string(meta_struct, "layer_name");
+        double xmin = x_min * info.width;
+        double ymin = y_min * info.height;
+        double xmax = x_max * info.width;
+        double ymax = y_max * info.height;
+
+        //create content list
+        GValue tmp_value = { 0 };
+        g_value_init(&tmp_value, GST_TYPE_STRUCTURE);
+        GstStructure *s =
+            gst_structure_new("object",
+                    "x", G_TYPE_UINT, int(xmin),
+                    "y", G_TYPE_UINT, int(ymin),
+                    "width", G_TYPE_UINT, int(xmax - xmin),
+                    "height", G_TYPE_UINT, int(ymax - ymin),
+                    "orign_width", G_TYPE_UINT, info.width, //add for mix2 paint Rectangle
+                    "orign_height", G_TYPE_UINT, info.height,//add for mix2 paint Rectangle
+                    "label_id", G_TYPE_INT, label_id,
+                    "confidence", G_TYPE_DOUBLE, confidence,
+                    NULL);
+        g_value_take_boxed(&tmp_value, s);
+        gst_value_list_append_value(objectlist, &tmp_value);
+        g_value_unset(&tmp_value);
+        LOG_DEBUG("meta data:%d,%d,%d,%d,%d,%f, %ld", int(xmin), int(ymin),
+                int(xmax - xmin), int(ymax - ymin), label_id, confidence,
+                GST_BUFFER_PTS(buffer));
+     }
+     return TRUE;
 }
 
 

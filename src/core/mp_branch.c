@@ -61,7 +61,7 @@ pipeline_is_usable(GstElement *pipeline)
         return FALSE;
     }
 
-    ret = gst_element_set_state(pipeline, GST_STATE_NULL);
+    ret = gst_element_set_state(pipeline, GST_STATE_PAUSED);
 
     if (ret == GST_STATE_CHANGE_FAILURE) {
         return FALSE;

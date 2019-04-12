@@ -1,6 +1,6 @@
 find_package(OpenCV REQUIRED)
 
-mediapipe_library_build(NAME hddl_mediapipe3_lib MODULES teststream crop_va)
+mediapipe_library_build(NAME hddl_mediapipe3_lib MODULES element openvino mix2)
 target_include_directories(hddl_mediapipe3_lib PRIVATE ${OpenCV_INCLUDE_DIR})
 target_link_libraries(hddl_mediapipe3_lib PRIVATE ${OpenCV_LIBRARIES})
 target_compile_definitions(hddl_mediapipe3_lib PRIVATE $<$<CONFIG:Debug>:DEBUG>)
