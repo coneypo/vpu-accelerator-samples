@@ -8,7 +8,7 @@ protobuf_generate_cpp(PROTO_SRC PROTO_HDR hal_message.proto)
 # Add this extra line to make CLion analyze better though it's already added as target porperty
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-set(SRC main.cpp XLinkConnector.cpp PipelineManager.cpp Pipeline.cpp)
+set(SRC main.cpp XLinkConnector.cpp PipelineManager.cpp Pipeline.cpp PipelineState.cpp)
 set(HDR XLinkConnector.h PipelineManager.h PipelineStatus.h Pipeline.h PipelineState.h)
 
 if(MULTI_THREAD_MODE)

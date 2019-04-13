@@ -28,6 +28,7 @@ public:
     PipelineStatus pause();
 
     void setState(MPState state);
+    MPState getState();
 
 private:
     PipelineStatus mapStatus(std::pair<ReqType, MPState> map);
@@ -35,7 +36,6 @@ private:
     int m_id;
     std::mutex m_mutex;
     MPState m_state;
-    const std::map<std::pair<ReqType, MPState>, PipelineStatus> m_map;
 
     class Impl;
     std::unique_ptr<Impl> m_impl;

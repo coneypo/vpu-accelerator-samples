@@ -18,7 +18,6 @@ namespace hddl {
 Pipeline::Pipeline(int pipeId)
     : m_id(pipeId)
     , m_state(MPState::NONEXIST)
-    , m_map(constStateMap)
     , m_impl(new Impl(this))
 {
 }
@@ -29,9 +28,10 @@ Pipeline::~Pipeline()
 
 PipelineStatus Pipeline::mapStatus(std::pair<ReqType, MPState> map)
 {
-    auto ret = m_map.find(map);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto ret = stateMap.find(map);
 
-    if (ret == m_map.end()) {
+    if (ret == stateMap.end()) {
         return PipelineStatus::ERROR;
     }
 
@@ -42,6 +42,12 @@ void Pipeline::setState(MPState state)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_state = state;
+}
+
+MPState Pipeline::getState()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_state;
 }
 
 PipelineStatus Pipeline::create(std::string launch, std::string config)
@@ -94,7 +100,7 @@ PipelineStatus Pipeline::stop()
 {
     ERROR_RET(mapStatus({ ReqType::STOP, m_state }));
 
-    auto tmp = m_state;
+    auto state = getState();
 
     auto sts = m_impl->stop();
     if (sts < PipelineStatus::SUCCESS)
@@ -102,9 +108,9 @@ PipelineStatus Pipeline::stop()
 
     setState(MPState::STOPPED);
 
-    if (tmp == MPState::PIPELINE_EOS)
+    if (state == MPState::PIPELINE_EOS)
         return PipelineStatus::PIPELINE_EOS;
-    else if (tmp == MPState::RUNTIME_ERROR)
+    else if (state == MPState::RUNTIME_ERROR)
         return PipelineStatus::RUNTIME_ERROR;
 
     return PipelineStatus::SUCCESS;
