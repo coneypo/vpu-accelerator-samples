@@ -476,7 +476,7 @@ start_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid == 0) {
-#ifdef MULTI_THREAD_MODE
+#if 0
         ctx->branch_ctx->idle_source = g_idle_source_new();
         g_source_set_callback(ctx->branch_ctx->idle_source, (GSourceFunc) push_data, ctx, NULL);
         ctx->branch_ctx->sourceid = g_source_attach(ctx->branch_ctx->idle_source,
@@ -501,7 +501,7 @@ stop_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid != 0) {
-#ifdef MULTI_THREAD_MODE
+#if 0
         g_source_destroy(ctx->branch_ctx->idle_source);
 #else
         g_source_remove(ctx->branch_ctx->sourceid);
@@ -642,7 +642,7 @@ init_callback(mediapipe_t *mp)
 static void *create_ctx(mediapipe_t *mp)
 {
     crop_va_ctx_t *ctx = g_new0(crop_va_ctx_t, 1);
-#ifdef MULTI_THREAD_MODE
+#if 0
     ctx->loop_context = g_main_context_get_thread_default();
 #endif
     return ctx;
