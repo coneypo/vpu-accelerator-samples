@@ -13,6 +13,7 @@ set_source_files_properties(
     ./mp_metadata.c
     ./mp_openvino.c
     ./mp_teststream.c
+    ./mp_dump_buffer.c
     PROPERTIES LANGUAGE CXX
 )
 

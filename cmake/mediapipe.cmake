@@ -134,6 +134,7 @@ function(mediapipe_library_build)
         ${BASE_MODULES_PATH}/mp_metadata.c
         ${BASE_MODULES_PATH}/mp_openvino.c
         ${BASE_MODULES_PATH}/mp_teststream.c
+        ${BASE_MODULES_PATH}/mp_dump_buffer.c
         PROPERTIES LANGUAGE CXX
     )
 
