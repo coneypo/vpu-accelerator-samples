@@ -368,15 +368,19 @@ mediapipe_create(int argc, char *argv[])
 
     /* json_setup_elements (mp, mp->config); */
     /* json_setup_rtsp_server (mp, mp->config); */
+
     GstBus *bus = gst_element_get_bus(mp->pipeline);
-    mp->bus_watch_id = gst_bus_add_watch(bus, bus_callback, mp);
-    gst_object_unref(bus);
-#if 0
-    GMainContext* context = g_main_context_new();
-    g_main_context_push_thread_default(context);
+#ifdef MULTI_THEAD_MODE
+    GMainContext *context = g_main_context_new();
+    GSource *source = gst_bus_create_watch (bus);
+    g_source_set_callback (source, (GSourceFunc)bus_callback, mp, NULL);
+    mp->bus_watch_id = g_source_attach(source, context);
 #else
-    GMainContext* context = g_main_context_default();
+    GMainContext *context = g_main_context_default();
+    mp->bus_watch_id = gst_bus_add_watch(bus, bus_callback, mp);
 #endif
+    gst_object_unref(bus);
+
     mp->loop = g_main_loop_new(context, FALSE);
     mp->state = STATE_READY;
     /* json_setup_cvsdk_branch (mp, mp->config); */
@@ -427,14 +431,17 @@ mediapipe_init_from_string(const char *config, const char *launch, mediapipe_t *
     }
 
     GstBus *bus = gst_element_get_bus(mp->pipeline);
-    mp->bus_watch_id = gst_bus_add_watch(bus, bus_callback, mp);
-    gst_object_unref(bus);
-#if 0
-    GMainContext* context = g_main_context_new();
-    g_main_context_push_thread_default(context);
+#ifdef MULTI_THEAD_MODE
+    GMainContext *context = g_main_context_new();
+    GSource *source = gst_bus_create_watch (bus);
+    g_source_set_callback (source, (GSourceFunc)bus_callback, mp, NULL);
+    mp->bus_watch_id = g_source_attach(source, context);
 #else
-    GMainContext* context = g_main_context_default();
+    GMainContext *context = g_main_context_default();
+    mp->bus_watch_id = gst_bus_add_watch(bus, bus_callback, mp);
 #endif
+    gst_object_unref(bus);
+
     mp->loop = g_main_loop_new(context, FALSE);
     mp->state = STATE_READY;
     return TRUE;
@@ -449,13 +456,17 @@ void
 mediapipe_destroy(mediapipe_t *mp)
 {
     g_assert(mp);
-    g_source_remove(mp->bus_watch_id);
 
-#if 0
-    GMainContext* context = g_main_loop_get_context(mp->loop);
-    g_main_context_pop_thread_default(context);
+#ifdef MULTI_THREAD_MODE
+    GMainContext *context = g_main_loop_get_context(mp->loop);
+    GSource *source = g_main_context_find_source_by_id(context, mp->bus_watch_id);
+    if (source)
+        g_source_destroy(source);
     g_main_context_unref (context);
+#else
+    g_source_remove(mp->bus_watch_id);
 #endif
+
     g_main_loop_unref(mp->loop);
     json_destroy(&mp->config);
     mp_modules_exit_master(mp);
@@ -479,7 +490,17 @@ mediapipe_start(mediapipe_t *mp)
     g_assert(mp);
     gst_element_set_state(mp->pipeline, GST_STATE_PLAYING);
     mp->state = STATE_START;
+
+#ifdef MULTI_THREAD_MODE
+    GMainContext *context = g_main_loop_get_context(mp->loop);
+    g_main_context_push_thread_default(context);
+#endif
+
     g_main_loop_run(mp->loop);
+
+#ifdef MULTI_THREAD_MODE
+    g_main_context_pop_thread_default(context);
+#endif
 }
 
 /**
