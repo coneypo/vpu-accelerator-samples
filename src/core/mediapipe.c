@@ -60,6 +60,11 @@ probe_callback_user(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
             ctx->user_callback(ctx->mp, buffer, NULL, 0, ctx->user_data);
         } else {
             ctx->mp->probe_data_list = g_list_remove(ctx->mp->probe_data_list, user_data);
+            if (ctx->probe_pad) {
+                if (ctx->probe_id)
+                    gst_pad_remove_probe(ctx->probe_pad, ctx->probe_id);
+                gst_object_unref(ctx->probe_pad);
+            }
             g_free(user_data);
             return GST_PAD_PROBE_REMOVE;
         }
@@ -117,11 +122,10 @@ create_callback_context(mediapipe_t *mp, const gchar *elem_name,
 int
 add_probe_callback(GstPadProbeCallback probe_callback, probe_context_t *ctx)
 {
-    GstPad *pad = gst_element_get_static_pad(ctx->element, ctx->pad_name);
+    ctx->probe_pad = gst_element_get_static_pad(ctx->element, ctx->pad_name);
 
-    if (pad) {
-        gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, probe_callback, ctx, NULL);
-        gst_object_unref(pad);
+    if (ctx->probe_pad) {
+        ctx->probe_id = gst_pad_add_probe(ctx->probe_pad, GST_PAD_PROBE_TYPE_BUFFER, probe_callback, ctx, NULL);
     }
 
     return 0;
@@ -203,7 +207,24 @@ mediapipe_remove_user_callback(mediapipe_t *mp,
 }
 
 
+/**
+    @brief destroy user call back function
+*/
+void
+mediapipe_destroy_user_callback(gpointer data)
+{
+    probe_context_t *ctx = (probe_context_t *) data;
 
+    if (ctx == NULL)
+        return;
+
+    if (ctx->probe_pad) {
+        if (ctx->probe_id)
+            gst_pad_remove_probe(ctx->probe_pad, ctx->probe_id);
+        gst_object_unref(ctx->probe_pad);
+    }
+    g_free(ctx);
+}
 
 
 /* --------------------------------------------------------------------------*/
@@ -429,7 +450,6 @@ mediapipe_destroy(mediapipe_t *mp)
 {
     g_assert(mp);
     g_source_remove(mp->bus_watch_id);
-    gst_object_unref(mp->pipeline);
 
 #if 0
     GMainContext* context = g_main_loop_get_context(mp->loop);
@@ -439,7 +459,12 @@ mediapipe_destroy(mediapipe_t *mp)
     g_main_loop_unref(mp->loop);
     json_destroy(&mp->config);
     mp_modules_exit_master(mp);
-    g_list_free_full(mp->probe_data_list, (GDestroyNotify) g_free);
+    if (mp->probe_data_list) {
+        g_list_free_full(mp->probe_data_list, mediapipe_destroy_user_callback);
+        mp->probe_data_list = NULL;
+    }
+
+    gst_object_unref(mp->pipeline);
     g_free(mp);
 }
 

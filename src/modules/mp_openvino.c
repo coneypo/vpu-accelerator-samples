@@ -169,9 +169,9 @@ branch_config(branch_t *branch)
     }
     GstPad *pad = gst_element_get_static_pad(detect, "src");
     if (pad) {
-        gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, detect_src_callback, branch,
+        gulong probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, detect_src_callback, branch,
                           NULL);
-        gst_object_unref(pad);
+        gst_probe_list_append_new_item(branch->mp_branch.probe_items, pad, probe_id);
     }
     gst_object_unref(detect);
     return TRUE;
@@ -638,6 +638,7 @@ static void destroy_ctx(void *_ctx)
             p = p->next;
         }
         g_list_free(l);
+        g_hash_table_remove_all(ctx->msg_hst);
         g_hash_table_unref(ctx->msg_hst);
     }
     g_free(ctx->branch);

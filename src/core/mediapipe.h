@@ -18,9 +18,12 @@ typedef gboolean(*user_callback_t)(mediapipe_t *mp, GstBuffer *buf, guint8 *data
                                 gsize size, gpointer user_data);
 
 struct probe_context_s {
-    mediapipe_t           *mp;
+    mediapipe_t         *mp;
     GstElement          *element;
     const char          *pad_name;
+
+    GstPad              *probe_pad;
+    gulong               probe_id;
 
     user_callback_t     user_callback;
     gpointer            user_data;

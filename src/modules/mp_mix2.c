@@ -106,7 +106,7 @@ queue_message_from_observer(const char *message_name, const char *subscribe_name
                             mediapipe_t *mp, GstMessage *message)
 {
     mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
-    for (int i = 0; i < MESSAGE_MIX2_MAX_NUM; i++) {
+    for (int i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(message_name, ctx->msg_ctxs[i].message_name)
             && 0 == g_strcmp0(subscribe_name, ctx->msg_ctxs[i].elem_name)) {
             g_mutex_lock(&ctx->msg_ctxs[i].lock);
@@ -461,7 +461,7 @@ mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
     const char *name = (const char *) user_data;
     mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
     gint i;
-    for (i = 0; i < MESSAGE_MIX2_MAX_NUM; i++) {
+    for (i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(ctx->msg_ctxs[i].elem_name, name)) {
             draw_buffer_by_message(mp, &ctx->msg_ctxs[i],
                                    buf, name);
@@ -542,6 +542,7 @@ static void destroy_ctx(void *_ctx)
         g_mutex_clear(&ctx->msg_ctxs[i].lock);
     }
     if (ctx->msg_pro_fun_hst) {
+        g_hash_table_remove_all(ctx->msg_pro_fun_hst);
         g_hash_table_unref(ctx->msg_pro_fun_hst);
     }
     g_free(ctx);
