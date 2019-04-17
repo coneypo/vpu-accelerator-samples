@@ -1,5 +1,4 @@
 {
-    "openvino_use_new_plugins":1,
     "openvino_detection":
     [
         {

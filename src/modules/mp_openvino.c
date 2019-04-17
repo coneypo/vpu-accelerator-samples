@@ -8,150 +8,6 @@
 #include <algorithm>
 #include <vector>
 
-//meta define start
-#define IVA_FOURCC(c1, c2, c3, c4) (((c1) & 255) + (((c2) & 255) << 8) + (((c3) & 255) << 16) + (((c4) & 255) << 24))
-#define FOURCC_OUTPUT_LAYER_F32 IVA_FOURCC('O','F','3','2')
-// payload contains model output layer as float array
-
-#define FOURCC_BOUNDING_BOXES IVA_FOURCC('O','B','J',0)
-typedef struct _BoundingBox {
-    float xmin;
-    float xmax;
-    float ymin;
-    float ymax;
-    float confidence;
-    int label_id;
-    int object_id;
-} BoundingBox;
-
-#define FOURCC_OBJECT_ATTRIBUTES   IVA_FOURCC('O','A','T','T')
-
-typedef struct {
-    char as_string[256];
-} ObjectAttributes;
-
-#define IVA_META_TAG "ivameta"
-#define nullptr NULL
-struct GstMetaIVA {
-    GstMeta meta;
-    void *data;
-    int data_type;
-    int element_size;
-    int number_elements;
-    char *model_name;
-    char *output_layer;
-    template<typename T> T *GetElement(int index)
-    {
-        if (index < 0 || index > number_elements) {
-            return nullptr;
-        }
-        if (element_size != sizeof(T)) {
-            return nullptr;
-        }
-        return (T *)((int8_t *)data + index * element_size);
-    }
-    void SetModelName(const char *str)
-    {
-        if (model_name) {
-            free((void *)model_name);
-        }
-        if (str) {
-            model_name = (char *) malloc(strlen(str) + 1);
-            strcpy(model_name, str);
-        } else {
-            model_name = nullptr;
-        }
-    }
-    void SetOutputLayer(const char *str)
-    {
-        if (output_layer) {
-            free((void *)output_layer);
-        }
-        if (str) {
-            output_layer = (char *) malloc(strlen(str) + 1);
-            strcpy(output_layer, str);
-        } else {
-            output_layer = nullptr;
-        }
-    }
-};
-
-static bool IsIVAMeta(GstMeta *meta, int data_type)
-{
-    static GQuark iva_quark = 0;
-    if (!iva_quark) {
-        iva_quark = g_quark_from_static_string(IVA_META_TAG);
-    }
-    if (gst_meta_api_type_has_tag(meta->info->api, iva_quark)) {
-        if (data_type == 0 || ((GstMetaIVA *)meta)->data_type == data_type) {
-            return true;
-        }
-        return false;
-    }
-    return false;
-}
-
-static GstMetaIVA *FindIVAMeta(GstBuffer *buffer, int data_type,
-                               const char *model_name, const char *output_layer)
-{
-    GstMeta *gst_meta;
-    gpointer state = NULL;
-    while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
-        if (IsIVAMeta(gst_meta, data_type)) {
-            GstMetaIVA *meta = (GstMetaIVA *) gst_meta;
-            if (model_name && meta->model_name && !strstr(meta->model_name, model_name)) {
-                continue;
-            }
-            if (output_layer && meta->output_layer
-                && !strstr(meta->output_layer, output_layer)) {
-                continue;
-            }
-            return meta;
-        }
-    }
-    return NULL;
-}
-//*meta define end
-
-//new version openvo gstreamer-plugin version meta
-// need openvino sdk l_openvino_toolkit_p_2018.4.420
-// openvion gstreamer-plugins commit db7fb8a5551415a29efd490afd4ac7a190471806
-#define GVA_DETECTION_META_TAG "gvadetectionmeta"
-typedef struct _GVADetection GVADetection;
-struct _GVADetection {
-    gfloat x_min;
-    gfloat y_min;
-    gfloat x_max;
-    gfloat y_max;
-    gdouble confidence;
-    gint label_id;
-    gint object_id;
-    GPtrArray *text_attributes;
-};
-
-typedef struct _GstGVADetectionMeta GstGVADetectionMeta;
-typedef GArray BBoxesArray;
-struct _GstGVADetectionMeta {
-    GstMeta  meta;
-    GstMeta *raw;
-    GPtrArray *labels; // array of labels in string format with label_id as index
-    BBoxesArray *bboxes;
-};
-
-static bool is_gva_detection_meta(GstMeta *meta)
-{
-    static GQuark gva_quark = 0;
-    if (!gva_quark) {
-        gva_quark = g_quark_from_static_string(GVA_DETECTION_META_TAG);
-    }
-    if (gst_meta_api_type_has_tag(meta->info->api, gva_quark)) {
-        return true;
-    }
-    return false;
-}
-//new meta define end
-
-
 //about subscriber_message start
 typedef int (*message_process_fun)(const char *message_name, const char *subscribe_name,
                                    mediapipe_t *mp, GstMessage *message);
@@ -181,9 +37,6 @@ typedef struct {
     const gchar  *pipe_string;
     const gchar  *name;
     const gchar  *src_name;
-    const gchar  *model_path1;
-    const gchar  *model_path2;
-    const gchar  *model_path3;
     const gchar *message_name;
     const gchar *src_format;
     struct json_object* pipe_params;
@@ -194,7 +47,6 @@ typedef  openvino_branch_t branch_t;
 typedef struct {
     mediapipe_t *mp;
     GHashTable  *msg_hst;
-    gboolean openvino_use_new_plugins;
     gint branch_num;
     openvino_branch_t *branch;
 } openvino_ctx;
@@ -216,9 +68,6 @@ push_buffer_to_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
 //get message and progress it start
 static GstPadProbeReturn
 detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
-
-gboolean
-get_value_from_buffer(GstPad *pad, GstBuffer *buffer, GValue *objectlist);
 
 gboolean
 get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer, GValue *objectlist);
@@ -412,20 +261,8 @@ branch_init(mediapipe_branch_t *mp_branch)
     gchar description[MAX_BUF_SIZE];
     branch_t *branch = (branch_t *) mp_branch;
     openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp_branch->mp, "openvino");
-    if (branch->model_path3 != NULL) {
-        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1,
-                 branch->model_path2, branch->model_path3);
-    } else if (branch->model_path2 != NULL) {
-        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1,
-                 branch->model_path2);
-    } else if (branch->model_path1 != NULL) {
-        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, branch->model_path1);
-    } else {
-        snprintf(description, MAX_BUF_SIZE, branch->pipe_string, NULL);
-    }
-    if (ctx->openvino_use_new_plugins) {
-        create_description_from_string_and_params(branch, description);
-    }
+    create_description_from_string_and_params(branch, description);
+
     printf("description:[%s]\n", description);
     GstElement *new_pipeline = mediapipe_branch_create_pipeline(description);
     if (new_pipeline == NULL) {
@@ -464,8 +301,6 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     int branch_num = json_object_array_length(object);
     ctx->branch_num = branch_num;
     ctx->branch = (branch_t*)g_malloc0(sizeof(branch_t) * branch_num);
-    ctx->openvino_use_new_plugins =
-        json_check_enable_state(root, "openvino_use_new_plugins");
     for (int i = 0; i < branch_num; ++i) {
         detect = json_object_array_get_idx(object, i);
         if (json_check_enable_state(detect, "enable")) {
@@ -473,12 +308,6 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
                             &(ctx->branch[i].src_name));
             json_get_string(detect, "src_format",
                             &(ctx->branch[i].src_format));
-            json_get_string(detect, "model_path1",
-                            &(ctx->branch[i].model_path1));
-            json_get_string(detect, "model_path2",
-                            &(ctx->branch[i].model_path2));
-            json_get_string(detect, "model_path3",
-                            &(ctx->branch[i].model_path3));
             json_get_string(detect, "name",
                             &(ctx->branch[i].name));
             json_get_string(detect, "message_name",
@@ -487,10 +316,8 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
                             &(ctx->branch[i].pipe_string));
             ctx->branch[i].enable = TRUE;
             ctx->branch[i].mp_branch.branch_init = branch_init;
-            if (ctx->openvino_use_new_plugins) {
-                json_object_object_get_ex(detect, "pipe_params",
+            json_object_object_get_ex(detect, "pipe_params",
                             &(ctx->branch[i].pipe_params));
-            }
 
             load_success = mediapipe_setup_new_branch(mp, ctx->branch[i].src_name, "src",
                            &ctx->branch[i].mp_branch);
@@ -652,141 +479,6 @@ message_process(mediapipe_t *mp, void *message)
     return MP_IGNORE;
 }
 
-/* --------------------------------------------------------------------------*/
-/**
- * @Synopsis  get data from buffer meta
- *
- * @Param pad
- * @Param buffer
- * @Param objectlist store the data
- */
-/* ----------------------------------------------------------------------------*/
-gboolean
-get_value_from_buffer(GstPad *pad, GstBuffer *buffer, GValue *objectlist)
-{
-    GstMetaIVA *meta_vehicle_color = FindIVAMeta(buffer, FOURCC_OUTPUT_LAYER_F32,
-                                     "vehicle-attributes",
-                                     "color");
-    GstMetaIVA *meta_vehicle_type  = FindIVAMeta(buffer, FOURCC_OUTPUT_LAYER_F32,
-                                     "vehicle-attributes",
-                                     "type");
-    GstMetaIVA *meta_license_plate = FindIVAMeta(buffer, FOURCC_OUTPUT_LAYER_F32,
-                                     "license-plate-recognition",
-                                     nullptr);
-    // Bounding boxes and attributes
-    GstMetaIVA *meta = FindIVAMeta(buffer, FOURCC_BOUNDING_BOXES, NULL, NULL);
-    if (meta != nullptr) {
-        GstCaps *caps = gst_pad_get_current_caps(pad);
-        GstVideoInfo info;
-        if (!gst_video_info_from_caps(&info, caps)) {
-            LOG_ERROR("get video info form caps falied");
-            gst_caps_unref(caps);
-            return FALSE;
-        }
-        gst_caps_unref(caps);
-        GstMetaIVA *meta_attr = FindIVAMeta(buffer, FOURCC_OBJECT_ATTRIBUTES, NULL,
-                                            NULL);
-        if (meta->number_elements == 0) {
-            return FALSE;
-        }
-        for (int i = 0; i < meta->number_elements; i++) {
-            BoundingBox *bbox = meta->GetElement<BoundingBox>(i);
-            int label_id = bbox->label_id;
-            float confidence = bbox->confidence;
-            float xmin = bbox->xmin * info.width;
-            float ymin = bbox->ymin * info.height;
-            float xmax = bbox->xmax * info.width;
-            float ymax = bbox->ymax * info.height;
-            const char *attributes_str = NULL;
-            const char *color_str = NULL;
-            const char *vehicle_str = NULL;
-            const char *license_plate_str = NULL;
-            if (meta_attr) {
-                attributes_str = ((ObjectAttributes *)meta_attr->data)[i].as_string;
-            }
-            if (meta_vehicle_color) {
-                static const std::string colors[] = {"white", "gray", "yellow", "red", "green", "blue", "black"};
-                auto data = meta_vehicle_color->GetElement<float[7]>(i);
-                if (data) {
-                    float *p = *data;
-                    float *p_max = std::max_element(p, p + 7);
-                    if (*p_max > 0.5) {
-                        color_str = colors[p_max - p].c_str();
-                    }
-                }
-            }
-            if (meta_vehicle_type) {
-                static const std::string types[] = {"car", "van", "truck", "bus"};
-                auto data = meta_vehicle_type->GetElement<float[4]>(i);
-                if (data) {
-                    float *p = *data;
-                    float *p_max = std::max_element(p, p + 4);
-                    if (*p_max > 0.5) {
-                        vehicle_str = types[p_max - p].c_str();
-                    }
-                }
-            }
-            if (meta_license_plate) {
-                static std::vector<std::string> items = {
-                    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-                    "<Anhui>", "<Beijing>", "<Chongqing>", "<Fujian>",
-                    "<Gansu>", "<Guangdong>", "<Guangxi>", "<Guizhou>",
-                    "<Hainan>", "<Hebei>", "<Heilongjiang>", "<Henan>",
-                    "<HongKong>", "<Hubei>", "<Hunan>", "<InnerMongolia>",
-                    "<Jiangsu>", "<Jiangxi>", "<Jilin>", "<Liaoning>",
-                    "<Macau>", "<Ningxia>", "<Qinghai>", "<Shaanxi>",
-                    "<Shandong>", "<Shanghai>", "<Shanxi>", "<Sichuan>",
-                    "<Tianjin>", "<Tibet>", "<Xinjiang>", "<Yunnan>",
-                    "<Zhejiang>", "<police>",
-                    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
-                    "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
-                    "U", "V", "W", "X", "Y", "Z"
-                };
-                auto data = meta_license_plate->GetElement<float[88]>(i);
-                if (data) {
-                    std::string license_plate;
-                    int val = 0;
-                    for (int i = 0; i < 88; i++) {
-                        val = (*data)[i];
-                        if (val < 0) {
-                            break;
-                        }
-                        if (val < items.size()) {
-                            license_plate += items[val];
-                        }
-                    }
-                    if (val < 0) {
-                        license_plate_str = license_plate.c_str();
-                    }
-                }
-            }
-            //create content list
-            GValue tmp_value = { 0 };
-            g_value_init(&tmp_value, GST_TYPE_STRUCTURE);
-            GstStructure *s =
-                gst_structure_new("object",
-                                  "x", G_TYPE_UINT, int(xmin),
-                                  "y", G_TYPE_UINT, int(ymin),
-                                  "width", G_TYPE_UINT, int(xmax - xmin),
-                                  "height", G_TYPE_UINT, int(ymax - ymin),
-                                  "label_id", G_TYPE_INT, label_id,
-                                  "confidence", G_TYPE_FLOAT, confidence,
-                                  "attributes", G_TYPE_STRING, attributes_str,
-                                  "color", G_TYPE_STRING, color_str,
-                                  "vehicle", G_TYPE_STRING, vehicle_str,
-                                  "license_plate", G_TYPE_STRING, license_plate_str,
-                                  NULL);
-            g_value_take_boxed(&tmp_value, s);
-            gst_value_list_append_value(objectlist, &tmp_value);
-            g_value_unset(&tmp_value);
-            LOG_DEBUG("%d,%d,%d,%d,%d,%f,%s,%s,%s,%s", int(xmin), int(ymin),
-                      int(xmax - xmin), int(ymax - ymin), label_id, confidence,
-                      attributes_str, color_str, vehicle_str, license_plate_str);
-        }
-        return TRUE;
-    }
-    return FALSE;
-}
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -883,14 +575,8 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     GValue objectlist = { 0 };
     g_value_init(&objectlist, GST_TYPE_LIST);
     LOG_DEBUG("branch->name:%s", branch->name);
-    if (ctx->openvino_use_new_plugins) {
-        if (!get_value_from_buffer_new_version(pad, buffer, &objectlist)) {
-            return GST_PAD_PROBE_OK;
-        }
-    } else {
-        if (!get_value_from_buffer(pad, buffer, &objectlist)) {
-            return GST_PAD_PROBE_OK;
-        }
+    if (!get_value_from_buffer_new_version(pad, buffer, &objectlist)) {
+        return GST_PAD_PROBE_OK;
     }
     //create messsage
     GstStructure *s = gst_structure_new(branch->name,

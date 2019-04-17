@@ -16,7 +16,6 @@
         ],
         "rtsp_server_port": 8554 //1-65535
     },
-    "openvino_use_new_plugins":1,
     "openvino_detection":
     [
         {
