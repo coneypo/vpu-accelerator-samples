@@ -21,11 +21,6 @@ else()
 endif()
 
 if(MULTI_THREAD_MODE)
-    mediapipe_library_build(NAME hddl_manager_lib MODULES element openvino mix2)
-    target_compile_definitions(hddl_manager_lib PRIVATE $<$<CONFIG:Debug>:DEBUG>)
-    target_include_directories(hddl_manager_lib PRIVATE ${OpenCV_INCLUDE_DIR})
-    target_link_libraries(hddl_manager_lib PRIVATE ${OpenCV_LIBRARIES})
-
     list(APPEND SRC PipelineThread.cpp)
 
     if(LOCAL_MODE)
@@ -35,7 +30,7 @@ if(MULTI_THREAD_MODE)
         add_executable(hddl_manager ${SRC} ${HDR} ${PROTO_SRC} ${PROTO_HDR})
         target_link_libraries(hddl_manager XLink::XLinkARM ${PROTOBUF_LITE_LIBRARY})
     endif()
-    target_link_libraries(hddl_manager hddl_manager_lib)
+    target_link_libraries(hddl_manager mp_core_static)
 else()
     protobuf_generate_cpp(PROTO_PROC_SRC PROTO_PROC_HDR ../message/hddl_message.proto)
 
@@ -43,7 +38,6 @@ else()
     list(APPEND HDR PipelineIPC.h SubProcess.h PipelineIpcClient.h)
 
     if(LOCAL_MODE)
-        find_package(Json-c REQUIRED)
         add_executable(hddl_manager ${SRC} ${HDR} ${PROTO_PROC_SRC} ${PROTO_PROC_HDR})
         target_compile_definitions(hddl_manager PRIVATE LOCAL_MODE)
         target_include_directories(hddl_manager PRIVATE ${JSON-C_INCLUDE_DIRS})

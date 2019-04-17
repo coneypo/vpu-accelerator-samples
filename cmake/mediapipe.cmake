@@ -1,18 +1,66 @@
 include(CMakeParseArguments)
 
-#defind module_path
-set(BASE_MODULES_PATH ${CMAKE_SOURCE_DIR}/src/modules)
+# create c code file that contains all modules
+function(generate_module_collection_file)
+    set(options)
+    set(args OUTPUT)
+    set(list_args MODULE_FILES)
 
-#add package find path
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" "${BASE_MODULES_PATH}/cmake/modules")
+    cmake_parse_arguments(
+        generator
+        "${options}"
+        "${args}"
+        "${list_args}"
+        ${ARGN}
+    )
 
-find_package(Json-c REQUIRED)
-find_package(Cairo REQUIRED)
-find_package(Glib REQUIRED)
-find_package(Gstreamer REQUIRED)
-find_package(Pango REQUIRED)
+    set(MODULE_FILES ${generator_MODULE_FILES})
+    set(MODULE_COLLECTION ${generator_OUTPUT})
+
+    foreach(FILE ${MODULE_FILES})
+        get_filename_component(MODULE ${FILE} NAME_WE)
+        list(APPEND MODULES ${MODULE})
+    endforeach()
+
+    list(SORT MODULES)
+
+    file(WRITE ${MODULE_COLLECTION} "#include \"mp_module.h\"\n\n")
+
+    foreach(ITEM ${MODULES})
+        file(APPEND ${MODULE_COLLECTION} "extern mp_module_t ${ITEM}_module;\n")
+    endforeach()
+
+    file(APPEND ${MODULE_COLLECTION} "\nmp_module_t *mp_modules[] = {\n")
+    foreach(ITEM ${MODULES})
+        file(APPEND ${MODULE_COLLECTION} "\t&${ITEM}_module,\n")
+    endforeach()
+    file(APPEND ${MODULE_COLLECTION} "\tNULL\n")
+    file(APPEND ${MODULE_COLLECTION} "};\n\n")
+
+    file(APPEND ${MODULE_COLLECTION} "char* mp_module_names[] = { \n")
+    foreach(ITEM ${MODULES})
+        file(APPEND ${MODULE_COLLECTION} "\t\"${ITEM}_module\", \n")
+    endforeach()
+    file(APPEND ${MODULE_COLLECTION} "\tNULL\n")
+    file(APPEND ${MODULE_COLLECTION} "};\n")
+    file(APPEND ${MODULE_COLLECTION} "\n")
+
+    message(STATUS "Generate ${MODULE_COLLECTION} done")
+endfunction()
 
 function(mediapipe_library_build)
+    #defind module_path
+    set(BASE_MODULES_PATH ${CMAKE_SOURCE_DIR}/src/modules)
+
+    #add package find path
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" "${BASE_MODULES_PATH}/cmake/modules")
+
+    find_package(Json-c REQUIRED)
+    find_package(Cairo REQUIRED)
+    find_package(Glib REQUIRED)
+    find_package(Gstreamer REQUIRED)
+    find_package(Pango REQUIRED)
+
     set(singleValueArgs NAME)
     set(multiValueArgs MODULES)
     cmake_parse_arguments(MEDIAPIPE "" "${singleValueArgs}" "${multiValueArgs}" ${ARGN})

@@ -1,0 +1,11 @@
+find_package(Glib REQUIRED)
+find_package(Cairo REQUIRED)
+find_package(Pango REQUIRED)
+find_package(Json-c REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(Gstreamer REQUIRED)
+
+add_subdirectory(utils)
+add_subdirectory(config)
+add_subdirectory(core)
+add_subdirectory(modules)

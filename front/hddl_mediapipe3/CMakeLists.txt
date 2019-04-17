@@ -1,10 +1,5 @@
 find_package(OpenCV REQUIRED)
 
-mediapipe_library_build(NAME hddl_mediapipe3_lib MODULES element openvino mix2)
-target_include_directories(hddl_mediapipe3_lib PRIVATE ${OpenCV_INCLUDE_DIR})
-target_link_libraries(hddl_mediapipe3_lib PRIVATE ${OpenCV_LIBRARIES})
-target_compile_definitions(hddl_mediapipe3_lib PRIVATE $<$<CONFIG:Debug>:DEBUG>)
-
 find_package(Protobuf REQUIRED)
 protobuf_generate_cpp(PROTO_SRC PROTO_HDR ../message/hddl_message.proto)
 
@@ -16,7 +11,7 @@ include_directories(${PROTOBUF_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(hddl_mediapipe3 ${SRCS} ${HDRS} message.cpp ${PROTO_SRC} ${PROTO_HDR})
-target_link_libraries(hddl_mediapipe3 PRIVATE hddl_mediapipe3_lib XLinkARM pthread ${PROTOBUF_LITE_LIBRARY})
+target_link_libraries(hddl_mediapipe3 PRIVATE mp_core_static XLinkARM pthread ${PROTOBUF_LITE_LIBRARY})
 
 #set FOLDER for subdir install
 set_property(TARGET hddl_mediapipe3 PROPERTY FOLDER "executables")

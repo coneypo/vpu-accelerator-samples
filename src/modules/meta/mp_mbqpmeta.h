@@ -8,7 +8,7 @@
 
 #include <gst/gst.h>
 #include <gst/video/video.h>
-#include "../utils/macros.h"
+#include "utils/macros.h"
 #include <string.h>
 G_BEGIN_DECLS
 /**
