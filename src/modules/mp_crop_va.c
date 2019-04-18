@@ -199,6 +199,8 @@ typedef struct _result_packet_t {
 
 typedef struct {
     GstElement *pipeline;
+    GstPad *enc_pad;
+    guint enc_callback_id;
     GQueue *queue;
     guint width;    // origin image resolution width
     guint height;   // origin image resolution height
@@ -209,14 +211,13 @@ typedef struct {
 
     result_packet_t Jpeg_pag;
     gsize jpegmem_size;
-    GSource *idle_source;
 } jpeg_branch_ctx_t;
 
 typedef struct {
+    mediapipe_t *mp;
     jpeg_branch_ctx_t *branch_ctx;
     guint detect_callback_id;
     GstPad *detect_pad;
-    GMainContext *loop_context;
     GstElement *xlink_pipeline;
     guint channel;
 } crop_va_ctx_t;
@@ -476,11 +477,11 @@ start_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid == 0) {
-#if 0
-        ctx->branch_ctx->idle_source = g_idle_source_new();
-        g_source_set_callback(ctx->branch_ctx->idle_source, (GSourceFunc) push_data, ctx, NULL);
-        ctx->branch_ctx->sourceid = g_source_attach(ctx->branch_ctx->idle_source,
-                                                    ctx->loop_context);
+#ifdef MULTI_THREAD_MODE
+        GMainContext *context = g_main_loop_get_context(ctx->mp->loop);
+        GSource *idle_source = g_idle_source_new();
+        g_source_set_callback(idle_source, (GSourceFunc) push_data, ctx, NULL);
+        ctx->branch_ctx->sourceid = g_source_attach(idle_source, context);
 #else
         ctx->branch_ctx->sourceid = g_idle_add((GSourceFunc) push_data, ctx);
 #endif
@@ -501,8 +502,11 @@ stop_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid != 0) {
-#if 0
-        g_source_destroy(ctx->branch_ctx->idle_source);
+#ifdef MULTI_THREAD_MODE
+        GMainContext *context = g_main_loop_get_context(ctx->mp->loop);
+        GSource *idle_source = g_main_context_find_source_by_id(context, ctx->branch_ctx->sourceid);
+        if (idle_source)
+                g_source_destroy(idle_source);
 #else
         g_source_remove(ctx->branch_ctx->sourceid);
 #endif
@@ -642,9 +646,7 @@ init_callback(mediapipe_t *mp)
 static void *create_ctx(mediapipe_t *mp)
 {
     crop_va_ctx_t *ctx = g_new0(crop_va_ctx_t, 1);
-#if 0
-    ctx->loop_context = g_main_context_get_thread_default();
-#endif
+    ctx->mp = mp;
     return ctx;
 }
 
@@ -658,9 +660,23 @@ static void destroy_ctx(void *_ctx)
         if (queue) {
             g_queue_free_full(queue, (GDestroyNotify) gst_buffer_unref);
         }
-        if (branch_ctx->sourceid != 0) {
-            g_source_remove(branch_ctx->sourceid);
-            branch_ctx->sourceid = 0;
+            if (ctx->branch_ctx->sourceid != 0) {
+#ifdef MULTI_THREAD_MODE
+            GMainContext *context = g_main_loop_get_context(ctx->mp->loop);
+            GSource *idle_source = g_main_context_find_source_by_id(context, ctx->branch_ctx->sourceid);
+            if (idle_source)
+                g_source_destroy(idle_source);
+#else
+            g_source_remove(ctx->branch_ctx->sourceid);
+#endif
+            ctx->branch_ctx->sourceid = 0;
+        }
+
+        if (branch_ctx->enc_pad) {
+            if (branch_ctx->enc_callback_id) {
+                gst_pad_remove_probe(branch_ctx->enc_pad, branch_ctx->enc_callback_id);
+            }
+            gst_object_unref(branch_ctx->enc_pad);
         }
         if (branch_ctx->pipeline) {
             gst_element_set_state(branch_ctx->pipeline, GST_STATE_NULL);
@@ -695,7 +711,6 @@ init_module(mediapipe_t *mp)
     GstCaps *caps = NULL;
     GstVideoInfo video_info;
     gchar caps_string[MAX_BUF_SIZE];
-    GstPad *jpeg_src_pad = NULL;
     char xlink_pipeline_str[200];
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)mp_modules_find_moudle_ctx(mp, "crop_va");
@@ -708,6 +723,17 @@ init_module(mediapipe_t *mp)
         LOG_ERROR("create jpeg encode pipeline failed");
         return  MP_ERROR;
     }
+
+    jpeg_appsrc = gst_bin_get_by_name(GST_BIN(ctx->branch_ctx->pipeline), "mysrc");
+    if (!jpeg_appsrc) {
+        LOG_ERROR("can't find jpegpipline appsrc");
+        return MP_ERROR;
+    }
+
+    g_signal_connect(jpeg_appsrc, "need-data", G_CALLBACK(start_feed), ctx);
+    g_signal_connect(jpeg_appsrc, "enough-data", G_CALLBACK(stop_feed), ctx);
+    gst_object_unref(jpeg_appsrc);
+
     if(mp->xlink_channel_id != 0){
         snprintf(xlink_pipeline_str, 200,
                 "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", mp->xlink_channel_id);
@@ -737,29 +763,19 @@ init_module(mediapipe_t *mp)
     ctx->branch_ctx->Jpeg_pag.results = g_new0(classification_result_t, 10);
     ctx->branch_ctx->Jpeg_pag.jpegs = g_new0(guint8, MAX_BUF_SIZE * 1000);
 
-    jpeg_appsrc = gst_bin_get_by_name(GST_BIN(ctx->branch_ctx->pipeline), "mysrc");
-    if (!jpeg_appsrc) {
-        LOG_ERROR("can't find jpegpipline appsrc");
-        return MP_ERROR;
-    }
-
-    g_signal_connect(jpeg_appsrc, "need-data", G_CALLBACK(start_feed), ctx);
-    g_signal_connect(jpeg_appsrc, "enough-data", G_CALLBACK(stop_feed), ctx);
-    gst_object_unref(jpeg_appsrc);
     //add callback on enc to save jpeg data
     jpeg_enc = gst_bin_get_by_name(GST_BIN(ctx->branch_ctx->pipeline), "enc");
     if (jpeg_enc == NULL) {
         LOG_ERROR("can't find element jpeg encode");
         return MP_ERROR;
     }
-    jpeg_src_pad = gst_element_get_static_pad(jpeg_enc, "src");
-    if (jpeg_src_pad == NULL) {
+    ctx->branch_ctx->enc_pad = gst_element_get_static_pad(jpeg_enc, "src");
+    if (ctx->branch_ctx->enc_pad == NULL) {
         LOG_ERROR("can't get jpeg encode src pad");
         return MP_ERROR;
     }
-    gst_pad_add_probe(jpeg_src_pad, GST_PAD_PROBE_TYPE_BUFFER,
+    ctx->branch_ctx->enc_callback_id = gst_pad_add_probe(ctx->branch_ctx->enc_pad, GST_PAD_PROBE_TYPE_BUFFER,
                       Get_objectData, ctx, NULL);
-    gst_object_unref(jpeg_src_pad);
     gst_object_unref(jpeg_enc);
     ret = gst_element_set_state(ctx->branch_ctx->pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
