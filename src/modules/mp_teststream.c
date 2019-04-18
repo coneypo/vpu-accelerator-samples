@@ -8,6 +8,7 @@
 
 typedef struct {
     GQueue* meta_queue;
+    GMutex meta_queue_lock;
 } stream_ctx_t;
 
 typedef struct {
@@ -45,12 +46,20 @@ create_ctx(mediapipe_t* mp);
 static void
 destroy_ctx(void* _ctx);
 
-static mp_command_t
-    mp_teststream_commands[]
-    = {
-        mp_custom_command0("teststream"),
-        mp_null_command
-      };
+static char*
+config_xlinksrc(mediapipe_t* mp, mp_command_t *cmd);
+
+static mp_command_t mp_teststream_commands[] = {
+    {
+        mp_string("teststream"),
+        MP_MAIN_CONF,
+        config_xlinksrc,
+        0,
+        0,
+        NULL
+    },
+    mp_null_command
+};
 
 static mp_module_ctx_t
     mp_teststream_module_ctx
@@ -78,81 +87,46 @@ mp_module_t
         MP_MODULE_V1_PADDING
       };
 
-static void free_first_structure(GQueue* queue)
-{
-    gpointer first = g_queue_pop_head(queue);
-    gst_structure_free(reinterpret_cast<GstStructure*>(first));
-}
 
 static gboolean
 myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
 {
     auto ctx = (stream_ctx_t*)user_data;
     auto queue = ctx->meta_queue;
-
-    if (g_queue_is_empty(queue)) {
-        LOG_WARNING("roi_meta is NULL!");
-        return TRUE;
-    }
-
-    guint frameId = 0;
+    GstStructure* walk, *boxed;
+    const GValue *vlist, *item;
+    guint nsize;
     guint top, left, width, height;
 
-
+    g_mutex_lock(&ctx->meta_queue_lock);
     if (g_queue_is_empty(queue)) {
+        g_mutex_unlock(&ctx->meta_queue_lock);
         return TRUE;
     }
 
-    GstStructure* s = (GstStructure*)g_queue_peek_head(queue);
-    if (!gst_structure_get_uint(s, "frame_number", &frameId)) {
+    walk = (GstStructure*)g_queue_pop_head(queue);
+    g_mutex_unlock(&ctx->meta_queue_lock);
+
+    vlist = gst_structure_get_value(walk, "meta_info");
+    if (vlist == NULL) {
         LOG_WARNING("unexpected GstStructure object");
-        free_first_structure(queue);
+        gst_structure_free(walk);
         return TRUE;
     }
 
-    while (TRUE) {
-        if (!gst_structure_get_uint(s, "left", &left)) {
-            LOG_WARNING("unexpected GstStructure object");
-            free_first_structure(queue);
-            break;
-        }
-        if (!gst_structure_get_uint(s, "top", &top)) {
-            LOG_WARNING("unexpected GstStructure object");
-            free_first_structure(queue);
-            break;
-        }
-        if (!gst_structure_get_uint(s, "width", &width)) {
-            LOG_WARNING("unexpected GstStructure object");
-            free_first_structure(queue);
-            break;
-        }
-        if (!gst_structure_get_uint(s, "height", &height)) {
-            LOG_WARNING("unexpected GstStructure object");
-            free_first_structure(queue);
-            break;
-        }
-
-        GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
-            buffer, "label", left, top, width, height);
-        gst_video_region_of_interest_meta_add_param(meta, s);
-
-        g_queue_pop_head(queue);
-        if (g_queue_is_empty(queue)) {
-            break;
-        }
-
-        guint frameIdNext = 0;
-        s = (GstStructure*)g_queue_peek_head(queue);
-        if (!gst_structure_get_uint(s, "frame_number", &frameIdNext)) {
-            LOG_WARNING("unexpected GstStructure object");
-            free_first_structure(queue);
-            break;
-        }
-
-        if (frameIdNext != frameId) {
-            break;
-        }
+    nsize = gst_value_list_get_size(vlist);
+    for (guint i = 0; i < nsize; i++) {
+        item = gst_value_list_get_value(vlist, i);
+        boxed = (GstStructure*)g_value_get_boxed(item);
+        gst_structure_get_uint(boxed, "left", &left);
+        gst_structure_get_uint(boxed, "top", &top);
+        gst_structure_get_uint(boxed, "width", &width);
+        gst_structure_get_uint(boxed, "height", &height);
+        GstVideoRegionOfInterestMeta *meta = gst_buffer_add_video_region_of_interest_meta(
+                buffer, "label", left, top, width, height);
+        gst_video_region_of_interest_meta_add_param(meta, gst_structure_copy(boxed));
     }
+    gst_structure_free(walk);
 
     return TRUE;
 }
@@ -163,6 +137,8 @@ create_ctx(mediapipe_t* mp)
     g_assert(mp != NULL);
     stream_ctx_t* ctx = g_new0(stream_ctx_t, 1);
     ctx->meta_queue = g_queue_new();
+    g_mutex_init(&ctx->meta_queue_lock);
+
     return ctx;
 }
 
@@ -173,6 +149,7 @@ destroy_ctx(void* _ctx)
     if (ctx->meta_queue) {
         g_queue_free_full(ctx->meta_queue, (GDestroyNotify)gst_structure_free);
     }
+    g_mutex_clear(&ctx->meta_queue_lock);
     g_free(_ctx);
 }
 
@@ -180,6 +157,8 @@ static gboolean
 xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
 {
     auto ctx = (stream_ctx_t*)user_data;
+    GValue objectlist = { 0 };
+    g_value_init(&objectlist, GST_TYPE_LIST);
 
     GstMapInfo info;
     if (!gst_buffer_map(buffer, &info, GST_MAP_READ)) {
@@ -198,6 +177,9 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
     for (int i = 0; i < metaData->of_objects; i++) {
         //GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
         //   buffer, "label", border[i].left, border[i].top, border[i].width, border[i].height);
+        GValue tmp_value = { 0 };
+        g_value_init(&tmp_value, GST_TYPE_STRUCTURE);
+
         GstStructure* s = gst_structure_new(
             "detection",
             "magic", G_TYPE_UINT, header->magic,
@@ -213,9 +195,19 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
             "top", G_TYPE_UINT, border[i].top,
             "width", G_TYPE_UINT, border[i].width,
             "height", G_TYPE_UINT, border[i].height, NULL);
-        // gst_video_region_of_interest_meta_add_param(meta, s);
-        g_queue_push_tail(ctx->meta_queue, s);
+
+        g_value_take_boxed(&tmp_value, s);
+        gst_value_list_append_value(&objectlist, &tmp_value);
+        g_value_unset(&tmp_value);
     }
+
+    GstStructure* s = gst_structure_new_empty("detection");
+    gst_structure_set_value(s, "meta_info", &objectlist);
+    g_value_unset(&objectlist);
+
+    g_mutex_lock(&ctx->meta_queue_lock);
+    g_queue_push_tail(ctx->meta_queue, s);
+    g_mutex_unlock(&ctx->meta_queue_lock);
 
     gst_buffer_unmap(buffer, &info);
 
@@ -230,4 +222,25 @@ static mp_int_t init_callback(mediapipe_t* mp)
     mediapipe_set_user_callback(mp, "src", "src", xlinksrc_src_callback, ctx);
     mediapipe_set_user_callback(mp, "myconvert", "src", myconvert_src_callback, ctx);
     return MP_OK;
+}
+
+static char* config_xlinksrc(mediapipe_t* mp, mp_command_t *cmd)
+{
+    GstElement* xlinksrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src");
+    if (xlinksrc) {
+        if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "channel")) {
+            g_object_set(xlinksrc, "channel", mp->xlink_channel_id, NULL);
+        } else {
+            printf("Error: cannot find property 'channel' in xlinksrc\n");
+        }
+        if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "init-xlink")) {
+            g_object_set(xlinksrc, "init-xlink", FALSE, NULL);
+        } else {
+            printf("Error: cannot find property 'init-xlink' in xlinksrc\n");
+        }
+        gst_object_unref(xlinksrc);
+    } else {
+        printf("Error: cannot find xlinksrc\n");
+    }
+    return MP_CONF_OK;
 }

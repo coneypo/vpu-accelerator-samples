@@ -1,4 +1,5 @@
 {
+    "module_list": ["teststream", "crop_va"],
     "xlink":
     {
         "channel":1025
