@@ -56,22 +56,35 @@ static mp_module_t* mp_lookup_module_by_short_name(const char* module_name)
     return ret;
 }
 
+static GSList* mp_get_default_module_list()
+{
+    GSList* module_list = NULL;
+
+#ifdef LOAD_ALL_MODULES_BY_DEFAULT
+    for (int i = 0; mp_modules[i]; i++) {
+        module_list = g_slist_append(module_list, mp_modules[i]);
+    }
+#endif
+
+    return module_list;
+}
+
 static GSList* mp_parse_module_list(struct json_object* root)
 {
     if (!root) {
-        return NULL;
+        return mp_get_default_module_list();
     }
 
     struct json_object* modules = NULL;
     if (!json_object_object_get_ex(root, "module_list", &modules)) {
         LOG_ERROR("cannot find node \"module_list\"");
-        return NULL;
+        return mp_get_default_module_list();
     }
 
     int num_modules = json_object_array_length(modules);
     if (!num_modules) {
         LOG_ERROR("node \"module_list\" is empty");
-        return NULL;
+        return mp_get_default_module_list();
     }
 
     gboolean error = FALSE;

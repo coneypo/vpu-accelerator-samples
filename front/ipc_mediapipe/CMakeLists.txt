@@ -37,8 +37,8 @@ configure_file(./labels/pedestrian_attributes.txt  ${CMAKE_CURRENT_BINARY_DIR}/l
 configure_file(./labels/vehicle_types.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_types.txt COPYONLY)
 configure_file(./labels/vehicle_colors.txt  ${CMAKE_CURRENT_BINARY_DIR}/labels/vehicle_colors.txt COPYONLY)
 
-set(BUILD_IPC_DEMO "NO" CACHE STRING "whether build ipc_demo")
-if(${BUILD_IPC_DEMO} STREQUAL YES)
-        add_subdirectory(demo)
+option(BUILD_IPC_DEMO "Build IPC Demo" OFF)
+if(BUILD_IPC_DEMO)
+    add_subdirectory(demo)
 endif()
 

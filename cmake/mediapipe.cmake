@@ -141,6 +141,7 @@ function(mediapipe_library_build)
 
     target_compile_options(${MEDIAPIPE_NAME} PUBLIC $<$<COMPILE_LANGUAGE:C>:-std=gnu99> $<$<COMPILE_LANGUAGE:CXX>:-std=c++11> -Wno-deprecated-declarations -Werror)
     target_compile_definitions(${MEDIAPIPE_NAME} PUBLIC $<$<CONFIG:Debug>:DEBUG>)
+    target_compile_definitions(${MEDIAPIPE_NAME} PRIVATE LOAD_ALL_MODULES_BY_DEFAULT)
 
     #opencl oclcommon.h didn't not add extern c heard, so there is some problem
     #when link libgstocl.so, so force use CXX link
