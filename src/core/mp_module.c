@@ -104,7 +104,7 @@ static GSList* mp_parse_module_list(struct json_object* root)
             g_string_append(module_list_str, module_name);
             g_string_append_c(module_list_str, ' ');
         } else {
-            LOG_ERROR("cannot find module named \"%s\"", module_name);
+            LOG_WARNING("cannot find module named \"%s\"", module_name);
             error = TRUE;
             break;
         }
@@ -180,8 +180,11 @@ mp_create_modules(mediapipe_t *mp)
 {
     GSList* module_list = mp_parse_module_list(mp->config);
     if (!module_list) {
-        LOG_ERROR("parse module list from config failed.");
-        return MP_ERROR;
+        LOG_WARNING("No module loaded.");
+        mp->modules = g_new0(mp_module_t*, 1);
+        mp->module_ctx = g_new0(void*, 1);
+        mp->modules_n = 0;
+        return MP_OK;
     }
 
     int num_modules = g_slist_length(module_list);
