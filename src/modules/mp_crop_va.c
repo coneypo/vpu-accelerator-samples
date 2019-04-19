@@ -476,15 +476,12 @@ static void
 start_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
-    if (ctx->branch_ctx->sourceid == 0) {
-#ifdef MULTI_THREAD_MODE
-        GMainContext *context = g_main_loop_get_context(ctx->mp->loop);
-        GSource *idle_source = g_idle_source_new();
-        g_source_set_callback(idle_source, (GSourceFunc) push_data, ctx, NULL);
-        ctx->branch_ctx->sourceid = g_source_attach(idle_source, context);
-#else
-        ctx->branch_ctx->sourceid = g_idle_add((GSourceFunc) push_data, ctx);
-#endif
+    if (!ctx->branch_ctx->sourceid) {
+        GMainContext* context = g_main_loop_get_context(ctx->mp->loop);
+        GSource* source = g_idle_source_new();
+        g_source_set_callback(source, (GSourceFunc) push_data, ctx, NULL);
+        ctx->branch_ctx->sourceid = g_source_attach(source, context);
+        g_source_unref(source);
     }
 }
 
@@ -502,14 +499,11 @@ stop_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid != 0) {
-#ifdef MULTI_THREAD_MODE
-        GMainContext *context = g_main_loop_get_context(ctx->mp->loop);
-        GSource *idle_source = g_main_context_find_source_by_id(context, ctx->branch_ctx->sourceid);
-        if (idle_source)
-                g_source_destroy(idle_source);
-#else
-        g_source_remove(ctx->branch_ctx->sourceid);
-#endif
+        GMainContext* context = g_main_loop_get_context(ctx->mp->loop);
+        GSource* source = g_main_context_find_source_by_id(context, ctx->branch_ctx->sourceid);
+        if (source) {
+            g_source_destroy(source);
+        }
         ctx->branch_ctx->sourceid = 0;
     }
 }
@@ -661,15 +655,12 @@ static void destroy_ctx(void *_ctx)
             g_queue_free_full(queue, (GDestroyNotify) gst_buffer_unref);
         }
             if (ctx->branch_ctx->sourceid != 0) {
-#ifdef MULTI_THREAD_MODE
-            GMainContext *context = g_main_loop_get_context(ctx->mp->loop);
-            GSource *idle_source = g_main_context_find_source_by_id(context, ctx->branch_ctx->sourceid);
-            if (idle_source)
-                g_source_destroy(idle_source);
-#else
-            g_source_remove(ctx->branch_ctx->sourceid);
-#endif
-            ctx->branch_ctx->sourceid = 0;
+                GMainContext* context = g_main_loop_get_context(ctx->mp->loop);
+                GSource* source = g_main_context_find_source_by_id(context, ctx->branch_ctx->sourceid);
+                if (source) {
+                    g_source_destroy(source);
+                }
+                ctx->branch_ctx->sourceid = 0;
         }
 
         if (branch_ctx->enc_pad) {

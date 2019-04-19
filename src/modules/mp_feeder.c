@@ -18,6 +18,7 @@ typedef struct {
     guint sourceid;
     GSource* idle_source;
     GMainContext* loop_context;
+    std::string appsrc_name;
     std::string packet_folder;
     PacketArray packets;
     int index;
@@ -59,7 +60,8 @@ static void* create_ctx(mediapipe_t* mp)
 {
     feeder_ctx_t* ctx = g_new0(feeder_ctx_t, 1);
     ctx->index = 0;
-    ctx->loop_context = g_main_context_get_thread_default();
+    ctx->appsrc_name = "src";
+    ctx->loop_context = g_main_loop_get_context(mp->loop);
     return ctx;
 }
 
@@ -169,24 +171,20 @@ static gboolean push_data(feeder_ctx_t* ctx)
 static void start_feed(GstElement* appsrc, guint unused_size, feeder_ctx_t* ctx)
 {
     if (!ctx->sourceid) {
-#if 0
-        ctx->idle_source = g_idle_source_new();
-        g_source_set_callback(ctx->idle_source, (GSourceFunc)push_data, ctx, NULL);
-        ctx->sourceid = g_source_attach(ctx->idle_source, ctx->loop_context);
-#else
-        ctx->sourceid = g_idle_add((GSourceFunc)push_data, ctx);
-#endif
+        GSource* source = g_idle_source_new();
+        g_source_set_callback(source, (GSourceFunc) push_data, ctx, NULL);
+        ctx->sourceid = g_source_attach(source, ctx->loop_context);
+        g_source_unref(source);
     }
 }
 
 static void stop_feed(GstElement* appsrc, guint unused_size, feeder_ctx_t* ctx)
 {
     if (!ctx->sourceid) {
-#if 0
-        g_source_destroy(ctx->idle_source);
-#else
-        g_source_remove(ctx->sourceid);
-#endif
+        GSource* source = g_main_context_find_source_by_id(ctx->loop_context, ctx->sourceid);
+        if (source) {
+            g_source_destroy(source);
+        }
         ctx->sourceid = 0;
     }
 }
@@ -199,14 +197,14 @@ static mp_int_t init_callback(mediapipe_t* mp)
         return MP_OK;
     }
 
-    ctx->appsrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src0");
+    ctx->appsrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), ctx->appsrc_name.c_str());
     if (!ctx->appsrc) {
-        LOG_INFO("feeder: element named \"src\" not found, disable feeding feature");
+        LOG_INFO("feeder: element named \"%s\" not found, disable feeding feature", ctx->appsrc_name.c_str());
         return MP_OK;
     }
 
     if (!GST_IS_APP_SRC(ctx->appsrc)) {
-        LOG_INFO("feeder: appsrc named \"src\" not found, disable feeding feature");
+        LOG_INFO("feeder: appsrc named \"%s\" not found, disable feeding feature", ctx->appsrc_name.c_str());
         gst_object_unref(ctx->appsrc);
         ctx->appsrc = 0;
         return MP_OK;
