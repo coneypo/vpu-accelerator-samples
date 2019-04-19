@@ -14,6 +14,7 @@ set(BUILD_APP "all" CACHE STRING "Choose application to build")
 set_property(CACHE BUILD_APP PROPERTY STRINGS ipc hddl manager all)
 
 option(MULTI_THREAD_MODE "Create mediapipe in standalone thread" OFF)
+option(USE_THREAD_DEFAULT_MAIN_CONTEXT "Use thread default main context" OFF)
 if(MULTI_THREAD_MODE)
     add_definitions(-DMULTI_THREAD_MODE)
 endif()

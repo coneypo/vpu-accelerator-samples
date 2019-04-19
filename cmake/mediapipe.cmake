@@ -145,6 +145,11 @@ function(mediapipe_library_build)
     target_compile_definitions(${MEDIAPIPE_NAME} PUBLIC $<$<CONFIG:Debug>:DEBUG>)
     target_compile_definitions(${MEDIAPIPE_NAME} PRIVATE LOAD_ALL_MODULES_BY_DEFAULT)
 
+    if(USE_THREAD_DEFAULT_MAIN_CONTEXT)
+        message(STATUS "Use thread default main context")
+        target_compile_definitions(${MEDIAPIPE_NAME} PRIVATE USE_THREAD_DEFAULT_MAIN_CONTEXT)
+    endif()
+
     #opencl oclcommon.h didn't not add extern c heard, so there is some problem
     #when link libgstocl.so, so force use CXX link
     set_target_properties(${MEDIAPIPE_NAME} PROPERTIES LINKER_LANGUAGE CXX)

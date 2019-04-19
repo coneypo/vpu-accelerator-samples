@@ -30,3 +30,10 @@ target_compile_options(
     $<$<COMPILE_LANGUAGE:CXX>:-std=c++11>
     -Wno-deprecated-declarations -Werror
 )
+
+if(USE_THREAD_DEFAULT_MAIN_CONTEXT)
+    message(STATUS "Use thread default main context")
+    target_compile_definitions(
+        ${TARGET_NAME} PRIVATE USE_THREAD_DEFAULT_MAIN_CONTEXT
+    )
+endif()

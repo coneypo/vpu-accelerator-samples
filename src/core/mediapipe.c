@@ -341,6 +341,15 @@ create_pipeline_from_file(const char *file)
     return pipeline;
 }
 
+static GMainContext* mp_acquire_main_context()
+{
+#ifdef USE_THREAD_DEFAULT_MAIN_CONTEXT
+    return g_main_context_new();
+#else
+    return g_main_context_default();
+#endif
+}
+
 /**
     @brief Create mediapipe.
 
@@ -369,20 +378,17 @@ mediapipe_create(int argc, char *argv[])
     /* json_setup_elements (mp, mp->config); */
     /* json_setup_rtsp_server (mp, mp->config); */
 
-    GstBus *bus = gst_element_get_bus(mp->pipeline);
-#ifdef MULTI_THEAD_MODE
-    GMainContext *context = g_main_context_new();
-    GSource *source = gst_bus_create_watch (bus);
-    g_source_set_callback (source, (GSourceFunc)bus_callback, mp, NULL);
+    GMainContext* context = mp_acquire_main_context();
+
+    GstBus* bus = gst_element_get_bus(mp->pipeline);
+    GSource* source = gst_bus_create_watch(bus);
+    g_source_set_callback(source, (GSourceFunc)bus_callback, mp, NULL);
     mp->bus_watch_id = g_source_attach(source, context);
-#else
-    GMainContext *context = g_main_context_default();
-    mp->bus_watch_id = gst_bus_add_watch(bus, bus_callback, mp);
-#endif
+    g_source_unref(source);
     gst_object_unref(bus);
 
-    mp->loop = g_main_loop_new(context, FALSE);
     mp->state = STATE_READY;
+    mp->loop = g_main_loop_new(context, FALSE);
     /* json_setup_cvsdk_branch (mp, mp->config); */
     mp->config = json_create(g_config_filename);
 
@@ -430,20 +436,18 @@ mediapipe_init_from_string(const char *config, const char *launch, mediapipe_t *
         return FALSE;
     }
 
-    GstBus *bus = gst_element_get_bus(mp->pipeline);
-#ifdef MULTI_THEAD_MODE
-    GMainContext *context = g_main_context_new();
-    GSource *source = gst_bus_create_watch (bus);
-    g_source_set_callback (source, (GSourceFunc)bus_callback, mp, NULL);
-    mp->bus_watch_id = g_source_attach(source, context);
-#else
-    GMainContext *context = g_main_context_default();
-    mp->bus_watch_id = gst_bus_add_watch(bus, bus_callback, mp);
-#endif
-    gst_object_unref(bus);
+    GMainContext* context = mp_acquire_main_context();
+    GstBus* bus = gst_element_get_bus(mp->pipeline);
+    GSource* source = gst_bus_create_watch(bus);
+    g_source_set_callback(source, (GSourceFunc)bus_callback, mp, NULL);
 
+    mp->bus_watch_id = g_source_attach(source, context);
     mp->loop = g_main_loop_new(context, FALSE);
     mp->state = STATE_READY;
+
+    g_source_unref(source);
+    gst_object_unref(bus);
+
     return TRUE;
 }
 
@@ -457,15 +461,12 @@ mediapipe_destroy(mediapipe_t *mp)
 {
     g_assert(mp);
 
-#ifdef MULTI_THREAD_MODE
     GMainContext *context = g_main_loop_get_context(mp->loop);
     GSource *source = g_main_context_find_source_by_id(context, mp->bus_watch_id);
-    if (source)
+    if (source) {
         g_source_destroy(source);
-    g_main_context_unref (context);
-#else
-    g_source_remove(mp->bus_watch_id);
-#endif
+    }
+    g_main_context_unref(context);
 
     g_main_loop_unref(mp->loop);
     json_destroy(&mp->config);
@@ -484,6 +485,23 @@ mediapipe_destroy(mediapipe_t *mp)
 
     @param mp Pointer to mediapipe.
 */
+
+void mediapipe_start_prepare(mediapipe_t* mp)
+{
+#ifdef USE_THREAD_DEFAULT_MAIN_CONTEXT
+    GMainContext *context = g_main_loop_get_context(mp->loop);
+    g_main_context_push_thread_default(context);
+#endif
+}
+
+void mediapipe_start_finish(mediapipe_t* mp)
+{
+#ifdef USE_THREAD_DEFAULT_MAIN_CONTEXT
+    GMainContext *context = g_main_loop_get_context(mp->loop);
+    g_main_context_pop_thread_default(context);
+#endif
+}
+
 void
 mediapipe_start(mediapipe_t *mp)
 {
@@ -491,16 +509,11 @@ mediapipe_start(mediapipe_t *mp)
     gst_element_set_state(mp->pipeline, GST_STATE_PLAYING);
     mp->state = STATE_START;
 
-#ifdef MULTI_THREAD_MODE
-    GMainContext *context = g_main_loop_get_context(mp->loop);
-    g_main_context_push_thread_default(context);
-#endif
+    mediapipe_start_prepare(mp);
 
     g_main_loop_run(mp->loop);
 
-#ifdef MULTI_THREAD_MODE
-    g_main_context_pop_thread_default(context);
-#endif
+    mediapipe_start_finish(mp);
 }
 
 /**
