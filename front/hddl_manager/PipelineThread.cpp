@@ -161,7 +161,8 @@ namespace hddl {
 class Pipeline::Impl {
 public:
     Impl(Pipeline* parent)
-        : m_mp(nullptr)
+        : m_start(true)
+        , m_mp(nullptr)
         , m_pipe(*parent)
     {
     }
@@ -197,16 +198,22 @@ public:
 
     PipelineStatus destroy()
     {
+        mediapipe_stop(m_mp);
         mediapipe_destroy(m_mp);
         return PipelineStatus::SUCCESS;
     }
 
     PipelineStatus play()
     {
-        std::thread gst_th([this]() {
-            mediapipe_start(m_mp);
-        });
-        gst_th.detach();
+        if (m_start) {
+            std::thread gst_th([this]() {
+                mediapipe_start(m_mp);
+            });
+            gst_th.detach();
+            m_start = false;
+        } else {
+            mediapipe_playing(m_mp);
+        }
         return PipelineStatus::SUCCESS;
     }
 
@@ -234,6 +241,7 @@ private:
         }
     }
 
+    bool m_start;
     mediapipe_t* m_mp;
     Pipeline& m_pipe;
 };

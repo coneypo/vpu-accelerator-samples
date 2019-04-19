@@ -81,6 +81,8 @@ int main(int argc, char* argv[])
 
         pipeMgr.uninit();
         return EXIT_SUCCESS;
+    } else {
+        return EXIT_FAILURE;
     }
 #else
     auto& connector = XLinkConnector::getInstance();

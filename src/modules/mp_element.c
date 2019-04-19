@@ -61,8 +61,11 @@ json_setup_elements(mediapipe_t *mp)
     unsigned int len, i;
     int ret = -1;
     struct json_object *root = mp->config;
-    if (!json_object_object_get_ex(root, "element", &parent))
-        return MP_CONF_ERROR;
+    if (!json_object_object_get_ex(root, "element", &parent)) {
+        // we needn't always have "element" in config file even the module is loaded.
+        return MP_CONF_OK;
+    }
+
     if (!json_object_is_type(parent, json_type_array))
         return MP_CONF_ERROR;
     LOG_DEBUG("\n=====================begin config===================\n");
