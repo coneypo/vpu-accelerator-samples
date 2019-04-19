@@ -5,8 +5,8 @@ find_package(Protobuf REQUIRED)
 # Add this extra line to make CLion analyze better though it's already added as target porperty
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-set(SRC main.cpp PipelineManager.cpp Pipeline.cpp PipelineState.cpp)
-set(HDR PipelineManager.h PipelineStatus.h Pipeline.h PipelineState.h)
+set(SRC main.cpp PipelineManager.cpp Pipeline.cpp PipelineState.cpp FileUtils.cpp)
+set(HDR PipelineManager.h PipelineStatus.h Pipeline.h PipelineState.h FileUtils.h)
 
 option(LOCAL_MODE "HDDL Manager launchs pipelines in local config file" OFF)
 

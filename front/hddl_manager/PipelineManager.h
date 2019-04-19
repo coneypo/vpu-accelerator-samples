@@ -54,9 +54,6 @@ private:
 
     std::shared_ptr<Pipeline> getPipeline(int id);
     void cleanupPipeline(int id, PipelineStatus status);
-    bool exist(const char* path);
-    bool exist(const std::string& path);
-    bool changeFileMode(const char* file, int mode);
 
     using Map = std::unordered_map<int, std::shared_ptr<Pipeline>>;
     std::mutex m_mapMutex;

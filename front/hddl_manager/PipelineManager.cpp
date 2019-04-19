@@ -1,4 +1,5 @@
 #include "PipelineManager.h"
+#include "FileUtils.h"
 
 #include <fstream>
 #include <sys/stat.h>
@@ -135,7 +136,7 @@ PipelineStatus PipelineManager::loadFile(const std::string& data, const std::str
         return PipelineStatus::INVALID_PARAMETER;
     }
 
-    if (flag == LoadFileType::CREATE && exist(dstPath)) {
+    if (flag == LoadFileType::CREATE && FileUtils::exist(dstPath)) {
         return PipelineStatus::FILE_ALREADY_EXIST;
     }
 
@@ -159,7 +160,7 @@ PipelineStatus PipelineManager::loadFile(const std::string& data, const std::str
 
     out.close();
 
-    if (!changeFileMode(dstPath.c_str(), fileMode)) {
+    if (!FileUtils::changeFileMode(dstPath.c_str(), fileMode)) {
         return PipelineStatus::ERROR;
     }
 
@@ -168,7 +169,7 @@ PipelineStatus PipelineManager::loadFile(const std::string& data, const std::str
 
 PipelineStatus PipelineManager::unloadFile(const std::string& filePath)
 {
-    if (!exist(filePath)) {
+    if (!FileUtils::exist(filePath)) {
         return PipelineStatus::INVALID_PARAMETER;
     }
 
@@ -195,41 +196,5 @@ void PipelineManager::cleanupPipeline(int id, PipelineStatus status)
 
     if (status == PipelineStatus::NOT_EXIST)
         m_map.erase(id);
-}
-
-bool PipelineManager::exist(const char* path)
-{
-    struct stat buffer;
-    return (stat(path, &buffer) == 0);
-}
-
-bool PipelineManager::exist(const std::string& path)
-{
-    if (path.empty())
-        return false;
-
-    return exist(path.c_str());
-}
-
-bool PipelineManager::changeFileMode(const char* file, int mode)
-{
-    static_assert(sizeof(mode) >= sizeof(mode_t), "int is small than mode_t");
-    if (!file) {
-        errno = EINVAL;
-        return false;
-    }
-
-    if (!exist(file)) {
-        errno = EINVAL;
-        return false;
-    }
-
-    if (mode >= 0) {
-        if (chmod(file, (mode_t)mode) < 0) {
-            return false;
-        }
-    }
-
-    return true;
 }
 }

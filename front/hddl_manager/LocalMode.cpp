@@ -1,48 +1,9 @@
-#include <fstream>
 #include <iostream>
 #include <json-c/json.h>
-#include <sys/stat.h>
 #include <thread>
 
+#include "FileUtils.h"
 #include "LocalMode.h"
-
-namespace FileUtils {
-bool exist(const char* path)
-{
-    struct stat buffer;
-    return (stat(path, &buffer) == 0);
-}
-
-bool exist(const std::string& path)
-{
-    if (path.empty()) {
-        return false;
-    }
-    return exist(path.c_str());
-}
-
-std::string readFile(const std::string& filePath)
-{
-    std::ifstream fs(filePath);
-    if (!fs.is_open()) {
-        std::cerr << "Error: open file " << filePath << " failed" << std::endl;
-        return {};
-    }
-
-    fs.seekg(0, std::ios::end);
-    size_t length = fs.tellg();
-    if (!length) {
-        std::cerr << "Error: file " << filePath << " is empty" << std::endl;
-        return {};
-    }
-
-    std::string buffer(length, ' ');
-    fs.seekg(0);
-    fs.read(&buffer[0], length);
-
-    return buffer;
-}
-}
 
 namespace hddl {
 int LocalMode::init(std::string& localFile, hddl::PipelineManager& pipeMgr, int seconds)
