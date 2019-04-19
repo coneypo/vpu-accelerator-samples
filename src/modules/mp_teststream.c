@@ -7,8 +7,7 @@
 #include <vector>
 
 typedef struct {
-    GQueue* meta_queue;
-    GMutex meta_queue_lock;
+    GAsyncQueue* meta_queue;
 } stream_ctx_t;
 
 typedef struct {
@@ -92,32 +91,25 @@ static gboolean
 myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
 {
     auto ctx = (stream_ctx_t*)user_data;
-    auto queue = ctx->meta_queue;
-    GstStructure* walk, *boxed;
-    const GValue *vlist, *item;
-    guint nsize;
-    guint top, left, width, height;
 
-    g_mutex_lock(&ctx->meta_queue_lock);
-    if (g_queue_is_empty(queue)) {
-        g_mutex_unlock(&ctx->meta_queue_lock);
+    GstStructure* walk = (GstStructure*)g_async_queue_try_pop(ctx->meta_queue);
+    if (!walk) {
         return TRUE;
     }
 
-    walk = (GstStructure*)g_queue_pop_head(queue);
-    g_mutex_unlock(&ctx->meta_queue_lock);
-
-    vlist = gst_structure_get_value(walk, "meta_info");
-    if (vlist == NULL) {
+    const GValue* vlist = gst_structure_get_value(walk, "meta_info");
+    if (!vlist) {
         LOG_WARNING("unexpected GstStructure object");
         gst_structure_free(walk);
         return TRUE;
     }
 
-    nsize = gst_value_list_get_size(vlist);
+    guint top, left, width, height;
+    guint nsize = gst_value_list_get_size(vlist);
+
     for (guint i = 0; i < nsize; i++) {
-        item = gst_value_list_get_value(vlist, i);
-        boxed = (GstStructure*)g_value_get_boxed(item);
+        const GValue* item = gst_value_list_get_value(vlist, i);
+        GstStructure* boxed = (GstStructure*)g_value_get_boxed(item);
         gst_structure_get_uint(boxed, "left", &left);
         gst_structure_get_uint(boxed, "top", &top);
         gst_structure_get_uint(boxed, "width", &width);
@@ -126,6 +118,7 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
                 buffer, "label", left, top, width, height);
         gst_video_region_of_interest_meta_add_param(meta, gst_structure_copy(boxed));
     }
+
     gst_structure_free(walk);
 
     return TRUE;
@@ -136,8 +129,7 @@ create_ctx(mediapipe_t* mp)
 {
     g_assert(mp != NULL);
     stream_ctx_t* ctx = g_new0(stream_ctx_t, 1);
-    ctx->meta_queue = g_queue_new();
-    g_mutex_init(&ctx->meta_queue_lock);
+    ctx->meta_queue = g_async_queue_new_full((GDestroyNotify)gst_structure_free);
 
     return ctx;
 }
@@ -146,10 +138,12 @@ static void
 destroy_ctx(void* _ctx)
 {
     stream_ctx_t* ctx = (stream_ctx_t*)_ctx;
+
     if (ctx->meta_queue) {
-        g_queue_free_full(ctx->meta_queue, (GDestroyNotify)gst_structure_free);
+        g_async_queue_unref(ctx->meta_queue);
+        ctx->meta_queue = NULL;
     }
-    g_mutex_clear(&ctx->meta_queue_lock);
+
     g_free(_ctx);
 }
 
@@ -205,9 +199,7 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
     gst_structure_set_value(s, "meta_info", &objectlist);
     g_value_unset(&objectlist);
 
-    g_mutex_lock(&ctx->meta_queue_lock);
-    g_queue_push_tail(ctx->meta_queue, s);
-    g_mutex_unlock(&ctx->meta_queue_lock);
+    g_async_queue_push(ctx->meta_queue, s);
 
     gst_buffer_unmap(buffer, &info);
 
