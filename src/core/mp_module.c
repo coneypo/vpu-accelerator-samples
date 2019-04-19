@@ -9,19 +9,17 @@
 
 mp_uint_t         mp_max_module;
 static mp_uint_t  mp_modules_n;
-static GHashTable* mp_module_table = NULL;
 
 static void* mp_prepare(void* param)
 {
-    mp_module_table = g_hash_table_new(g_str_hash, g_str_equal);
+    mp_modules_n = 0;
 
     for (int i = 0; mp_modules[i]; i++) {
         mp_modules[i]->index = i;
         mp_modules[i]->name = mp_module_names[i];
-        g_hash_table_insert(mp_module_table, mp_module_names[i], mp_modules[i]);
+        ++mp_modules_n;
     }
 
-    mp_modules_n = g_hash_table_size(mp_module_table);
     mp_max_module = mp_modules_n + MP_MAX_DYNAMIC_MODULES;
 
     return MP_OK;
@@ -39,7 +37,13 @@ mp_preinit_modules(void)
 
 static mp_module_t* mp_lookup_module(const char* module_name)
 {
-    return (mp_module_t*)g_hash_table_lookup(mp_module_table, module_name);
+    for (int i = 0; mp_modules[i]; i++) {
+        if (g_strcmp0(mp_modules[i]->name, module_name) == 0) {
+            return mp_modules[i];
+        }
+    }
+
+    return NULL;
 }
 
 static mp_module_t* mp_lookup_module_by_short_name(const char* module_name)
@@ -49,7 +53,7 @@ static mp_module_t* mp_lookup_module_by_short_name(const char* module_name)
     g_string_append(full_name, module_name);
     g_string_append(full_name, "_module");
 
-    mp_module_t* ret = (mp_module_t*)g_hash_table_lookup(mp_module_table, full_name->str);
+    mp_module_t* ret = mp_lookup_module(full_name->str);
 
     g_string_free(full_name, TRUE);
 
@@ -366,7 +370,6 @@ mp_modules_exit_master(mediapipe_t *mp)
 
     g_free(mp->modules);
     g_free(mp->module_ctx);
-    g_hash_table_destroy(mp_module_table);
 }
 
 /* --------------------------------------------------------------------------*/
