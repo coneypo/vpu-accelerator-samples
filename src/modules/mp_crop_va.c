@@ -242,7 +242,7 @@ static void
 start_feed(GstElement *appsrc, guint unused_size, gpointer user_data);
 
 static void
-stop_feed(GstElement *appsrc, guint unused_size, gpointer user_data);
+stop_feed(GstElement *appsrc, gpointer user_data);
 
 //module define start
 static void
@@ -365,6 +365,19 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         if (ymax > branch_ctx->height) {
             ymax = branch_ctx->height;
         }
+        //only image size is bigger than 16*16, the jpgenc will encode image.
+        if (xmax - xmin < 16) {
+            xmin = xmax - 16 ;
+        }
+        if (ymax - ymin < 16) {
+            ymin = ymax - 16 ;
+        }
+        if (xmin < 0) {
+            xmin = 0;
+        }
+        if (ymin < 0) {
+            ymin = 0;
+        }
         //corp the image and copy into a new buffer
         cv::Mat croped_ref(frame_mat, cv::Rect(xmin, ymin, xmax - xmin, ymax - ymin));
         size =  croped_ref.total() * croped_ref.elemSize();
@@ -427,9 +440,15 @@ push_data(gpointer user_data)
         return TRUE;
     }
     buffer = (GstBuffer *) g_queue_peek_head(branch_ctx->queue);
+    int roi_index = 0;
     while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
+        }
+        if (roi_index < branch_ctx->roi_index &&
+                branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
+            roi_index ++ ;
+            continue;
         }
         meta = (GstVideoRegionOfInterestMeta *)gst_meta;
         structure = gst_video_region_of_interest_meta_get_param(meta, "detection");
@@ -495,7 +514,7 @@ start_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
  */
 /* ----------------------------------------------------------------------------*/
 static void
-stop_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
+stop_feed(GstElement *appsrc, gpointer user_data)
 {
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid != 0) {
