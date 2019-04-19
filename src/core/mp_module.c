@@ -60,13 +60,13 @@ static mp_module_t* mp_lookup_module_by_short_name(const char* module_name)
     return ret;
 }
 
-static GSList* mp_get_default_module_list()
+static GSList* mp_get_default_module_list(GSList* module_list)
 {
-    GSList* module_list = NULL;
-
 #ifdef LOAD_ALL_MODULES_BY_DEFAULT
     for (int i = 0; mp_modules[i]; i++) {
-        module_list = g_slist_append(module_list, mp_modules[i]);
+        if (g_strcmp0(module_name, "element")) {
+            module_list = g_slist_append(module_list, mp_modules[i]);
+        }
     }
 #endif
 
@@ -75,50 +75,41 @@ static GSList* mp_get_default_module_list()
 
 static GSList* mp_parse_module_list(struct json_object* root)
 {
+    GSList* module_list = NULL;
+
+    mp_module_t* element_module = mp_lookup_module_by_short_name("element");
+    if (element_module) {
+        module_list = g_slist_append(module_list, element_module);
+    }
+
     if (!root) {
-        return mp_get_default_module_list();
+        return mp_get_default_module_list(module_list);
     }
 
     struct json_object* modules = NULL;
     if (!json_object_object_get_ex(root, "module_list", &modules)) {
-        LOG_ERROR("cannot find node \"module_list\"");
-        return mp_get_default_module_list();
+        LOG_INFO("\"module_list\" not configured");
+        return mp_get_default_module_list(module_list);
     }
 
     int num_modules = json_object_array_length(modules);
     if (!num_modules) {
-        LOG_ERROR("node \"module_list\" is empty");
-        return mp_get_default_module_list();
+        LOG_INFO("\"module_list\" is configured as an empty list");
+        return mp_get_default_module_list(module_list);
     }
-
-    gboolean error = FALSE;
-    GSList* module_list = NULL;
-    GString* module_list_str = g_string_new("module_list: [ ");
 
     for (int i = 0; i < num_modules; ++i) {
         struct json_object* node = json_object_array_get_idx(modules, i);
         const char* module_name = json_object_get_string(node);
-        gpointer module = mp_lookup_module_by_short_name(module_name);
-        if (module) {
-            module_list = g_slist_append(module_list, module);
-            g_string_append(module_list_str, module_name);
-            g_string_append_c(module_list_str, ' ');
-        } else {
-            LOG_WARNING("cannot find module named \"%s\"", module_name);
-            error = TRUE;
-            break;
+        if (g_strcmp0(module_name, "element")) {
+            gpointer module = mp_lookup_module_by_short_name(module_name);
+            if (module) {
+                module_list = g_slist_append(module_list, module);
+            } else {
+                LOG_ERROR("cannot find module named \"%s\"", module_name);
+            }
         }
     }
-
-    if (error) {
-        g_string_free(module_list_str, TRUE);
-        g_slist_free(module_list);
-        return NULL;
-    }
-
-    g_string_append(module_list_str, "]");
-    LOG_INFO("%s", module_list_str->str);
-    g_string_free(module_list_str, TRUE);
 
     return module_list;
 }
@@ -165,6 +156,20 @@ static gboolean mp_init_context(mediapipe_t* mp, int num_modules)
     return TRUE;
 }
 
+static void print_module_list(mp_module_t** modules, int num_modules)
+{
+    GString* module_list_str = g_string_new("module_list: [ ");
+
+    for (int i = 0; i < num_modules; ++i) {
+        g_string_append(module_list_str, modules[i]->name);
+        g_string_append_c(module_list_str, ' ');
+    }
+
+    g_string_append_c(module_list_str, ']');
+    LOG_INFO("%s", module_list_str->str);
+    g_string_free(module_list_str, TRUE);
+}
+
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -196,6 +201,8 @@ mp_create_modules(mediapipe_t *mp)
     for (int i = 0; i < num_modules; ++i) {
         mp->modules[i] = g_slist_nth_data(module_list, i);
     }
+
+    print_module_list(mp->modules, num_modules);
 
     if (!mp_create_context(mp, num_modules) || !mp_init_context(mp, num_modules)) {
         g_free(mp->modules);
