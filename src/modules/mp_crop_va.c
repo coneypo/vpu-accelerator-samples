@@ -620,6 +620,9 @@ detect_src_callback_for_crop_jpeg(GstPad *pad, GstPadProbeInfo *info,
     //pusb buffer to queue and process them later
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
     g_queue_push_tail(ctx->branch_ctx->queue, gst_buffer_ref(buffer));
+    if (g_queue_get_length(ctx->branch_ctx->queue) > 5) {
+        g_usleep(30000 * g_queue_get_length(ctx->branch_ctx->queue));
+    }
     return GST_PAD_PROBE_OK;
 }
 
