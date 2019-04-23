@@ -24,6 +24,12 @@ if (${DRM_TYPE} STREQUAL "intel" OR ${DRM_TYPE} STREQUAL "hantro")
     target_link_libraries(${DRMALLOC_STATIC_LIB} PRIVATE ${GSTREAMER_LIBRARIES})
 
     target_include_directories(${DRMALLOC_STATIC_LIB} PUBLIC ${CMAKE_SOURCE_DIR}/src/drm_allocator)
+
+    add_executable(drm_allocator_test drm_allocator_test.c)
+    target_include_directories(drm_allocator_test PRIVATE ${GLIB_INCLUDE_DIRS})
+    target_include_directories(drm_allocator_test PRIVATE ${GSTREAMER_INCLUDE_DIRS})
+    target_include_directories(drm_allocator_test PRIVATE ${GSTREAMER_CHECK_INCLUDE_DIRS})
+    target_link_libraries(drm_allocator_test ${DRMALLOC_STATIC_LIB} ${GSTREAMER_CHECK_LIBRARIES})
 else()
     set(DRMALLOC_STATIC_LIB "" CACHE STRING "drm allocator static lib targets" FORCE)
     message("DRM_TYPE is unsupported or not set, skip build DRMALLOC_STATIC_LIB")
