@@ -64,7 +64,7 @@ static GSList* mp_get_default_module_list(GSList* module_list)
 {
 #ifdef LOAD_ALL_MODULES_BY_DEFAULT
     for (int i = 0; mp_modules[i]; i++) {
-        if (g_strcmp0(module_name, "element")) {
+        if (g_strcmp0(mp_modules[i]->name, "element")) {
             module_list = g_slist_append(module_list, mp_modules[i]);
         }
     }
