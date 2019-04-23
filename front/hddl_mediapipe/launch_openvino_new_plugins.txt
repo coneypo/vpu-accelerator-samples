@@ -1,7 +1,7 @@
 filesrc location=cars_1920x1080.h264  !
 h264parse !
 vaapih264dec !
-video/x-raw,format=NV12,width=1920,height=1088 !
+video/x-raw,format=NV12,width=1920,height=1080 !
 rawvideoparse  width=1920 height=1088 format=23 !
 queue !
 videoscale name=src  !

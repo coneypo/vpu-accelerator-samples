@@ -405,9 +405,8 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         if (ret != GST_FLOW_OK) {
             LOG_ERROR(" push buffer error\n");
         }
-        if (!src) {
-            gst_object_unref(src);
-        }
+
+        gst_object_unref(src);
     }
 }
 
@@ -773,7 +772,7 @@ init_module(mediapipe_t *mp)
     ctx->branch_ctx->can_pushed = TRUE;
     ctx->branch_ctx->roi_index = 0;
     ctx->branch_ctx->jpegmem_size = 0;
-    ctx->branch_ctx->Jpeg_pag.results = g_new0(classification_result_t, 10);
+    ctx->branch_ctx->Jpeg_pag.results = g_new0(classification_result_t, 20);
     ctx->branch_ctx->Jpeg_pag.jpegs = g_new0(guint8, MAX_BUF_SIZE * 1000);
 
     //add callback on enc to save jpeg data

@@ -504,8 +504,10 @@ get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer,
     }
     gst_caps_unref(caps);
     while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
-        GstVideoRegionOfInterestMeta *meta = (GstVideoRegionOfInterestMeta *)gst_meta;
+        if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE)
+            continue ;
 
+        GstVideoRegionOfInterestMeta *meta = (GstVideoRegionOfInterestMeta *)gst_meta;
         // maybe need to checkout if it's GVA meta
         GstStructure *meta_struct = gst_video_region_of_interest_meta_get_param(meta, "detection");
         if (meta_struct == NULL)
