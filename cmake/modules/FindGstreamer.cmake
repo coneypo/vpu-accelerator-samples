@@ -68,6 +68,7 @@ FIND_GSTREAMER_COMPONENT(GSTREAMER_APP gstreamer-app-1.0 gst/app/gstappsink.h gs
 #FIND_GSTREAMER_COMPONENT(GSTREAMER_PBUTILS gstreamer-pbutils-1.0 gst/pbutils/pbutils.h gstpbutils-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_VIDEO gstreamer-video-1.0 gst/video/video.h gstvideo-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_RTSPSERVER gstreamer-rtsp-1.0 gst/rtsp/rtsp.h gstrtspserver-1.0)
+FIND_GSTREAMER_COMPONENT(GSTREAMER_ALLOCATORS gstreamer-allocators-1.0 gst/allocators/allocators.h gstallocators-1.0)
 
 # ------------------------------------------------
 # 3. Process the COMPONENTS passed to FIND_PACKAGE

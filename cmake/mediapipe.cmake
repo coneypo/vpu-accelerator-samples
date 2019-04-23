@@ -48,6 +48,7 @@ function(generate_module_collection_file)
     message(STATUS "Generate ${MODULE_COLLECTION} done")
 endfunction()
 
+
 function(mediapipe_library_build)
     #defind module_path
     set(BASE_MODULES_PATH ${CMAKE_SOURCE_DIR}/src/modules)
@@ -99,6 +100,17 @@ function(mediapipe_library_build)
                 message( FATAL_ERROR "${_module_path}/CMakeLists.txt not exist" )
             endif(EXISTS ${_module_path}/CMakeLists.txt)
         endforeach(_module_path ${ADDON_MODULE_PATH})
+    endif()
+
+    set(DRM_TYPE "0" CACHE STRING "DRM bo based Allocator  intel, hantro")
+    if(${DRM_TYPE} STREQUAL "intel" OR ${DRM_TYPE} STREQUAL "hantro")
+        pkg_check_modules (DRM REQUIRED  libdrm libdrm_${DRM_TYPE})
+        string(TOUPPER drm_${DRM_TYPE} DRM_DEFINITION)
+        add_definitions(-D${DRM_DEFINITION})
+        list(APPEND SRC_LIST ${CMAKE_SOURCE_DIR}/src/drm_allocator/mp_gstdrmbomemory.c)
+        list(APPEND SRC_LIST ${CMAKE_SOURCE_DIR}/src/drm_allocator/mp_gstdrmbomemory.h)
+    else()
+        message("DRM_TYPE is unsupported: ${DRM_TYPE}, skip the build")
     endif()
 
     #create c code file that contains all select moudles
@@ -176,4 +188,13 @@ function(mediapipe_library_build)
     target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${LIBPANGO_LIBRARIES})
     target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${LIBPANGO_CAIRO_LIBRARY})
     target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${ADDON_MODULES_DEP_LIBS})
+
+    if(DEFINED DRM_DEFINITION)
+        target_include_directories(${MEDIAPIPE_NAME} PRIVATE ${DRM_INCLUDE_DIRS})
+        target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${DRM_LIBRARIES})
+        target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_ALLOCATORS_LIBRARIES})
+
+        target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/drm_allocator)
+    endif()
+
 endfunction()
