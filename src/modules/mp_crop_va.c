@@ -394,9 +394,9 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         LOG_DEBUG("caps = [%s]\n", caps_string);
         src = gst_bin_get_by_name(GST_BIN(pipeline), "mysrc");
         caps = gst_caps_from_string(caps_string);
-        gst_element_set_state(src, GST_STATE_NULL);
+        /* gst_element_set_state(src, GST_STATE_NULL); */
         g_object_set(src, "caps", caps, NULL);
-        gst_element_set_state(src, GST_STATE_PLAYING);
+        /* gst_element_set_state(src, GST_STATE_PLAYING); */
         gst_caps_unref(caps);
         branch_ctx->can_pushed = FALSE;
         //push buffer to appsrc
@@ -405,7 +405,6 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         if (ret != GST_FLOW_OK) {
             LOG_ERROR(" push buffer error\n");
         }
-
         gst_object_unref(src);
     }
 }
@@ -460,10 +459,12 @@ push_data(gpointer user_data)
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.frame_number, "frame_number");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois");
 
+        //classfication_GT maybe will be get from gvaclassify later
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index, "classification_index");
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index, "object_id");
 
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index = branch_ctx->roi_index + 1;
-        branch_ctx->Jpeg_pag.header.meta_size = sizeof(classification_result_t) * branch_ctx->Jpeg_pag.meta.num_rois;
+        //meta size is fixed , = 8;
+        branch_ctx->Jpeg_pag.header.meta_size = 8;
         if (branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
             LOG_DEBUG("roi_index:%d", branch_ctx->roi_index);
             crop_and_push_buffer(buffer, branch_ctx, meta);
@@ -542,19 +543,21 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         return GST_PAD_PROBE_OK;
     }
     branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].jpeg_size =  map.size;
+    //starting_offset is counted from the begin of jpeg region . not sure?
     branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].starting_offset =
-        branch_ctx->Jpeg_pag.header.meta_size
-        + branch_ctx->jpegmem_size;//byte
+         branch_ctx->jpegmem_size;//byte
+
     memcpy(branch_ctx->Jpeg_pag.jpegs + branch_ctx->jpegmem_size, map.data,
            map.size);
+
     branch_ctx->jpegmem_size += map.size;
     if (branch_ctx->roi_index + 1 == branch_ctx->Jpeg_pag.meta.num_rois) {
-        branch_ctx->Jpeg_pag.header.package_size = sizeof(meta_t) +  sizeof(
-                    classification_result_t) * branch_ctx->Jpeg_pag.meta.num_rois +
-                branch_ctx->jpegmem_size +
-                sizeof(header_t);
-        branch_ctx->Jpeg_pag.header.meta_size = sizeof(meta_t) +  sizeof(
-                classification_result_t);
+        branch_ctx->Jpeg_pag.header.package_size = sizeof(header_t)
+                + branch_ctx->Jpeg_pag.header.meta_size
+                + sizeof(classification_result_t) * branch_ctx->Jpeg_pag.meta.num_rois
+                + branch_ctx->jpegmem_size;
+        branch_ctx->Jpeg_pag.meta.packet_type = 1;
+        //set packet_type
         LOG_DEBUG("meta size:%u\n", branch_ctx->Jpeg_pag.header.meta_size);
         LOG_DEBUG("package size:%u\n", branch_ctx->Jpeg_pag.header.package_size);
         LOG_DEBUG("num_rois:%d\n", branch_ctx->Jpeg_pag.meta.num_rois);
