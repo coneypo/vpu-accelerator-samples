@@ -64,7 +64,11 @@ void LocalMode::stopDestroyPipelines()
     for (auto iter = m_pipeLaunched.begin(); iter != m_pipeLaunched.end(); iter++) {
         if (iter->second) {
             auto status = m_pipeManager->stopPipeline(iter->first);
-            if (status != PipelineStatus::SUCCESS) {
+            if (status == PipelineStatus::PIPELINE_EOS) {
+                std::cout << "pipeline eos" << std::endl;
+            } else if (status == PipelineStatus::RUNTIME_ERROR) {
+                std::cerr << "Pipeline runtime error occur" << std::endl;
+            } else if (status != PipelineStatus::SUCCESS) {
                 std::cerr << "Error: stop pipeline failed" << std::endl;
             }
         }
