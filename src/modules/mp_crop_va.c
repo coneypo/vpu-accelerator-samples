@@ -159,7 +159,7 @@ static bool is_gva_detection_meta(GstMeta *meta)
 }
 //new meta define end
 
-#define MAX_BUF_SIZE 10240
+#define MAX_BUF_SIZE 1024
 #define QUEUE_CAPACITY 10
 
 
@@ -208,9 +208,10 @@ typedef struct {
     gboolean can_pushed; //flag for pushedable
     void *other_data; //maybe same other data need to be passed to savefile callback function
     guint roi_index; // the index of rectangle region in a buffer
-
     result_packet_t Jpeg_pag;
     gsize jpegmem_size;
+    guint malloc_max_roi_size;
+    guint malloc_max_jpeg_size;
 } jpeg_branch_ctx_t;
 
 typedef struct {
@@ -431,6 +432,7 @@ push_data(gpointer user_data)
     GstStructure *structure = NULL;
     const GValue *struct_tmp = NULL;
     param_data_t *params = NULL;
+    guint memory_size = branch_ctx->malloc_max_roi_size;
     if (g_queue_is_empty(branch_ctx->queue)) {
         return TRUE;
     }
@@ -458,6 +460,17 @@ push_data(gpointer user_data)
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.stream_id, "stream_id");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.frame_number, "frame_number");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois");
+        while (branch_ctx->Jpeg_pag.meta.num_rois > memory_size) {
+            memory_size =  memory_size * 2;
+        }
+        if (memory_size > branch_ctx->malloc_max_roi_size) {
+            ctx->branch_ctx->Jpeg_pag.results =
+                (classification_result_t *) g_realloc(ctx->branch_ctx->Jpeg_pag.results,
+                        sizeof(classification_result_t) * memory_size);
+            branch_ctx->malloc_max_roi_size = memory_size;
+            LOG_DEBUG("channel:%d, roi memory increase to %d", ctx->channel,
+                    branch_ctx->malloc_max_roi_size);
+        }
 
         //classfication_GT maybe will be get from gvaclassify later
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index, "classification_index");
@@ -539,6 +552,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
     jpeg_branch_ctx_t *branch_ctx = ctx->branch_ctx;
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    guint memory_size = branch_ctx->malloc_max_jpeg_size;
     if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
         return GST_PAD_PROBE_OK;
     }
@@ -546,6 +560,19 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     //starting_offset is counted from the begin of jpeg region . not sure?
     branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].starting_offset =
          branch_ctx->jpegmem_size;//byte
+
+    while (branch_ctx->jpegmem_size + map.size > memory_size) {
+        memory_size =  memory_size * 2;
+    }
+
+    if (memory_size > branch_ctx->malloc_max_jpeg_size) {
+        ctx->branch_ctx->Jpeg_pag.jpegs = (guint8 *) g_realloc(
+                                              ctx->branch_ctx->Jpeg_pag.jpegs,
+                                              sizeof(guint8) * memory_size);
+        branch_ctx->malloc_max_jpeg_size =  memory_size;
+        LOG_DEBUG("channel:%d, jpeg memory increase to %d", ctx->channel,
+                branch_ctx->malloc_max_jpeg_size);
+    }
 
     memcpy(branch_ctx->Jpeg_pag.jpegs + branch_ctx->jpegmem_size, map.data,
            map.size);
@@ -752,6 +779,7 @@ init_module(mediapipe_t *mp)
     if(mp->xlink_channel_id != 0){
         snprintf(xlink_pipeline_str, 200,
                 "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", mp->xlink_channel_id);
+        ctx->channel = mp->xlink_channel_id;
     }else{
         snprintf(xlink_pipeline_str, 200,
                 "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", ctx->channel);
@@ -775,8 +803,12 @@ init_module(mediapipe_t *mp)
     ctx->branch_ctx->can_pushed = TRUE;
     ctx->branch_ctx->roi_index = 0;
     ctx->branch_ctx->jpegmem_size = 0;
-    ctx->branch_ctx->Jpeg_pag.results = g_new0(classification_result_t, 20);
-    ctx->branch_ctx->Jpeg_pag.jpegs = g_new0(guint8, MAX_BUF_SIZE * 1000);
+    ctx->branch_ctx->malloc_max_roi_size = 5;
+    ctx->branch_ctx->malloc_max_jpeg_size = 5 * 1024 * 1024;
+    ctx->branch_ctx->Jpeg_pag.results = g_new0(classification_result_t,
+                                        ctx->branch_ctx->malloc_max_roi_size);
+    ctx->branch_ctx->Jpeg_pag.jpegs = g_new0(guint8,
+                                      ctx->branch_ctx->malloc_max_jpeg_size);
 
     //add callback on enc to save jpeg data
     jpeg_enc = gst_bin_get_by_name(GST_BIN(ctx->branch_ctx->pipeline), "enc");
