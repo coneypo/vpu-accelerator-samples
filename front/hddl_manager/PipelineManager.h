@@ -7,13 +7,15 @@
 #include <unordered_map>
 #include <vector>
 
-#include "Pipeline.h"
 #include "PipelineStatus.h"
 #ifndef MULTI_THREAD_MODE
 #include "PipelineIPC.h"
 #endif
 
 namespace hddl {
+
+class XLinkConnector;
+class Pipeline;
 
 class PipelineManager {
 public:
@@ -42,6 +44,8 @@ public:
     PipelineStatus loadFile(const std::string& data, const std::string& dstPath, uint64_t fileMode, LoadFileType flag);
     PipelineStatus unloadFile(const std::string& filePath);
 
+    void sendEventToHost(int id, PipelineEvent state);
+
     static PipelineManager& getInstance()
     {
         static PipelineManager instance;
@@ -58,6 +62,7 @@ private:
     using Map = std::unordered_map<int, std::shared_ptr<Pipeline>>;
     std::mutex m_mapMutex;
     Map m_map;
+    XLinkConnector* m_xlink;
 
 #ifndef MULTI_THREAD_MODE
     PipelineIPC& m_ipc = PipelineIPC::getInstance();

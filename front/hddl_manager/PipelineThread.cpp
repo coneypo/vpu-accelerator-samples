@@ -236,8 +236,10 @@ private:
         auto pipe = (Pipeline*)mp->private_data;
         if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS) {
             pipe->setState(MPState::PIPELINE_EOS);
+            pipe->sendEventToHost(PipelineEvent::PIPELINE_EOS);
         } else if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
             pipe->setState(MPState::RUNTIME_ERROR);
+            pipe->sendEventToHost(PipelineEvent::RUNTIME_ERROR);
         }
     }
 

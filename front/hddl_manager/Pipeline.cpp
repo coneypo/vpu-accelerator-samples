@@ -1,3 +1,4 @@
+#include "PipelineManager.h"
 #include "Pipeline.h"
 
 #ifdef MULTI_THREAD_MODE
@@ -20,6 +21,7 @@ Pipeline::Pipeline(int pipeId)
     , m_state(MPState::NONEXIST)
     , m_impl(new Impl(this))
 {
+    m_manager = &(PipelineManager::getInstance());
 }
 
 Pipeline::~Pipeline()
@@ -48,6 +50,11 @@ MPState Pipeline::getState()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_state;
+}
+
+void Pipeline::sendEventToHost(PipelineEvent event)
+{
+    return m_manager->sendEventToHost(m_id, event);
 }
 
 PipelineStatus Pipeline::create(std::string launch, std::string config)

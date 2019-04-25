@@ -1,4 +1,5 @@
 #include "XLinkConnector.h"
+#include "PipelineManager.h"
 
 /* Not really used in xlink simulator, place holder for now */
 const uint32_t DATA_FRAGMENT_SIZE = 8192;
@@ -11,9 +12,9 @@ XLinkConnector::XLinkConnector()
 {
 }
 
-int XLinkConnector::init(PipelineManager& pipeMgr)
+int XLinkConnector::init()
 {
-    m_pipeManager = &pipeMgr;
+    m_pipeManager = &(PipelineManager::getInstance());
     m_ghandler.protocol = PCIE;
     m_ghandler.profEnable = 1;
     auto status = XLinkInitialize(&m_ghandler);
@@ -39,6 +40,11 @@ void XLinkConnector::uninit()
     m_pipeManager = nullptr;
 }
 
+void XLinkConnector::stop()
+{
+    m_init = false;
+}
+
 void XLinkConnector::run()
 {
     uint8_t* message = nullptr;
@@ -56,6 +62,7 @@ void XLinkConnector::run()
             continue;
 
         if (!response.empty()) {
+            std::lock_guard<std::mutex> lock(m_commChannelMutex);
             status = XLinkWriteData(&m_handler, m_commChannel, (const uint8_t*)response.c_str(), response.length());
             if (status != X_LINK_SUCCESS)
                 continue;
@@ -213,6 +220,22 @@ void XLinkConnector::handleUnloadFile(hddl::HalMsgRequest& request, hddl::HalMsg
     auto status = m_pipeManager->unloadFile(request.unload_file().file_path());
     response.set_rsp_type(UNLOAD_FILE_RESPONSE);
     response.set_ret_code(mapStatus(status));
+}
+
+void XLinkConnector::sendEventToHost(int id, HalMsgRspType type)
+{
+    std::string rsp;
+    HalMsgResponse response;
+
+    response.set_pipeline_id(id);
+    response.set_ret_code(RC_SUCCESS);
+
+    response.set_rsp_type(type);
+
+    response.SerializeToString(&rsp);
+
+    std::lock_guard<std::mutex> lock(m_commChannelMutex);
+    XLinkWriteData(&m_handler, m_commChannel, (const uint8_t*)rsp.c_str(), rsp.length());
 }
 
 HalRetCode XLinkConnector::mapStatus(PipelineStatus status)

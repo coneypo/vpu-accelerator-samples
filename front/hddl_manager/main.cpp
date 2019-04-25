@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 #else
     auto& connector = XLinkConnector::getInstance();
 
-    connector.init(pipeMgr);
+    connector.init();
 
     connector.run();
     connector.uninit();

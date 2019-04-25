@@ -12,6 +12,8 @@
 
 namespace hddl {
 
+class PipelineManager;
+
 class Pipeline {
 public:
     Pipeline(int pipeId);
@@ -27,6 +29,8 @@ public:
     PipelineStatus stop();
     PipelineStatus pause();
 
+    void sendEventToHost(PipelineEvent event);
+
     void setState(MPState state);
     MPState getState();
 
@@ -36,6 +40,7 @@ private:
     int m_id;
     std::mutex m_mutex;
     MPState m_state;
+    PipelineManager* m_manager;
 
     class Impl;
     std::unique_ptr<Impl> m_impl;

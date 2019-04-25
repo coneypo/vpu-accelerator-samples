@@ -1,5 +1,7 @@
-#include "PipelineManager.h"
 #include "FileUtils.h"
+#include "PipelineManager.h"
+#include "Pipeline.h"
+#include "XLinkConnector.h"
 
 #include <fstream>
 #include <sys/stat.h>
@@ -8,6 +10,7 @@ namespace hddl {
 
 void PipelineManager::init(int socketId)
 {
+    m_xlink = &(XLinkConnector::getInstance());
 #ifndef MULTI_THREAD_MODE
     m_ipc.init(socketId);
 #endif
@@ -15,6 +18,7 @@ void PipelineManager::init(int socketId)
 
 void PipelineManager::uninit()
 {
+    m_xlink = nullptr;
 #ifndef MULTI_THREAD_MODE
     m_ipc.uninit();
 #endif
@@ -178,6 +182,23 @@ PipelineStatus PipelineManager::unloadFile(const std::string& filePath)
     }
 
     return PipelineStatus::ERROR;
+}
+
+void PipelineManager::sendEventToHost(int id, PipelineEvent event)
+{
+    HalMsgRspType type;
+    switch (event) {
+    case PipelineEvent::PIPELINE_EOS:
+        type = PIPELINE_EOS;
+        break;
+    case PipelineEvent::RUNTIME_ERROR:
+        type = PIPELINE_RUNTIME_ERROR;
+        break;
+    default:
+        return;
+    }
+
+    return m_xlink->sendEventToHost(id, type);
 }
 
 std::shared_ptr<Pipeline> PipelineManager::getPipeline(int id)

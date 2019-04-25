@@ -18,6 +18,11 @@ enum class PipelineStatus : int {
     INVALID_DST_PATH = -9,
     FILE_ALREADY_EXIST = -10
 };
+
+enum class PipelineEvent : int {
+    PIPELINE_EOS = 1,
+    RUNTIME_ERROR = 2
+};
 }
 
 #endif // _PIPELINESTATUS_H_

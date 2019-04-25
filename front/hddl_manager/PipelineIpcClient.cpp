@@ -50,7 +50,7 @@ void PipelineIpcClient::handleResponse(std::unique_ptr<MsgResponse> response)
     }
 
     switch (response->rsp_type()) {
-    case CREATE_RESPONSE ... STOP_RESPONSE: {
+    case CREATE_RESPONSE... STOP_RESPONSE: {
         auto request = fetchRequestBySeqNo(response->req_seq_no());
         if (request)
             onResponseReceived(request, std::move(response));
@@ -62,10 +62,12 @@ void PipelineIpcClient::handleResponse(std::unique_ptr<MsgResponse> response)
     }
     case EOS_EVENT: {
         m_pipe->setState(MPState::PIPELINE_EOS);
+        m_pipe->sendEventToHost(PipelineEvent::PIPELINE_EOS);
         break;
     }
     case ERROR_EVENT: {
         m_pipe->setState(MPState::RUNTIME_ERROR);
+        m_pipe->sendEventToHost(PipelineEvent::RUNTIME_ERROR);
         break;
     }
     default:

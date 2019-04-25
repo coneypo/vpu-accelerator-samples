@@ -2,15 +2,17 @@
 #define _XLINKCONNECTOR_H_
 
 #include <atomic>
+#include <mutex>
 #include <set>
 #include <string>
 
 #include <XLink.h>
 
-#include "PipelineManager.h"
+#include "PipelineStatus.h"
 #include "hal_message.pb.h"
 
 namespace hddl {
+class PipelineManager;
 
 class XLinkConnector {
 public:
@@ -20,7 +22,7 @@ public:
     /*
      * Return 0 if success, <0 if failed.
      */
-    int init(PipelineManager& pipeMgr);
+    int init();
 
     void uninit();
 
@@ -28,6 +30,13 @@ public:
      * Enter infinity loop to receive messages, will return only when stop() is called.
      */
     void run();
+
+    void stop();
+
+    /*
+     * Actively return message, including eos/runtime_error message
+     */
+    void sendEventToHost(int id, HalMsgRspType type);
 
     static XLinkConnector& getInstance()
     {
@@ -66,6 +75,7 @@ private:
     std::mutex m_channelMutex;
     std::set<channelId_t> m_channelSet;
 
+    std::mutex m_commChannelMutex;
     const channelId_t m_commChannel = 0x400;
 };
 }

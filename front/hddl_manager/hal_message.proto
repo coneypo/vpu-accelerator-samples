@@ -41,6 +41,8 @@ enum HalMsgRspType {
     STOP_PIPELINE_RESPONSE = 5;
     LOAD_FILE_RESPONSE = 6;
     UNLOAD_FILE_RESPONSE = 7;
+    PIPELINE_RUNTIME_ERROR = 8;
+    PIPELINE_EOS = 9;
 }
 
 enum HalLoadFileType {
@@ -121,6 +123,14 @@ message HalUnloadFileResponse
 {
 }
 
+message HalPipelineRuntimeErrorEvent
+{
+}
+
+message HalPipelineEosEvent
+{
+}
+
 message HalMsgBase
 {
     optional uint64 send_time = 1;
@@ -165,5 +175,7 @@ message HalMsgResponse
         HalStopPipelineResponse stop = 15;
         HalLoadFileResponse load_file = 30;
         HalUnloadFileResponse unload_file = 31;
+        HalPipelineRuntimeErrorEvent runtime_error = 50;
+        HalPipelineEosEvent eos = 51;
     }
 }
