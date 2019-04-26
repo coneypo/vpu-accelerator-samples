@@ -9,6 +9,7 @@
  */
 
 #include "mediapipe_com.h"
+#include "utils/packet_struct_v2.h"
 #include <string>
 #include <algorithm>
 #include <vector>
@@ -18,39 +19,6 @@
 
 #define MAX_BUF_SIZE 1024
 #define QUEUE_CAPACITY 10
-
-typedef struct _header_t {
-    guint8 magic;
-    guint8 version;
-    guint16 meta_size;     // meta_t struct size (bytes)
-    guint32 package_size;  // VideoPacket or result_packet_t size (bytes)
-} header_t;
-
-typedef struct _meta_t {
-    guint8 version;
-    guint8 packet_type;    // 0 (send) / 1 (receive)
-    guint8 stream_id;
-    guint8 num_rois;
-    guint32 frame_number;
-} meta_t;
-
-typedef struct _classification_result_t {
-    guint8 reserved;
-    guint8 object_index;
-    guint16 classification_index; // classified id from GVAClassify
-    guint32 starting_offset;      // jpeg starting offset based on packet header.
-    // | header_t    | meta_t     | Jpeg0   | Jpeg1   |...
-    // |<- base line of offset.
-    guint32 jpeg_size;                  // jpeg binary size (bytes)
-    guint32 reserved2;
-} classification_result_t;
-
-typedef struct _result_packet_t {
-    header_t header;
-    meta_t meta;
-    classification_result_t *results;
-    guint8 *jpegs;
-} result_packet_t;
 
 typedef struct {
     GstElement *pipeline;
@@ -63,7 +31,7 @@ typedef struct {
     gboolean can_pushed; //flag for pushedable
     void *other_data; //maybe same other data need to be passed to savefile callback function
     guint roi_index; // the index of rectangle region in a buffer
-    result_packet_t Jpeg_pag;
+    ResultPacket Jpeg_pag;
     gsize jpegmem_size;
     guint malloc_max_roi_size;
     guint malloc_max_jpeg_size;
@@ -320,8 +288,8 @@ push_data(gpointer user_data)
         }
         if (memory_size > branch_ctx->malloc_max_roi_size) {
             ctx->branch_ctx->Jpeg_pag.results =
-                (classification_result_t *) g_realloc(ctx->branch_ctx->Jpeg_pag.results,
-                        sizeof(classification_result_t) * memory_size);
+                (ClassificationResult*) g_realloc(ctx->branch_ctx->Jpeg_pag.results,
+                        sizeof(ClassificationResult) * memory_size);
             branch_ctx->malloc_max_roi_size = memory_size;
             LOG_DEBUG("channel:%d, roi memory increase to %d", ctx->channel,
                     branch_ctx->malloc_max_roi_size);
@@ -329,7 +297,7 @@ push_data(gpointer user_data)
 
         //classfication_GT maybe will be get from gvaclassify later
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index, "classification_index");
-        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index, "object_id");
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index, "object_index");
 
         //meta size is fixed , = 8;
         branch_ctx->Jpeg_pag.header.meta_size = 8;
@@ -434,9 +402,9 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 
     branch_ctx->jpegmem_size += map.size;
     if (branch_ctx->roi_index + 1 == branch_ctx->Jpeg_pag.meta.num_rois) {
-        branch_ctx->Jpeg_pag.header.package_size = sizeof(header_t)
+        branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
                 + branch_ctx->Jpeg_pag.header.meta_size
-                + sizeof(classification_result_t) * branch_ctx->Jpeg_pag.meta.num_rois
+                + sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois
                 + branch_ctx->jpegmem_size;
         branch_ctx->Jpeg_pag.meta.packet_type = 1;
         //set packet_type
@@ -446,13 +414,13 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         pbuffer = g_new0(char, branch_ctx->Jpeg_pag.header.package_size);
         pbegin = pbuffer;
         //copy
-        memcpy(pbuffer, &branch_ctx->Jpeg_pag.header, sizeof(header_t));
-        pbuffer += sizeof(header_t);
-        memcpy(pbuffer, &branch_ctx->Jpeg_pag.meta, sizeof(meta_t));
-        pbuffer += sizeof(meta_t);
+        memcpy(pbuffer, &branch_ctx->Jpeg_pag.header, sizeof(Header));
+        pbuffer += sizeof(Header);
+        memcpy(pbuffer, &branch_ctx->Jpeg_pag.meta, sizeof(Meta));
+        pbuffer += sizeof(Meta);
         memcpy(pbuffer, branch_ctx->Jpeg_pag.results,
-               sizeof(classification_result_t) * branch_ctx->Jpeg_pag.meta.num_rois);
-        pbuffer += (sizeof(classification_result_t) *
+               sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois);
+        pbuffer += (sizeof(ClassificationResult) *
                     branch_ctx->Jpeg_pag.meta.num_rois);
         memcpy(pbuffer, branch_ctx->Jpeg_pag.jpegs, branch_ctx->jpegmem_size);
         bufferTemp = gst_buffer_new_wrapped(pbegin,
@@ -660,7 +628,7 @@ init_module(mediapipe_t *mp)
     ctx->branch_ctx->jpegmem_size = 0;
     ctx->branch_ctx->malloc_max_roi_size = 5;
     ctx->branch_ctx->malloc_max_jpeg_size = 5 * 1024 * 1024;
-    ctx->branch_ctx->Jpeg_pag.results = g_new0(classification_result_t,
+    ctx->branch_ctx->Jpeg_pag.results = g_new0(ClassificationResult,
                                         ctx->branch_ctx->malloc_max_roi_size);
     ctx->branch_ctx->Jpeg_pag.jpegs = g_new0(guint8,
                                       ctx->branch_ctx->malloc_max_jpeg_size);

@@ -3,38 +3,14 @@
  * SPDX-License-Identifier: MIT
  */
 #include "mediapipe_com.h"
+#include "utils/packet_struct_v2.h"
+
 #include <gst/app/app.h>
 #include <vector>
 
 typedef struct {
     GAsyncQueue* meta_queue;
 } stream_ctx_t;
-
-typedef struct {
-    guint8 magic;
-    guint8 version;
-    guint16 meta_size;
-    guint32 package_size;
-} Header;
-
-typedef struct {
-    guint8 version;
-    guint8 packet_type;
-    guint8 stream_id;
-    guint8 of_objects;
-    guint32 frame_number;
-} Metadata;
-
-typedef struct {
-    guint8 reserved;
-    guint8 object_id;
-    guint16 classfication_GT;
-    guint16 left;
-    guint16 top;
-    guint16 width;
-    guint16 height;
-    guint32 reserved2;
-} ObjectBorder;
 
 static mp_int_t
 init_callback(mediapipe_t* mp);
@@ -162,13 +138,13 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
 
     auto pData = info.data;
     auto header = reinterpret_cast<Header*>(pData);
-    auto metaData = reinterpret_cast<Metadata*>(pData + sizeof(Header));
-    auto border = reinterpret_cast<ObjectBorder*>(pData + sizeof(Header) + sizeof(Metadata));
+    auto meta = reinterpret_cast<Meta*>(pData + sizeof(Header));
+    auto roi = reinterpret_cast<ROI*>(pData + sizeof(Header) + sizeof(Meta));
 
-    auto frameId = metaData->frame_number;
-    auto headerSize = header->meta_size + sizeof(header) + (metaData->of_objects * sizeof(ObjectBorder));
+    auto frameId = meta->frame_number;
+    auto headerSize = header->meta_size + sizeof(header) + (meta->num_rois * sizeof(ROI));
 
-    for (int i = 0; i < metaData->of_objects; i++) {
+    for (int i = 0; i < meta->num_rois; i++) {
         //GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
         //   buffer, "label", border[i].left, border[i].top, border[i].width, border[i].height);
         GValue tmp_value = { 0 };
@@ -178,17 +154,17 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
             "detection",
             "magic", G_TYPE_UINT, header->magic,
             "version", G_TYPE_UINT, header->version,
-            "metaversion", G_TYPE_UINT, metaData->version,
-            "stream_id", G_TYPE_UINT, metaData->stream_id,
-            "frame_number", G_TYPE_UINT, metaData->frame_number,
-            "num_rois", G_TYPE_UINT, metaData->of_objects,
-            "classification_index", G_TYPE_UINT, border[i].classfication_GT,
-            "reserved", G_TYPE_UINT, border[i].reserved,
-            "object_id", G_TYPE_UINT, border[i].object_id,
-            "left", G_TYPE_UINT, border[i].left,
-            "top", G_TYPE_UINT, border[i].top,
-            "width", G_TYPE_UINT, border[i].width,
-            "height", G_TYPE_UINT, border[i].height, NULL);
+            "metaversion", G_TYPE_UINT, meta->version,
+            "stream_id", G_TYPE_UINT, meta->stream_id,
+            "frame_number", G_TYPE_UINT, meta->frame_number,
+            "num_rois", G_TYPE_UINT, meta->num_rois,
+            "classification_index", G_TYPE_UINT, roi[i].classification_index,
+            "reserved", G_TYPE_UINT, roi[i].reserved,
+            "object_index", G_TYPE_UINT, roi[i].object_index,
+            "left", G_TYPE_UINT, roi[i].left,
+            "top", G_TYPE_UINT, roi[i].top,
+            "width", G_TYPE_UINT, roi[i].width,
+            "height", G_TYPE_UINT, roi[i].height, NULL);
 
         g_value_take_boxed(&tmp_value, s);
         gst_value_list_append_value(&objectlist, &tmp_value);
