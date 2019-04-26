@@ -380,9 +380,10 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         return GST_PAD_PROBE_OK;
     }
     branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].jpeg_size =  map.size;
-    //starting_offset is counted from the begin of jpeg region . not sure?
     branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].starting_offset =
-         branch_ctx->jpegmem_size;//byte
+        sizeof(Header) + branch_ctx->Jpeg_pag.header.meta_size +
+        sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois +
+        branch_ctx->jpegmem_size;//byte
 
     while (branch_ctx->jpegmem_size + map.size > memory_size) {
         memory_size =  memory_size * 2;
