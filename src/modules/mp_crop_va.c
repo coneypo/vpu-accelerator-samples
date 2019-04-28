@@ -251,7 +251,6 @@ push_data(gpointer user_data)
     GstMeta *gst_meta = NULL;
     gpointer state = NULL;
     GstVideoRegionOfInterestMeta *meta = NULL;
-    GList *l = NULL;
     GstStructure *structure = NULL;
     const GValue *struct_tmp = NULL;
     param_data_t *params = NULL;
@@ -264,6 +263,7 @@ push_data(gpointer user_data)
     }
     buffer = (GstBuffer *) g_queue_peek_head(branch_ctx->queue);
     int roi_index = 0;
+    int label_id = 0;
     while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
@@ -274,6 +274,18 @@ push_data(gpointer user_data)
             continue;
         }
         meta = (GstVideoRegionOfInterestMeta *)gst_meta;
+
+        for (GList* l = meta->params; l; l = g_list_next(l)) {
+            structure = (GstStructure *) l->data;
+            if (gst_structure_has_field(structure, "label_id") &&
+                gst_structure_get_int(structure, "label_id", &label_id)) {
+                printf("label_id: %d", label_id);
+                break;
+            }
+        }
+
+        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index = label_id;
+
         structure = gst_video_region_of_interest_meta_get_param(meta, "detection");
 
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.header.magic, "magic");
@@ -295,8 +307,6 @@ push_data(gpointer user_data)
                     branch_ctx->malloc_max_roi_size);
         }
 
-        //classfication_GT maybe will be get from gvaclassify later
-        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index, "classification_index");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index, "object_index");
 
         //meta size is fixed , = 8;
