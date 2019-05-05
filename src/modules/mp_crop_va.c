@@ -256,9 +256,11 @@ push_data(gpointer user_data)
     param_data_t *params = NULL;
     guint memory_size = branch_ctx->malloc_max_roi_size;
     if (g_queue_is_empty(branch_ctx->queue)) {
+        g_usleep(30000);
         return TRUE;
     }
     if (!branch_ctx->can_pushed) {
+        g_usleep(30000 / (g_queue_get_length(branch_ctx->queue)));
         return TRUE;
     }
     buffer = (GstBuffer *) g_queue_peek_head(branch_ctx->queue);
