@@ -35,6 +35,7 @@ typedef struct {
     gsize jpegmem_size;
     guint malloc_max_roi_size;
     guint malloc_max_jpeg_size;
+    gint format;
 } jpeg_branch_ctx_t;
 
 typedef struct {
@@ -155,7 +156,7 @@ typedef struct _params_data {
 
 
 static gboolean
-crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
+crop_and_push_buffer_BGRA(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
                      GstVideoRegionOfInterestMeta *meta)
 {
     GstMapInfo map;
@@ -254,6 +255,133 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
     }
 }
 
+static gboolean
+crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
+                          GstVideoRegionOfInterestMeta *meta)
+{
+    GstMapInfo map;
+    int xmin, ymin, xmax,  ymax;
+    guint size_Y = 0;
+    guint size_UV = 0;
+    guint size = 0;
+    guint crop_width = 0;
+    guint crop_height = 0;
+    gchar *raw_data = NULL;
+    GstBuffer *new_buf = NULL;
+    GstElement  *src = NULL;
+    GstCaps *caps = NULL;
+    GstElement *pipeline = branch_ctx->pipeline;
+    gchar caps_string[MAX_BUF_SIZE];
+    gboolean bFlag = false;
+    GstFlowReturn ret;
+    if (gst_buffer_map(buffer, &map, GST_MAP_READ))
+    {
+        xmin = (int)(meta->x);
+        ymin = (int)(meta->y);
+        xmax = (int)(meta->x + meta->w);
+        ymax = (int)(meta->y + meta->h);
+        if (xmin < 0) {
+            xmin = 0;
+        }
+        if (ymin < 0) {
+            ymin = 0;
+        }
+        if (xmax < 0) {
+            xmax = 0;
+        }
+        if (ymax < 0) {
+            ymax = 0;
+        }
+        if (xmax > branch_ctx->width) {
+            xmax = branch_ctx->width;
+        }
+        if (ymax > branch_ctx->height) {
+            ymax = branch_ctx->height;
+        }
+        if (xmin > branch_ctx->width) {
+            xmin = branch_ctx->width;
+        }
+        if (ymin > branch_ctx->height) {
+            ymin = branch_ctx->height;
+        }
+        bFlag = false;
+        if (xmax - xmin < 16) {
+            xmax = xmin + 16;
+            if (xmax > branch_ctx->width) {
+                xmax = branch_ctx->width;
+                xmin = xmax - 16;
+            }
+            bFlag = true;
+        }
+        if (ymax - ymin < 16) {
+            ymax = ymin + 16;
+            if (ymax > branch_ctx->height) {
+                ymax = branch_ctx->height;
+                ymin = ymax - 16;
+            }
+            bFlag = true;
+        }
+        if (bFlag) {
+            LOG_INFO("The range of rectangle is smaller than 16×16, has be increased !");
+        }
+        cv::Mat frame_mat_Y(branch_ctx->height, branch_ctx->width, CV_8UC(1),
+                            map.data);
+        cv::Mat frame_mat_UV(branch_ctx->height / 2, branch_ctx->width, CV_8UC(1),
+                             map.data + (branch_ctx->height * branch_ctx->width));
+        //nv12 must width align 16 ,height align 2
+        crop_width = ALIGN_POW2(xmax - xmin, 16);
+        crop_height = ALIGN_POW2(ymax - ymin, 2) ;
+        if (crop_width + xmin > branch_ctx->width) {
+            xmin = branch_ctx->width - crop_width;
+        }
+        if (crop_height + ymin > branch_ctx->height) {
+            ymin = branch_ctx->height - crop_height;
+        }
+        if (xmin < 0 || ymin < 0) {
+            LOG_ERROR("The crop range of rectangle is error,\
+                    xmin:%d, ymin:%d, width:%d, height:%d",
+                      (int)meta->x, (int)meta->y, (int)meta->w, (int)meta->h);
+        }
+        //corp the image and copy into a new buffer
+        cv::Mat croped_ref_Y(frame_mat_Y, cv::Rect(xmin, ymin, crop_width,
+                             crop_height));
+        cv::Mat croped_ref_UV(frame_mat_UV, cv::Rect(xmin, ymin / 2 , crop_width,
+                              (crop_height) / 2));
+        size_Y =  croped_ref_Y.total() * croped_ref_Y.elemSize();
+        size_UV =  croped_ref_UV.total() * croped_ref_UV.elemSize();
+        size = size_Y * 3 / 2;
+        raw_data = g_new0(char, size);
+        cv::Mat crop_mat_Y(crop_height, crop_width, CV_8UC(1),
+                           raw_data);
+        cv::Mat crop_mat_UV((crop_height) / 2 , crop_width, CV_8UC(1),
+                            raw_data + crop_height * crop_width);
+        croped_ref_Y.copyTo(crop_mat_Y);
+        croped_ref_UV.copyTo(crop_mat_UV);
+        new_buf = gst_buffer_new_wrapped(raw_data, size);
+        gst_buffer_unmap(buffer, &map);
+        //reset src caps accroding to the cropped image resolution
+        snprintf(caps_string, MAX_BUF_SIZE,
+                 "video/x-raw,format=NV12,width=%u,height=%u,framerate=30/1",
+                 crop_width, crop_height);
+        LOG_DEBUG("caps = [%s]\n", caps_string);
+        src = gst_bin_get_by_name(GST_BIN(pipeline), "mysrc");
+        caps = gst_caps_from_string(caps_string);
+        /* gst_element_set_state(src, GST_STATE_NULL); */
+        g_object_set(src, "caps", caps, NULL);
+        /* gst_element_set_state(src, GST_STATE_PLAYING); */
+        gst_caps_unref(caps);
+        branch_ctx->can_pushed = FALSE;
+        //push buffer to appsrc
+        g_signal_emit_by_name(GST_APP_SRC(src), "push-buffer", new_buf, &ret);
+        gst_buffer_unref(new_buf);
+        if (ret != GST_FLOW_OK) {
+            LOG_ERROR(" push buffer error\n");
+        }
+        gst_object_unref(src);
+    }
+    return TRUE;
+}
+
 #define PARSE_STRUCTURE(dest, key) \
     { \
         guint value; \
@@ -336,7 +464,14 @@ push_data(gpointer user_data)
         branch_ctx->Jpeg_pag.header.meta_size = 8;
         if (branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
             LOG_DEBUG("roi_index:%d", branch_ctx->roi_index);
-            crop_and_push_buffer(buffer, branch_ctx, meta);
+            if(branch_ctx->format == GST_VIDEO_FORMAT_NV12 ){
+                crop_and_push_buffer_NV12(buffer, branch_ctx, meta);
+            }else if(branch_ctx->format == GST_VIDEO_FORMAT_BGRA ){
+                crop_and_push_buffer_BGRA(buffer, branch_ctx, meta);
+            }
+            else{
+                LOG_ERROR("not support crop format:%d", branch_ctx->format);
+            }
         } else {
             //the roi info on a buffer is all processed, so pop and release
             //the buffer
@@ -503,6 +638,7 @@ detect_src_callback_for_crop_jpeg(GstPad *pad, GstPadProbeInfo *info,
     gst_caps_unref(caps);
     ctx->branch_ctx->width = video_info.width;
     ctx->branch_ctx->height = video_info.height;
+    ctx->branch_ctx->format = GST_VIDEO_INFO_FORMAT(&video_info);
     //pusb buffer to queue and process them later
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
     g_queue_push_tail(ctx->branch_ctx->queue, gst_buffer_ref(buffer));
