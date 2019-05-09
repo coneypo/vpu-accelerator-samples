@@ -168,6 +168,7 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
     GstElement *pipeline = branch_ctx->pipeline;
     gchar caps_string[MAX_BUF_SIZE];
     GstFlowReturn ret;
+    gboolean bFlag = false;
     if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
         cv::Mat frame_mat(branch_ctx->height, branch_ctx->width, CV_8UC(4),
                           map.data);               //RGBA \RGBX channels 4
@@ -183,24 +184,44 @@ crop_and_push_buffer(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         if (ymin < 0) {
             ymin = 0;
         }
+        if (xmax < 0) {
+            xmax = 0;
+        }
+        if (ymax < 0) {
+            ymax = 0;
+        }
         if (xmax > branch_ctx->width) {
             xmax = branch_ctx->width;
         }
         if (ymax > branch_ctx->height) {
             ymax = branch_ctx->height;
         }
+        if (xmin > branch_ctx->width) {
+            xmin = branch_ctx->width;
+        }
+        if (ymin > branch_ctx->height) {
+            ymin = branch_ctx->height;
+        }
         //only image size is bigger than 16*16, the jpgenc will encode image.
+        bFlag = false;
         if (xmax - xmin < 16) {
-            xmin = xmax - 16 ;
+            xmax = xmin + 16;
+            if(xmax > branch_ctx->width) {
+                xmax = branch_ctx->width;
+                xmin = xmax - 16;
+            }
+            bFlag = true;
         }
         if (ymax - ymin < 16) {
-            ymin = ymax - 16 ;
+            ymax = ymin + 16;
+            if(ymax > branch_ctx->height) {
+                ymax = branch_ctx->height;
+                ymin = ymax - 16;
+            }
+            bFlag = true;
         }
-        if (xmin < 0) {
-            xmin = 0;
-        }
-        if (ymin < 0) {
-            ymin = 0;
+        if(bFlag) {
+            LOG_INFO("The range of rectangle is smaller than 16×16, has be increased !");
         }
         //corp the image and copy into a new buffer
         cv::Mat croped_ref(frame_mat, cv::Rect(xmin, ymin, xmax - xmin, ymax - ymin));
