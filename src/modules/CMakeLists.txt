@@ -54,3 +54,6 @@ target_compile_options(
     $<$<COMPILE_LANGUAGE:CXX>:-std=c++11>
     -Wno-deprecated-declarations -Werror
 )
+
+target_compile_definitions(
+    ${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:DEBUG>)
