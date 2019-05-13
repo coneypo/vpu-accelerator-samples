@@ -1,6 +1,6 @@
 find_package(OpenCV REQUIRED)
 
-mediapipe_library_build(NAME mulclientlib MODULES element metaparser crop_va)
+mediapipe_library_build(NAME mulclientlib MODULES element metaparser gva_postproc_and_upload)
 target_include_directories(mulclientlib PRIVATE ${OpenCV_INCLUDE_DIR})
 target_link_libraries(mulclientlib PRIVATE ${OpenCV_LIBRARIES})
 

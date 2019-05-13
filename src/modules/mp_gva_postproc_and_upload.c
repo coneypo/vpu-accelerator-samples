@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 /**
- * @file mp_crop_va.c
+ * @file mp_gva_postproc_and_upload.c
  * @Synopsis  crop gvainference or gvaclassify image accroding to the detected rectangle region
  *            and encode them to file in jpeg format
  */
@@ -45,7 +45,7 @@ typedef struct {
     GstPad *detect_pad;
     GstElement *xlink_pipeline;
     guint channel;
-} crop_va_ctx_t;
+} gva_postproc_and_upload_ctx_t;
 
 static GstPadProbeReturn
 detect_src_callback_for_crop_jpeg(GstPad *pad, GstPadProbeInfo *info,
@@ -73,9 +73,9 @@ stop_feed(GstElement *appsrc, gpointer user_data);
 static void
 exit_master(void);
 
-static mp_command_t  mp_crop_va_commands[] = {
+static mp_command_t  mp_gva_postproc_and_upload_commands[] = {
    {
-        mp_string("crop_va"),
+        mp_string("gva_postproc_and_upload"),
         MP_MAIN_CONF,
         mp_parse_config,
         0,
@@ -92,17 +92,17 @@ static void *create_ctx(mediapipe_t *mp);
 static void destroy_ctx(void *_ctx);
 static mp_int_t init_module(mediapipe_t *mp);
 
-static mp_module_ctx_t mp_crop_va_module_ctx = {
-    mp_string("crop_va"),
+static mp_module_ctx_t mp_gva_postproc_and_upload_module_ctx = {
+    mp_string("gva_postproc_and_upload"),
     create_ctx,
     NULL,
     destroy_ctx
 };
 
-mp_module_t  mp_crop_va_module = {
+mp_module_t  mp_gva_postproc_and_upload_module = {
     MP_MODULE_V1,
-    &mp_crop_va_module_ctx,              /* module context */
-    mp_crop_va_commands,                 /* module directives */
+    &mp_gva_postproc_and_upload_module_ctx,              /* module context */
+    mp_gva_postproc_and_upload_commands,                 /* module directives */
     MP_CORE_MODULE,                    /* module type */
     NULL,                              /* init master */
     init_module,                              /* init module */
@@ -394,7 +394,7 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
 static gboolean
 push_data(gpointer user_data)
 {
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)user_data;
     jpeg_branch_ctx_t *branch_ctx = ctx->branch_ctx;
     GstBuffer *buffer = NULL;
     GstMeta *gst_meta = NULL;
@@ -498,7 +498,7 @@ push_data(gpointer user_data)
 static void
 start_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)user_data;
     if (!ctx->branch_ctx->sourceid) {
         GMainContext* context = g_main_loop_get_context(ctx->mp->loop);
         GSource* source = g_idle_source_new();
@@ -520,7 +520,7 @@ start_feed(GstElement *appsrc, guint unused_size, gpointer user_data)
 static void
 stop_feed(GstElement *appsrc, gpointer user_data)
 {
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)user_data;
     if (ctx->branch_ctx->sourceid != 0) {
         GMainContext* context = g_main_loop_get_context(ctx->mp->loop);
         GSource* source = g_main_context_find_source_by_id(context, ctx->branch_ctx->sourceid);
@@ -540,7 +540,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     GstBuffer *bufferTemp = NULL;
     GstElement *xlink_appsrc  = NULL;
     GstFlowReturn ret;
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)user_data;
     jpeg_branch_ctx_t *branch_ctx = ctx->branch_ctx;
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
     guint memory_size = branch_ctx->malloc_max_jpeg_size;
@@ -625,7 +625,7 @@ static GstPadProbeReturn
 detect_src_callback_for_crop_jpeg(GstPad *pad, GstPadProbeInfo *info,
                                   gpointer user_data)
 {
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)user_data;
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)user_data;
     GstVideoInfo video_info;
     //set init caps for appsrc
     GstCaps *caps = NULL;
@@ -664,7 +664,7 @@ init_callback(mediapipe_t *mp)
     GstPad *pad = NULL;
     //add callback to get detect buffer and meta
     //
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)mp_modules_find_moudle_ctx(mp, "crop_va");
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
     detect = gst_bin_get_by_name(GST_BIN(mp->pipeline), "detect");
     if (detect == NULL) {
         LOG_ERROR("can't find element detect, can't init callback");
@@ -683,7 +683,7 @@ init_callback(mediapipe_t *mp)
 
 static void *create_ctx(mediapipe_t *mp)
 {
-    crop_va_ctx_t *ctx = g_new0(crop_va_ctx_t, 1);
+    gva_postproc_and_upload_ctx_t *ctx = g_new0(gva_postproc_and_upload_ctx_t, 1);
     ctx->mp = mp;
     return ctx;
 }
@@ -691,7 +691,7 @@ static void *create_ctx(mediapipe_t *mp)
 static void destroy_ctx(void *_ctx)
 {
     GQueue *queue = NULL;
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)_ctx;
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)_ctx;
     jpeg_branch_ctx_t *branch_ctx = ctx->branch_ctx;
     if (branch_ctx) {
         queue =  branch_ctx->queue;
@@ -748,7 +748,7 @@ init_module(mediapipe_t *mp)
     gchar caps_string[MAX_BUF_SIZE];
     char xlink_pipeline_str[200];
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)mp_modules_find_moudle_ctx(mp, "crop_va");
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
     ctx->branch_ctx = g_new0(jpeg_branch_ctx_t, 1);
     ctx->branch_ctx->queue = g_queue_new();
     ctx->branch_ctx->pipeline =
@@ -836,8 +836,8 @@ mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
     GstElement  *xlinksrc = NULL;
     struct json_object *xlinkconf = NULL;
 
-    crop_va_ctx_t *ctx = (crop_va_ctx_t *)mp_modules_find_moudle_ctx(mp,
-                        "crop_va");
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp,
+                        "gva_postproc_and_upload");
     //TODO:set xlinksrc channel property
     if (!(json_object_object_get_ex(mp->config, "xlink",  &xlinkconf)) ||
         !(json_get_uint(xlinkconf, "channel", &channel))) {

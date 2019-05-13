@@ -1,5 +1,5 @@
 {
-    "module_list": ["metaparser","crop_va"],
+    "module_list": ["metaparser","gva_postproc_and_upload"],
     "xlink":
     {
         "channel":1025
