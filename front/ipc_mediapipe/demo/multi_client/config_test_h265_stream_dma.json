@@ -1,5 +1,5 @@
 {
-    "module_list": ["teststream","crop_va"],
+    "module_list": ["metaparser","crop_va"],
     "xlink":
     {
         "channel":1025

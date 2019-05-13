@@ -24,9 +24,9 @@ destroy_ctx(void* _ctx);
 static char*
 config_xlinksrc(mediapipe_t* mp, mp_command_t *cmd);
 
-static mp_command_t mp_teststream_commands[] = {
+static mp_command_t mp_metaparser_commands[] = {
     {
-        mp_string("teststream"),
+        mp_string("metaparser"),
         MP_MAIN_CONF,
         config_xlinksrc,
         0,
@@ -37,20 +37,20 @@ static mp_command_t mp_teststream_commands[] = {
 };
 
 static mp_module_ctx_t
-    mp_teststream_module_ctx
+    mp_metaparser_module_ctx
     = {
-        mp_string("teststream"),
+        mp_string("metaparser"),
         create_ctx,
         nullptr,
         destroy_ctx
       };
 
 mp_module_t
-    mp_teststream_module
+    mp_metaparser_module
     = {
         MP_MODULE_V1,
-        &mp_teststream_module_ctx, /* module context */
-        mp_teststream_commands, /* module directives */
+        &mp_metaparser_module_ctx, /* module context */
+        mp_metaparser_commands, /* module directives */
         MP_CORE_MODULE, /* module type */
         nullptr, /* init master */
         nullptr, /* init module */
@@ -186,7 +186,7 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
 
 static mp_int_t init_callback(mediapipe_t* mp)
 {
-    auto ctx = mp_modules_find_moudle_ctx(mp, "teststream");
+    auto ctx = mp_modules_find_moudle_ctx(mp, "metaparser");
     mediapipe_set_user_callback(mp, "src", "src", xlinksrc_src_callback, ctx);
     mediapipe_set_user_callback(mp, "myconvert", "src", myconvert_src_callback, ctx);
     return MP_OK;
