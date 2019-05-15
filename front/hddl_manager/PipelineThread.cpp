@@ -198,7 +198,7 @@ public:
 
     PipelineStatus destroy()
     {
-        mediapipe_stop(m_mp);
+        stop();
         mediapipe_destroy(m_mp);
         return PipelineStatus::SUCCESS;
     }
@@ -206,10 +206,7 @@ public:
     PipelineStatus play()
     {
         if (m_start) {
-            std::thread gst_th([this]() {
-                mediapipe_start(m_mp);
-            });
-            gst_th.detach();
+            m_starter = std::thread([this]() { mediapipe_start(m_mp); });
             m_start = false;
         } else {
             mediapipe_playing(m_mp);
@@ -220,6 +217,9 @@ public:
     PipelineStatus stop()
     {
         mediapipe_stop(m_mp);
+        if (m_starter.joinable()) {
+            m_starter.join();
+        }
         return PipelineStatus::SUCCESS;
     }
 
@@ -244,5 +244,6 @@ private:
     bool m_start;
     mediapipe_t* m_mp;
     Pipeline& m_pipe;
+    std::thread m_starter;
 };
 }
