@@ -461,16 +461,16 @@ mediapipe_destroy(mediapipe_t *mp)
 {
     g_assert(mp);
 
+    mp_modules_exit_master(mp);
+
     GMainContext *context = g_main_loop_get_context(mp->loop);
     GSource *source = g_main_context_find_source_by_id(context, mp->bus_watch_id);
     if (source) {
         g_source_destroy(source);
     }
     g_main_context_unref(context);
-
     g_main_loop_unref(mp->loop);
     json_destroy(&mp->config);
-    mp_modules_exit_master(mp);
     if (mp->probe_data_list) {
         g_list_free_full(mp->probe_data_list, mediapipe_destroy_user_callback);
         mp->probe_data_list = NULL;
