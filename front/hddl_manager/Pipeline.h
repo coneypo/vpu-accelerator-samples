@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "PipelineEvent.h"
 #include "PipelineState.h"
 #include "PipelineStatus.h"
 

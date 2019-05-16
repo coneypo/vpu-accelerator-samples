@@ -50,7 +50,7 @@ void PipelineIpcClient::handleResponse(std::unique_ptr<MsgResponse> response)
     }
 
     switch (response->rsp_type()) {
-    case CREATE_RESPONSE... STOP_RESPONSE: {
+    case CREATE_RESPONSE ... STOP_RESPONSE: {
         auto request = fetchRequestBySeqNo(response->req_seq_no());
         if (request)
             onResponseReceived(request, std::move(response));

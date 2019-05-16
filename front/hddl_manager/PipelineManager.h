@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "PipelineEvent.h"
 #include "PipelineStatus.h"
 #ifndef MULTI_THREAD_MODE
 #include "PipelineIPC.h"

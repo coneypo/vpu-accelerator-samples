@@ -1,5 +1,5 @@
-#include "PipelineManager.h"
 #include "Pipeline.h"
+#include "PipelineManager.h"
 
 #ifdef MULTI_THREAD_MODE
 #include "PipelineThread.cpp"
