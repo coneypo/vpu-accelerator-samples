@@ -350,6 +350,52 @@ static GMainContext* mp_acquire_main_context()
 #endif
 }
 
+static GstAllocator *allocator = NULL;
+
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis get dma allocator, if not exist, create one
+ *
+ * @Returns  the dma allocator, maybe return NULL, if create faild,
+ *           after use,
+ *           please unref or use mp_destory_dma_allocator to
+ *           release it
+ */
+/* ----------------------------------------------------------------------------*/
+GstAllocator *mp_get_dma_allocator()
+{
+#ifdef DRM_TYPE
+    if (g_once_init_enter(&allocator)) {
+        GstAllocator *setup_allocator = gst_hantrobo_allocator_new();
+        if (setup_allocator == NULL) {
+            LOG_ERROR("gst_hantrobo_allocator_new() failed!");
+            g_once_init_leave(&allocator, setup_allocator);
+            return NULL;
+        }
+        //register allocator. This function takes ownership of allocator
+        gst_allocator_register("dma", setup_allocator);
+        g_once_init_leave(&allocator, setup_allocator);
+        return allocator;
+    }
+#endif
+    if (allocator) {
+        gst_object_ref(allocator);
+    }
+    return allocator;
+}
+
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis unref the dma allocator to destory it;
+ */
+/* ----------------------------------------------------------------------------*/
+void mp_destory_dma_allocator()
+{
+    if(allocator){
+        gst_object_unref(allocator);
+    }
+}
+
 /**
     @brief Create mediapipe.
 
@@ -368,6 +414,7 @@ mediapipe_create(int argc, char *argv[])
 
     mediapipe_t *mp = g_new0(mediapipe_t, 1);
     gst_init(&argc, &argv);
+    mp_get_dma_allocator();
     mp->pipeline = create_pipeline_from_file(g_launch_filename);
 
     if (!mp->pipeline) {
@@ -424,6 +471,7 @@ mediapipe_init_from_string(const char *config, const char *launch, mediapipe_t *
         return FALSE;
     }
 
+    mp_get_dma_allocator();
     mp->pipeline = create_pipeline_from_string(launch);
     if (!mp->pipeline) {
         LOG_ERROR("failed to create pipeline from string");
@@ -478,6 +526,7 @@ mediapipe_destroy(mediapipe_t *mp)
 
     gst_object_unref(mp->pipeline);
     g_free(mp);
+    mp_destory_dma_allocator();
 }
 
 /**

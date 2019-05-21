@@ -4,6 +4,6 @@ vaapih265dec name=myconvert !
 capsfilter name=dma_caps !
 queue max-size-buffers=1 leaky=2 !
 gvaclassify
-model=/home/hu-cmode/model/resnet50_v1_fp32.xml model-proc=/home/hu-cmode/model/resnet.json name=detect !
+model=/home/hu-cmode/model/resnet50_v1_fp32.xml model-proc=/home/hu-cmode/model/resnet.json allocator-name=dma name=detect !
 queue !
 fakesink

@@ -18,6 +18,8 @@ extern "C" {
 #include <gst/app/gstappsrc.h>
 #include <gst/video/video.h>
 #include <malloc.h>
+#include <gst/gstallocator.h>
+#include <gst/allocators/allocators.h>
 
 
 typedef enum MEDIAPIPE_STATE_E {
@@ -67,6 +69,10 @@ typedef intptr_t        mp_flag_t;
 #include "mp_module.h"
 #include "mediapipe.h"
 #include "mp_branch.h"
+
+#ifdef DRM_TYPE
+#include "mp_gstdrmbomemory.h"
+#endif
 
 #ifdef __cplusplus
 }

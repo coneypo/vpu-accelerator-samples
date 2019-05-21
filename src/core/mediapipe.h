@@ -90,6 +90,9 @@ mediapipe_set_user_callback(mediapipe_t *mp,
                             const gchar *element_name, const gchar *pad_name,
                             user_callback_t user_callback, gpointer user_data);
 
+GstAllocator* mp_get_dma_allocator();
+
+void mp_destory_dma_allocator();
 
 int
 mediapipe_remove_user_callback(mediapipe_t *mp,

@@ -37,3 +37,9 @@ if(USE_THREAD_DEFAULT_MAIN_CONTEXT)
         ${TARGET_NAME} PRIVATE USE_THREAD_DEFAULT_MAIN_CONTEXT
     )
 endif()
+
+if (DRM_TYPE)
+    message(STATUS "Use DRM allocator")
+    target_link_libraries(${TARGET_NAME} PRIVATE mp_drmalloc_static)
+    target_compile_definitions(${TARGET_NAME} PRIVATE DRM_TYPE)
+endif()
