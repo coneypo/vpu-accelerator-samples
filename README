@@ -1,13 +1,16 @@
 COMPILE
-     mkdir  build && cd build
-	 cmake ..  &&  make 
-Install 
-     make install
-note: 
-     Example_modules are be compiled with mediapipe by default, if you want a simple 
-     mediapipe 
-     cmake -DENABLE_EXAMPLE_MODULE=NO ..
 
+HDDL Manager:
+    mkdir build && cd build && cmake -DBUILD_APP=manager -DMULTI_THREAD_MODE=ON  -DUSE_THREAD_DEFAULT_MAIN_CONTEXT=ON -DLOCAL_MODE=OFF .. && make -j && sudo make install
+    ./build/front/hddl_manager/hddl_manager
+
+HDDL Manager with DMA Buffer:
+    mkdir build && cd build && cmake -DBUILD_APP=manager -DMULTI_THREAD_MODE=ON  -DUSE_THREAD_DEFAULT_MAIN_CONTEXT=ON -DLOCAL_MODE=OFF -DDRM_TYPE=hantro .. && make -j && sudo make install
+    ./build/front/hddl_manager/hddl_manager
+
+Local mode:
+    mkdir build && cd build && cmake -DBUILD_APP=manager -DMULTI_THREAD_MODE=ON  -DUSE_THREAD_DEFAULT_MAIN_CONTEXT=ON -DLOCAL_MODE=ON .. && make -j && sudo make install
+    ./build/front/hddl_manager/hddl_manager -l local.config
 
 Develop document
 How to develop and build custom modules 
