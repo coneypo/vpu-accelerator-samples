@@ -735,7 +735,6 @@ init_module(mediapipe_t *mp)
     GstCaps *caps = NULL;
     GstVideoInfo video_info;
     gchar caps_string[MAX_BUF_SIZE];
-    char xlink_pipeline_str[200];
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
     gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
     ctx->branch_ctx = g_new0(jpeg_branch_ctx_t, 1);
@@ -763,16 +762,7 @@ init_module(mediapipe_t *mp)
     g_signal_connect(jpeg_appsrc, "enough-data", G_CALLBACK(stop_feed), ctx);
     gst_object_unref(jpeg_appsrc);
 
-    if(mp->xlink_channel_id != 0){
-        snprintf(xlink_pipeline_str, 200,
-                "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", mp->xlink_channel_id);
-        ctx->channel = mp->xlink_channel_id;
-    }else{
-        snprintf(xlink_pipeline_str, 200,
-                "appsrc name=myxlinksrc ! xlinksink channel=%d name=xlinksink01", ctx->channel);
-    }
-    ctx->xlink_pipeline =
-        mediapipe_branch_create_pipeline(xlink_pipeline_str);
+    ctx->xlink_pipeline = mediapipe_branch_create_pipeline("appsrc name=myxlinksrc ! xlinksink name=sink");
     if (ctx->xlink_pipeline == NULL) {
         LOG_ERROR("create pipeline1 pipeline failed");
         return  MP_ERROR;
@@ -815,30 +805,40 @@ init_module(mediapipe_t *mp)
     if (ret == GST_STATE_CHANGE_FAILURE) {
         return MP_ERROR;
     }
-    ret = gst_element_set_state(ctx->xlink_pipeline, GST_STATE_PLAYING);
-    if (ret == GST_STATE_CHANGE_FAILURE) {
-        return MP_ERROR;
-    }
     return MP_OK;
 }
 
-static char *
-mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
+static char* mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
 {
-
-    guint channel = 0x400;
-    GstElement  *xlinksrc = NULL;
-    struct json_object *xlinkconf = NULL;
-
-    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp,
-                        "gva_postproc_and_upload");
-    //TODO:set xlinksrc channel property
-    if (!(json_object_object_get_ex(mp->config, "xlink",  &xlinkconf)) ||
-        !(json_get_uint(xlinkconf, "channel", &channel))) {
-        LOG_WARNING("xlinksrc: can't find channel property use default 1024 !");
+    int channelId = -1;
+    if (!mediapipe_get_channelId(mp, "sink", &channelId)) {
+        return MP_CONF_OK;
     }
 
-    ctx->channel = channel;
+    gva_postproc_and_upload_ctx_t* ctx =
+        (gva_postproc_and_upload_ctx_t*)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
+
+
+    GstElement* sink = gst_bin_get_by_name(GST_BIN(ctx->xlink_pipeline), "sink");
+    if (!sink) {
+        LOG_WARNING("cannot find element named \"sink\".");
+        return MP_CONF_OK;
+    }
+
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(sink), "channel")) {
+        g_object_set(sink, "channel", channelId, NULL);
+        LOG_INFO("set property \"channel\" as (%d) on element named \"sink\".", channelId);
+    } else {
+        LOG_WARNING("cannot find property \"channel\" on element named \"sink\".");
+    }
+
+    GstStateChangeReturn ret = gst_element_set_state(ctx->xlink_pipeline, GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        LOG_ERROR("failed to change xlink_pipeline state to PLAYING.");
+        return (char*)MP_CONF_ERROR;
+    }
+
+    ctx->channel = channelId;
 
     return MP_CONF_OK;
 }

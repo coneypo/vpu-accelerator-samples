@@ -1,6 +1,7 @@
 #ifndef _PIPELINEMANAGER_H_
 #define _PIPELINEMANAGER_H_
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -35,7 +36,7 @@ public:
     PipelineStatus removeAll();
     std::vector<int> getAll();
 
-    PipelineStatus addPipeline(int id, std::string launch, std::string config);
+    PipelineStatus addPipeline(std::string launch, std::string config, int& id);
     PipelineStatus deletePipeline(int id);
     PipelineStatus modifyPipeline(int id, std::string config);
     PipelineStatus playPipeline(int id);
@@ -44,6 +45,7 @@ public:
 
     PipelineStatus loadFile(const std::string& data, const std::string& dstPath, uint64_t fileMode, LoadFileType flag);
     PipelineStatus unloadFile(const std::string& filePath);
+    PipelineStatus setChannel(int id, const std::string& element, const int channelId);
 
     void sendEventToHost(int id, PipelineEvent state);
 
@@ -64,6 +66,8 @@ private:
     std::mutex m_mapMutex;
     Map m_map;
     XLinkConnector* m_xlink;
+
+    static std::atomic<int> m_idCounter;
 
 #ifndef MULTI_THREAD_MODE
     PipelineIPC& m_ipc = PipelineIPC::getInstance();

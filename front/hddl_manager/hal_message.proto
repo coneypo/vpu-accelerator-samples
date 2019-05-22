@@ -33,6 +33,7 @@ enum HalMsgReqType {
     UNLOAD_FILE_REQUEST = 7;
     ALLOCATE_CHANNEL_REQUEST = 8;
     DEALLOCATE_CHANNEL_REQUEST = 9;
+    SET_CHANNEL_REQUEST = 10;
 }
 
 enum HalMsgRspType {
@@ -46,8 +47,9 @@ enum HalMsgRspType {
     UNLOAD_FILE_RESPONSE = 7;
     ALLOCATE_CHANNEL_RESPONSE = 8;
     DEALLOCATE_CHANNEL_RESPONSE = 9;
-    PIPELINE_RUNTIME_ERROR = 10;
-    PIPELINE_EOS = 11;
+    SET_CHANNEL_RESPONSE = 10;
+    PIPELINE_RUNTIME_ERROR = 11;
+    PIPELINE_EOS = 12;
 }
 
 enum HalLoadFileType {
@@ -140,6 +142,14 @@ message HalDeallocateChannelRequest {
     repeated int32 channelId = 1 [packed=true];
 }
 
+message HalSetChannelRequest {
+    optional string element = 1;
+    optional int32 channelId = 2;
+}
+
+message HalSetChannelResponse {
+}
+
 message HalDeallocateChannelResponse {
 }
 
@@ -176,6 +186,7 @@ message HalMsgRequest
         HalUnloadFileRequest unload_file = 31;
         HalAllocateChannelRequest allocate_channel = 32;
         HalDeallocateChannelRequest deallocate_channel = 33;
+        HalSetChannelRequest assign_channel = 34;
     }
 }
 
@@ -199,6 +210,7 @@ message HalMsgResponse
         HalUnloadFileResponse unload_file = 31;
         HalAllocateChannelResponse allocate_channel = 32;
         HalDeallocateChannelResponse deallocate_channel = 33;
+        HalSetChannelResponse assign_channel = 34;
         HalPipelineRuntimeErrorEvent runtime_error = 50;
         HalPipelineEosEvent eos = 51;
     }

@@ -445,6 +445,9 @@ mediapipe_create(int argc, char *argv[])
         return NULL;
     }
 
+    g_mutex_init(&mp->channel_id_assignment_mutex);
+    mp->channel_id_assignment = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+
     return mp;
 }
 
@@ -483,6 +486,9 @@ mediapipe_init_from_string(const char *config, const char *launch, mediapipe_t *
         LOG_ERROR("failed to load config from string");
         return FALSE;
     }
+
+    g_mutex_init(&mp->channel_id_assignment_mutex);
+    mp->channel_id_assignment = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
     GMainContext* context = mp_acquire_main_context();
     GstBus* bus = gst_element_get_bus(mp->pipeline);
@@ -524,6 +530,9 @@ mediapipe_destroy(mediapipe_t *mp)
         mp->probe_data_list = NULL;
     }
 
+    g_mutex_clear(&mp->channel_id_assignment_mutex);
+    g_hash_table_destroy(mp->channel_id_assignment);
+
     gst_object_unref(mp->pipeline);
     g_free(mp);
     mp_destory_dma_allocator();
@@ -534,6 +543,11 @@ mediapipe_destroy(mediapipe_t *mp)
 
     @param mp Pointer to mediapipe.
 */
+
+void mediapipe_load_config(mediapipe_t* mp)
+{
+    mp_modules_prase_json_config(mp);
+}
 
 void mediapipe_start_prepare(mediapipe_t* mp)
 {
@@ -555,6 +569,9 @@ void
 mediapipe_start(mediapipe_t *mp)
 {
     g_assert(mp);
+
+    mediapipe_load_config(mp);
+
     gst_element_set_state(mp->pipeline, GST_STATE_PLAYING);
     mp->state = STATE_START;
 
@@ -676,4 +693,26 @@ faild:
     return success;
 }
 
+void mediapipe_set_channelId(mediapipe_t* mp, const gchar* element_name, int channelId)
+{
+    g_mutex_lock(&mp->channel_id_assignment_mutex);
+    g_hash_table_insert(mp->channel_id_assignment, g_strdup(element_name), GINT_TO_POINTER(channelId));
+    g_mutex_unlock(&mp->channel_id_assignment_mutex);
+}
 
+gboolean mediapipe_get_channelId(mediapipe_t* mp, const gchar* element_name, int* channelId)
+{
+    gboolean ret = FALSE;
+    gpointer key, value;
+
+    g_mutex_lock(&mp->channel_id_assignment_mutex);
+
+    if (g_hash_table_lookup_extended(mp->channel_id_assignment, element_name, &key, &value)) {
+        *channelId = GPOINTER_TO_INT(value);
+        ret = TRUE;
+    }
+
+    g_mutex_unlock(&mp->channel_id_assignment_mutex);
+
+    return ret;
+}

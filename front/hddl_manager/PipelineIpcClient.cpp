@@ -219,4 +219,17 @@ PipelineStatus PipelineIpcClient::pause()
 
     return PipelineStatus::SUCCESS;
 }
+
+PipelineStatus PipelineIpcClient::setChannel(const std::string& element, const int channelId)
+{
+    auto request = createRequest(SET_CHANNELID_REQUEST);
+    request->reqMsg.mutable_set_channel()->set_element(element);
+    request->reqMsg.mutable_set_channel()->set_channelid(channelId);
+
+    auto response = sendRequestWaitResponse(request);
+    if (!response || response->ret_code() != 0)
+        return PipelineStatus::ERROR;
+
+    return PipelineStatus::SUCCESS;
+}
 }

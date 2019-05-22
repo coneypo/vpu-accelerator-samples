@@ -135,4 +135,11 @@ PipelineStatus Pipeline::pause()
 
     return PipelineStatus::SUCCESS;
 }
+
+PipelineStatus Pipeline::setChannel(const std::string& element, const int channelId)
+{
+    ERROR_RET(mapStatus({ ReqType::SET_CHANNEL, m_state }));
+
+    return m_impl->setChannel(element, channelId);
+}
 }

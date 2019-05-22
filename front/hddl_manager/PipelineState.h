@@ -13,7 +13,8 @@ enum class ReqType : int {
     PAUSE,
     MODIFY,
     STOP,
-    DESTROY
+    DESTROY,
+    SET_CHANNEL
 };
 
 enum class MPState : int {

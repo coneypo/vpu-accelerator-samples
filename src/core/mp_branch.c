@@ -90,11 +90,6 @@ mediapipe_branch_create_pipeline(const gchar *pipeline_description)
         return NULL;
     }
 
-    if (pipeline_is_usable(pipeline) == FALSE) {
-        g_object_unref(pipeline);
-        return NULL;
-    }
-
     return pipeline;
 }
 

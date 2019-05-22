@@ -29,6 +29,7 @@ public:
     PipelineStatus play();
     PipelineStatus stop();
     PipelineStatus pause();
+    PipelineStatus setChannel(const std::string& element, const int channelId);
 
     void sendEventToHost(PipelineEvent event);
 

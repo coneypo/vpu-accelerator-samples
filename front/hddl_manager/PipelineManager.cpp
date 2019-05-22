@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 
 namespace hddl {
+std::atomic<int> PipelineManager::m_idCounter(0);
 
 void PipelineManager::init(int socketId)
 {
@@ -43,23 +44,18 @@ std::vector<int> PipelineManager::getAll()
     return ret;
 }
 
-PipelineStatus PipelineManager::addPipeline(int id, std::string launch, std::string config)
+PipelineStatus PipelineManager::addPipeline(std::string launch, std::string config, int& id)
 {
-    std::unique_lock<std::mutex> lock(m_mapMutex);
+    int pipeline_id = ++m_idCounter;
 
-    if (m_map.find(id) != m_map.end())
-        return PipelineStatus::ALREADY_CREATED;
-
-    m_map.emplace(id, std::unique_ptr<Pipeline>(new Pipeline(id)));
-
-    auto pipeline = m_map[id];
-
-    lock.unlock();
+    std::unique_ptr<Pipeline> pipeline(new Pipeline(pipeline_id));
     auto status = pipeline->create(std::move(launch), std::move(config));
-    lock.lock();
 
-    if (status != PipelineStatus::SUCCESS)
-        m_map.erase(id);
+    if (status == PipelineStatus::SUCCESS) {
+        id = pipeline_id;
+        std::unique_lock<std::mutex> lock(m_mapMutex);
+        m_map.emplace(pipeline_id, std::move(pipeline));
+    }
 
     return status;
 }
@@ -182,6 +178,17 @@ PipelineStatus PipelineManager::unloadFile(const std::string& filePath)
     }
 
     return PipelineStatus::ERROR;
+}
+
+PipelineStatus PipelineManager::setChannel(int id, const std::string& element, const int channelId)
+{
+    auto pipeline = getPipeline(id);
+    if (!pipeline)
+        return PipelineStatus::NOT_EXIST;
+
+    auto status = pipeline->setChannel(element, channelId);
+
+    return status;
 }
 
 void PipelineManager::sendEventToHost(int id, PipelineEvent event)

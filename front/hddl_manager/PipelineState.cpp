@@ -52,6 +52,8 @@ const std::map<std::pair<ReqType, MPState>, PipelineStatus> stateMap = {
     { { ReqType::DESTROY, MPState::PAUSED }, PipelineStatus::SUCCESS },
     { { ReqType::DESTROY, MPState::STOPPED }, PipelineStatus::SUCCESS },
     { { ReqType::DESTROY, MPState::RUNTIME_ERROR }, PipelineStatus::SUCCESS },
-    { { ReqType::DESTROY, MPState::PIPELINE_EOS }, PipelineStatus::SUCCESS }
+    { { ReqType::DESTROY, MPState::PIPELINE_EOS }, PipelineStatus::SUCCESS },
+
+    { { ReqType::SET_CHANNEL, MPState::CREATED }, PipelineStatus::SUCCESS }
 };
 }

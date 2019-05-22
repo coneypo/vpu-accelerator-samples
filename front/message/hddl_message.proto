@@ -11,6 +11,7 @@ enum MsgReqType {
     PLAY_REQUEST = 3;
     PAUSE_REQUEST = 4;
     STOP_REQUEST = 5;
+    SET_CHANNELID_REQUEST = 6;
 }
 
 enum MsgRspType {
@@ -20,6 +21,7 @@ enum MsgRspType {
     PLAY_RESPONSE = 3;
     PAUSE_RESPONSE = 4;
     STOP_RESPONSE = 5;
+    SET_CHANNELID_RESPONSE = 6;
 
     REGISTER_EVENT = 10;
     METADATA_EVENT = 11;
@@ -66,6 +68,14 @@ message StopPipelineRequest {
 message StopPipelineResponse {
 }
 
+message SetChannelRequest {
+    optional string element = 1;
+    optional int32 channelId = 2;
+}
+
+message SetChannelResponse {
+}
+
 message RegisterEvent {
 }
 
@@ -97,6 +107,7 @@ message MsgRequest {
         PlayPipelineRequest    play = 13;
         PausePipelineRequest   pause = 14;
         StopPipelineRequest    stop = 15;
+        SetChannelRequest      set_channel = 16;
     }
 }
 
@@ -114,6 +125,7 @@ message MsgResponse {
         PlayPipelineResponse    play = 13;
         PausePipelineResponse   pause = 14;
         StopPipelineResponse    stop = 15;
+        SetChannelResponse      set_channel = 16;
 
         RegisterEvent           register = 20;
         MetadataEvent           metadata = 21;

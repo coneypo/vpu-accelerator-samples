@@ -48,7 +48,10 @@ struct mediapipe_s {
     mp_uint_t           modules_n;
     void                **module_ctx;
 
+    GMutex              channel_id_assignment_mutex;
+    GHashTable*         channel_id_assignment;
     int                 xlink_channel_id;
+
     message_callback_t  message_callback;
     void                *private_data;
 };
@@ -77,6 +80,12 @@ mediapipe_playing(mediapipe_t *mp);
 
 gboolean
 mediapipe_pause(mediapipe_t *mp);
+
+void
+mediapipe_set_channelId(mediapipe_t* mp, const gchar* element_name, int channelId);
+
+gboolean
+mediapipe_get_channelId(mediapipe_t* mp, const gchar* element_name, int* channelId);
 
 int
 add_probe_callback(GstPadProbeCallback probe_callback, probe_context_t *ctx);

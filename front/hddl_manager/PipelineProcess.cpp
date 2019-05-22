@@ -101,6 +101,11 @@ public:
         return PipelineStatus::SUCCESS;
     }
 
+    PipelineStatus setChannel(const std::string& element, const int channelId)
+    {
+        return m_ipcClient->setChannel(element, channelId);
+    }
+
 private:
     std::unique_ptr<SubProcess> m_proc;
     PipelineIPC& m_ipc = PipelineIPC::getInstance();

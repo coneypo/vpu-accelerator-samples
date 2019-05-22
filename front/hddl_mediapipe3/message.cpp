@@ -162,6 +162,8 @@ static MsgRspType req_to_rsp(MsgReqType type)
         return STOP_RESPONSE;
     case PAUSE_REQUEST:
         return PAUSE_RESPONSE;
+    case SET_CHANNELID_REQUEST:
+        return SET_CHANNELID_RESPONSE;
     }
 
     // Make -Werror happy, flow will never reach here
@@ -262,6 +264,9 @@ static gboolean handle(mediapipe_hddl_impl_t* hp, MsgRequest& request, MsgRespon
             hp->is_running = FALSE;
         }
         break;
+    case SET_CHANNELID_REQUEST:
+        mediapipe_set_channelId(&hp->hp.mp, request.set_channel().element().c_str(), request.set_channel().channelid());
+        break;
     default:
         response.set_ret_code(1);
         ret = FALSE;
@@ -328,6 +333,10 @@ gboolean wait_message(mediapipe_hddl_impl_t* hp, const void* data, int len, msg_
 
     if (request.req_type() == to_req_type(DESTROY))
         *type = DESTROY;
+
+    if (request.req_type() == SET_CHANNELID_REQUEST) {
+        return handle(hp, request, response);
+    }
 
     if (request.req_type() != to_req_type(*type)) {
         response.set_ret_code(1);

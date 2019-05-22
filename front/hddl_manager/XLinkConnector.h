@@ -64,9 +64,8 @@ private:
     void handleUnloadFile(HalMsgRequest& request, HalMsgResponse& response);
     void handleAllocateChannel(HalMsgRequest& request, HalMsgResponse& response);
     void handleDeallocateChannel(HalMsgRequest& request, HalMsgResponse& response);
+    void handleSetChannel(HalMsgRequest& request, HalMsgResponse& response);
 
-    channelId_t openXLinkChannel();
-    void closeXLinkChannel(channelId_t channelId);
     std::vector<channelId_t> allocateChannel(uint32_t numChannel);
     void deallocateChannel(const std::vector<channelId_t>&);
 

@@ -2,6 +2,7 @@
  * Copyright (C) 2019 Intel Corporation
  * SPDX-License-Identifier: MIT
  */
+#include "mediapipe.h"
 #include "mediapipe_com.h"
 #include "utils/packet_struct_v2.h"
 
@@ -21,14 +22,13 @@ create_ctx(mediapipe_t* mp);
 static void
 destroy_ctx(void* _ctx);
 
-static char*
-config_xlinksrc(mediapipe_t* mp, mp_command_t *cmd);
+static char* load_config(mediapipe_t* mp, mp_command_t* cmd);
 
 static mp_command_t mp_metaparser_commands[] = {
     {
         mp_string("metaparser"),
         MP_MAIN_CONF,
-        config_xlinksrc,
+        load_config,
         0,
         0,
         NULL
@@ -192,23 +192,31 @@ static mp_int_t init_callback(mediapipe_t* mp)
     return MP_OK;
 }
 
-static char* config_xlinksrc(mediapipe_t* mp, mp_command_t *cmd)
+static char* load_config(mediapipe_t* mp, mp_command_t* cmd)
 {
-    GstElement* xlinksrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src");
-    if (xlinksrc) {
-        if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "channel")) {
-            g_object_set(xlinksrc, "channel", mp->xlink_channel_id, NULL);
-        } else {
-            printf("Error: cannot find property 'channel' in xlinksrc\n");
-        }
-        if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "init-xlink")) {
-            g_object_set(xlinksrc, "init-xlink", FALSE, NULL);
-        } else {
-            printf("Error: cannot find property 'init-xlink' in xlinksrc\n");
-        }
-        gst_object_unref(xlinksrc);
-    } else {
-        printf("Error: cannot find xlinksrc\n");
+    int channelId = -1;
+    if (!mediapipe_get_channelId(mp, "src", &channelId)) {
+        return MP_CONF_OK;
     }
+
+    GstElement* xlinksrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src");
+    if (!xlinksrc) {
+        LOG_WARNING("cannot find element named \"src\".");
+        return MP_CONF_OK;
+    }
+
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "channel")) {
+        g_object_set(xlinksrc, "channel", channelId, NULL);
+        LOG_INFO("set property \"channel\" as (%d) on element named \"src\".", channelId);
+    } else {
+        LOG_WARNING("cannot find property \"channel\" on element named \"src\".");
+    }
+
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "init-xlink")) {
+        g_object_set(xlinksrc, "init-xlink", TRUE, NULL);
+    } else {
+        LOG_WARNING("cannot find property \"init-xlink\" on element named \"src\".");
+    }
+
     return MP_CONF_OK;
 }

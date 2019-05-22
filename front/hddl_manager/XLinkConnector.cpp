@@ -1,7 +1,7 @@
 #include <algorithm>
 
-#include "XLinkConnector.h"
 #include "PipelineManager.h"
+#include "XLinkConnector.h"
 
 /* Not really used in xlink simulator, place holder for now */
 const uint32_t DATA_FRAGMENT_SIZE = 8192;
@@ -72,35 +72,6 @@ void XLinkConnector::run()
                 continue;
         }
     }
-}
-
-channelId_t XLinkConnector::openXLinkChannel()
-{
-    std::lock_guard<std::mutex> lock(m_channelMutex);
-
-    channelId_t channelId = 0x401;
-    for (auto& it : m_channelSet) {
-        if (it > channelId)
-            break;
-        channelId++;
-    }
-
-    OperationMode_t operationType = RXB_TXB;
-
-    if (XLinkOpenChannel(&m_handler, channelId, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
-        return 0;
-
-    m_channelSet.insert(channelId);
-    return channelId;
-}
-
-void XLinkConnector::closeXLinkChannel(channelId_t channelId)
-{
-    std::lock_guard<std::mutex> lock(m_channelMutex);
-
-    XLinkCloseChannel(&m_handler, channelId);
-
-    m_channelSet.erase(channelId);
 }
 
 std::vector<channelId_t> XLinkConnector::allocateChannel(uint32_t numChannel)
@@ -193,6 +164,9 @@ std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t si
     case DEALLOCATE_CHANNEL_REQUEST:
         handleDeallocateChannel(request, response);
         break;
+    case SET_CHANNEL_REQUEST:
+        handleSetChannel(request, response);
+        break;
     default:
         response.set_ret_code(RC_ERROR);
         break;
@@ -205,19 +179,14 @@ std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t si
 
 void XLinkConnector::handleCreate(HalMsgRequest& request, HalMsgResponse& response)
 {
-    auto channelId = static_cast<int>(openXLinkChannel());
+    int pipeline_id = -1;
 
-    if (channelId != 0) {
-        auto status = m_pipeManager->addPipeline(channelId,
-            request.create().launch_data(), request.create().config_data());
+    auto status = m_pipeManager->addPipeline(
+        request.create().launch_data(), request.create().config_data(), pipeline_id);
 
-        response.set_ret_code(mapStatus(status));
-    } else {
-        response.set_ret_code(RC_XLINK_ERROR);
-    }
-
-    response.set_pipeline_id(channelId);
     response.set_rsp_type(CREATE_PIPELINE_RESPONSE);
+    response.set_ret_code(mapStatus(status));
+    response.set_pipeline_id(pipeline_id);
 }
 
 void XLinkConnector::handleDestroy(HalMsgRequest& request, HalMsgResponse& response)
@@ -226,8 +195,6 @@ void XLinkConnector::handleDestroy(HalMsgRequest& request, HalMsgResponse& respo
 
     response.set_rsp_type(DESTROY_PIPELINE_RESPONSE);
     response.set_ret_code(mapStatus(status));
-
-    closeXLinkChannel(static_cast<channelId_t>(request.pipeline_id()));
 }
 
 void XLinkConnector::handleModify(HalMsgRequest& request, HalMsgResponse& response)
@@ -302,6 +269,14 @@ void XLinkConnector::handleDeallocateChannel(HalMsgRequest& request, HalMsgRespo
     deallocateChannel(channels);
     response.set_rsp_type(DEALLOCATE_CHANNEL_RESPONSE);
     response.set_ret_code(RC_SUCCESS);
+}
+
+void XLinkConnector::handleSetChannel(HalMsgRequest& request, HalMsgResponse& response)
+{
+    auto status = m_pipeManager->setChannel(request.pipeline_id(),
+        request.assign_channel().element(), request.assign_channel().channelid());
+    response.set_rsp_type(SET_CHANNEL_RESPONSE);
+    response.set_ret_code(mapStatus(status));
 }
 
 void XLinkConnector::sendEventToHost(int id, HalMsgRspType type)

@@ -230,6 +230,12 @@ public:
         return PipelineStatus::SUCCESS;
     }
 
+    PipelineStatus setChannel(const std::string& element, const int channelId)
+    {
+        mediapipe_set_channelId(m_mp, element.c_str(), channelId);
+        return PipelineStatus::SUCCESS;
+    }
+
 private:
     static void pipeline_callback(mediapipe_t* mp, GstMessage* msg)
     {
