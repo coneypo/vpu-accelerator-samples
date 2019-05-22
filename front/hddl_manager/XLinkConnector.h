@@ -62,9 +62,13 @@ private:
     void handleStop(HalMsgRequest& request, HalMsgResponse& response);
     void handleLoadFile(HalMsgRequest& request, HalMsgResponse& response);
     void handleUnloadFile(HalMsgRequest& request, HalMsgResponse& response);
+    void handleAllocateChannel(HalMsgRequest& request, HalMsgResponse& response);
+    void handleDeallocateChannel(HalMsgRequest& request, HalMsgResponse& response);
 
     channelId_t openXLinkChannel();
     void closeXLinkChannel(channelId_t channelId);
+    std::vector<channelId_t> allocateChannel(uint32_t numChannel);
+    void deallocateChannel(const std::vector<channelId_t>&);
 
     PipelineManager* m_pipeManager;
 
@@ -73,6 +77,8 @@ private:
     XLinkHandler_t m_handler;
 
     std::mutex m_channelMutex;
+    channelId_t m_channelMinValue;
+    channelId_t m_channelMaxValue;
     std::set<channelId_t> m_channelSet;
 
     std::mutex m_commChannelMutex;

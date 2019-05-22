@@ -19,6 +19,7 @@ enum HalRetCode {
     RC_INVALID_DST_PATH = -9;
     RC_FILE_ALREADY_EXIST = -10;
     RC_XLINK_ERROR = -11;
+    RC_OUT_OF_CHANNEL_ID= -12;
 }
 
 enum HalMsgReqType {
@@ -30,6 +31,8 @@ enum HalMsgReqType {
     STOP_PIPELINE_REQUEST = 5;
     LOAD_FILE_REQUEST = 6;
     UNLOAD_FILE_REQUEST = 7;
+    ALLOCATE_CHANNEL_REQUEST = 8;
+    DEALLOCATE_CHANNEL_REQUEST = 9;
 }
 
 enum HalMsgRspType {
@@ -41,8 +44,10 @@ enum HalMsgRspType {
     STOP_PIPELINE_RESPONSE = 5;
     LOAD_FILE_RESPONSE = 6;
     UNLOAD_FILE_RESPONSE = 7;
-    PIPELINE_RUNTIME_ERROR = 8;
-    PIPELINE_EOS = 9;
+    ALLOCATE_CHANNEL_RESPONSE = 8;
+    DEALLOCATE_CHANNEL_RESPONSE = 9;
+    PIPELINE_RUNTIME_ERROR = 10;
+    PIPELINE_EOS = 11;
 }
 
 enum HalLoadFileType {
@@ -123,6 +128,21 @@ message HalUnloadFileResponse
 {
 }
 
+message HalAllocateChannelRequest {
+    optional uint32 num_channels = 1;
+}
+
+message HalAllocateChannelResponse {
+    repeated int32 channelId = 1 [packed=true];
+}
+
+message HalDeallocateChannelRequest {
+    repeated int32 channelId = 1 [packed=true];
+}
+
+message HalDeallocateChannelResponse {
+}
+
 message HalPipelineRuntimeErrorEvent
 {
 }
@@ -154,6 +174,8 @@ message HalMsgRequest
         HalStopPipelineRequest stop = 15;
         HalLoadFileRequest load_file = 30;
         HalUnloadFileRequest unload_file = 31;
+        HalAllocateChannelRequest allocate_channel = 32;
+        HalDeallocateChannelRequest deallocate_channel = 33;
     }
 }
 
@@ -175,6 +197,8 @@ message HalMsgResponse
         HalStopPipelineResponse stop = 15;
         HalLoadFileResponse load_file = 30;
         HalUnloadFileResponse unload_file = 31;
+        HalAllocateChannelResponse allocate_channel = 32;
+        HalDeallocateChannelResponse deallocate_channel = 33;
         HalPipelineRuntimeErrorEvent runtime_error = 50;
         HalPipelineEosEvent eos = 51;
     }

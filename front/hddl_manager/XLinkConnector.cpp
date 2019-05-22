@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "XLinkConnector.h"
 #include "PipelineManager.h"
 
@@ -9,6 +11,8 @@ namespace hddl {
 
 XLinkConnector::XLinkConnector()
     : m_init(false)
+    , m_channelMinValue(0x401)
+    , m_channelMaxValue(0xFFF)
 {
 }
 
@@ -99,6 +103,52 @@ void XLinkConnector::closeXLinkChannel(channelId_t channelId)
     m_channelSet.erase(channelId);
 }
 
+std::vector<channelId_t> XLinkConnector::allocateChannel(uint32_t numChannel)
+{
+    if (!numChannel) {
+        return {};
+    }
+
+    std::lock_guard<std::mutex> lock(m_channelMutex);
+
+    channelId_t channel = m_channelMinValue;
+    std::vector<channelId_t> channels;
+
+    while (channel < m_channelMaxValue) {
+        if (m_channelSet.count(channel)) {
+            ++channel;
+            continue;
+        }
+
+        channels.push_back(channel);
+        ++channel;
+
+        if (channels.size() == numChannel) {
+            m_channelSet.insert(channels.begin(), channels.end());
+            m_channelMinValue = channel;
+            return channels;
+        }
+    }
+
+    return {};
+}
+
+void XLinkConnector::deallocateChannel(const std::vector<channelId_t>& channels)
+{
+    if (channels.empty()) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(m_channelMutex);
+
+    for (const auto& channel : channels) {
+        m_channelSet.erase(channel);
+    }
+
+    auto minIter = std::min_element(channels.begin(), channels.end());
+    m_channelMinValue = std::min(m_channelMinValue, *minIter);
+}
+
 std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t size)
 {
     std::string rsp;
@@ -136,6 +186,12 @@ std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t si
         break;
     case UNLOAD_FILE_REQUEST:
         handleUnloadFile(request, response);
+        break;
+    case ALLOCATE_CHANNEL_REQUEST:
+        handleAllocateChannel(request, response);
+        break;
+    case DEALLOCATE_CHANNEL_REQUEST:
+        handleDeallocateChannel(request, response);
         break;
     default:
         response.set_ret_code(RC_ERROR);
@@ -220,6 +276,32 @@ void XLinkConnector::handleUnloadFile(hddl::HalMsgRequest& request, hddl::HalMsg
     auto status = m_pipeManager->unloadFile(request.unload_file().file_path());
     response.set_rsp_type(UNLOAD_FILE_RESPONSE);
     response.set_ret_code(mapStatus(status));
+}
+
+void XLinkConnector::handleAllocateChannel(HalMsgRequest& request, HalMsgResponse& response)
+{
+    auto channels = allocateChannel(request.allocate_channel().num_channels());
+
+    response.set_rsp_type(ALLOCATE_CHANNEL_RESPONSE);
+    if (channels.empty()) {
+        response.set_ret_code(RC_OUT_OF_CHANNEL_ID);
+    } else {
+        response.set_ret_code(RC_SUCCESS);
+        for (auto channel : channels) {
+            response.mutable_allocate_channel()->add_channelid(channel);
+        }
+    }
+}
+
+void XLinkConnector::handleDeallocateChannel(HalMsgRequest& request, HalMsgResponse& response)
+{
+    std::vector<channelId_t> channels;
+    for (int i = 0; i < request.deallocate_channel().channelid_size(); ++i) {
+        channels.push_back(request.deallocate_channel().channelid(i));
+    }
+    deallocateChannel(channels);
+    response.set_rsp_type(DEALLOCATE_CHANNEL_RESPONSE);
+    response.set_ret_code(RC_SUCCESS);
 }
 
 void XLinkConnector::sendEventToHost(int id, HalMsgRspType type)
