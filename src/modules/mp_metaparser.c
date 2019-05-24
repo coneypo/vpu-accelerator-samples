@@ -9,6 +9,9 @@
 #include <gst/app/app.h>
 #include <vector>
 
+#include <hddl/gsthddlcontext.h>
+#define XLINK_DEVICE_PATH	"/tmp/xlink_mock"
+#define XLINK_DEVICE_TYPE	PCIE_DEVICE
 typedef struct {
     GAsyncQueue* meta_queue;
 } stream_ctx_t;
@@ -124,7 +127,7 @@ destroy_ctx(void* _ctx)
 }
 
 static gboolean
-xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
+src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
 {
     auto ctx = (stream_ctx_t*)user_data;
     GValue objectlist = { 0 };
@@ -187,7 +190,7 @@ xlinksrc_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize si
 static mp_int_t init_callback(mediapipe_t* mp)
 {
     auto ctx = mp_modules_find_moudle_ctx(mp, "metaparser");
-    mediapipe_set_user_callback(mp, "src", "src", xlinksrc_src_callback, ctx);
+    mediapipe_set_user_callback(mp, "src", "src", src_src_callback, ctx);
     mediapipe_set_user_callback(mp, "myconvert", "src", myconvert_src_callback, ctx);
     return MP_OK;
 }
@@ -199,24 +202,25 @@ static char* load_config(mediapipe_t* mp, mp_command_t* cmd)
         return MP_CONF_OK;
     }
 
-    GstElement* xlinksrc = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src");
-    if (!xlinksrc) {
+    GstElement* src = gst_bin_get_by_name(GST_BIN(mp->pipeline), "src");
+    if (!src) {
         LOG_WARNING("cannot find element named \"src\".");
         return MP_CONF_OK;
     }
 
-    if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "channel")) {
-        g_object_set(xlinksrc, "channel", channelId, NULL);
-        LOG_INFO("set property \"channel\" as (%d) on element named \"src\".", channelId);
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(src), "selected-target-context")) {
+        GstHddlContext *context = gst_hddl_context_new (CONNECT_XLINK);
+        context->hddl_xlink->xlink_handler->devicePath = (char *)XLINK_DEVICE_PATH;
+        context->hddl_xlink->xlink_handler->deviceType = XLINK_DEVICE_TYPE;
+        context->hddl_xlink->channelId = channelId;
+        g_object_set(src, "selected-target-context", context, NULL);
+        gst_hddl_context_free(context);
+        LOG_INFO("set \"selected-target-context\" with channelId(%d) on element named \"src\".", channelId);
     } else {
-        LOG_WARNING("cannot find property \"channel\" on element named \"src\".");
+        LOG_WARNING("cannot find property \"selected-target-context\" on element named \"src\".");
     }
 
-    if (g_object_class_find_property(G_OBJECT_GET_CLASS(xlinksrc), "init-xlink")) {
-        g_object_set(xlinksrc, "init-xlink", TRUE, NULL);
-    } else {
-        LOG_WARNING("cannot find property \"init-xlink\" on element named \"src\".");
-    }
+    gst_object_unref(src);
 
     return MP_CONF_OK;
 }

@@ -23,6 +23,17 @@ generate_module_collection_file(MODULE_FILES ${SRCS} OUTPUT ${MODULE_COLLECTION}
 
 add_library(${TARGET_NAME} STATIC ${HDRS} ${SRCS} ${MODULE_COLLECTION})
 
+find_library (HDDL_PLUGIN_LIBRARY
+    NAMES gsthddl
+    PATHS /usr/local/lib/gstreamer-1.0/
+    )
+
+if(HDDL_PLUGIN_LIBRARY)
+    message(STATUS "Find gsthddl library success")
+else()
+    message(WARNING "Find gsthddl library faild")
+endif()
+
 target_include_directories(
     ${TARGET_NAME} PUBLIC
     ${GLIB_INCLUDE_DIRS}
@@ -43,6 +54,7 @@ target_link_libraries(
     ${Boost_LIBRARIES}
     ${CAIRO_LIBRARIES}
     ${OpenCV_LIBRARIES}
+    ${HDDL_PLUGIN_LIBRARY}
     ${LIBPANGO_CAIRO_LIBRARY}
     ${GSTREAMER_VIDEO_LIBRARIES}
     ${GSTREAMER_RTSPSERVER_LIBRARIES}

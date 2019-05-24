@@ -20,6 +20,9 @@
 #define MAX_BUF_SIZE 1024
 #define QUEUE_CAPACITY 10
 
+#include <hddl/gsthddlcontext.h>
+#define XLINK_DEVICE_PATH	"/tmp/xlink_mock"
+#define XLINK_DEVICE_TYPE	PCIE_DEVICE
 typedef struct {
     GstElement *pipeline;
     GstPad *enc_pad;
@@ -762,7 +765,7 @@ init_module(mediapipe_t *mp)
     g_signal_connect(jpeg_appsrc, "enough-data", G_CALLBACK(stop_feed), ctx);
     gst_object_unref(jpeg_appsrc);
 
-    ctx->xlink_pipeline = mediapipe_branch_create_pipeline("appsrc name=myxlinksrc ! xlinksink name=sink");
+    ctx->xlink_pipeline = mediapipe_branch_create_pipeline("appsrc name=myxlinksrc ! hddlsink name=sink");
     if (ctx->xlink_pipeline == NULL) {
         LOG_ERROR("create pipeline1 pipeline failed");
         return  MP_ERROR;
@@ -808,7 +811,7 @@ init_module(mediapipe_t *mp)
     return MP_OK;
 }
 
-static char* mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
+static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
 {
     int channelId = -1;
     if (!mediapipe_get_channelId(mp, "sink", &channelId)) {
@@ -825,11 +828,16 @@ static char* mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
         return MP_CONF_OK;
     }
 
-    if (g_object_class_find_property(G_OBJECT_GET_CLASS(sink), "channel")) {
-        g_object_set(sink, "channel", channelId, NULL);
-        LOG_INFO("set property \"channel\" as (%d) on element named \"sink\".", channelId);
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(sink), "selected-target-context")) {
+        GstHddlContext *context = gst_hddl_context_new (CONNECT_XLINK);
+        context->hddl_xlink->xlink_handler->devicePath = (char *)XLINK_DEVICE_PATH;
+        context->hddl_xlink->xlink_handler->deviceType = XLINK_DEVICE_TYPE;
+        context->hddl_xlink->channelId = channelId;
+        g_object_set(sink, "selected-target-context", context, NULL);
+        gst_hddl_context_free(context);
+        LOG_INFO("set \"selected-target-context\" with channelId(%d) on element named \"sink\".", channelId);
     } else {
-        LOG_WARNING("cannot find property \"channel\" on element named \"sink\".");
+        LOG_WARNING("cannot find property \"selected-target-context\" on element named \"sink\".");
     }
 
     GstStateChangeReturn ret = gst_element_set_state(ctx->xlink_pipeline, GST_STATE_PLAYING);
@@ -838,6 +846,7 @@ static char* mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
         return (char*)MP_CONF_ERROR;
     }
 
+    gst_object_unref(sink);
     ctx->channel = channelId;
 
     return MP_CONF_OK;
