@@ -253,6 +253,7 @@ crop_and_push_buffer_BGRA(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         }
         gst_object_unref(src);
     }
+    return true;
 }
 
 static gboolean
@@ -261,13 +262,8 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
 {
     GstMapInfo map;
     int xmin, ymin, xmax,  ymax;
-    guint size_Y = 0;
-    guint size_UV = 0;
-    guint size = 0;
     guint crop_width = 0;
     guint crop_height = 0;
-    gchar *raw_data = NULL;
-    GstBuffer *new_buf = NULL;
     GstElement  *src = NULL;
     GstCaps *caps = NULL;
     GstElement *pipeline = branch_ctx->pipeline;
@@ -324,13 +320,14 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         if (bFlag) {
             LOG_INFO("The range of rectangle is smaller than 16×16, has be increased !");
         }
-        cv::Mat frame_mat_Y(branch_ctx->height, branch_ctx->width, CV_8UC(1),
-                            map.data);
-        cv::Mat frame_mat_UV(branch_ctx->height / 2, branch_ctx->width, CV_8UC(1),
-                             map.data + (branch_ctx->height * branch_ctx->width));
+        /*TODO:The coordinates of the crop-roi are restricted by the vaapijpegenc plugin
+         *     The following method must be used.
+         *     The modified crop-roi coordinates will continue to be used in the pipeline.*/
         //nv12 must width align 16 ,height align 2
         crop_width = ALIGN_POW2(xmax - xmin, 16);
         crop_height = ALIGN_POW2(ymax - ymin, 2) ;
+        xmin = ALIGN_POW2(xmin, 2);
+        ymin = ALIGN_POW2(ymin, 2);
         if (crop_width + xmin > branch_ctx->width) {
             xmin = branch_ctx->width - crop_width;
         }
@@ -342,27 +339,12 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
                     xmin:%d, ymin:%d, width:%d, height:%d",
                       (int)meta->x, (int)meta->y, (int)meta->w, (int)meta->h);
         }
-        //corp the image and copy into a new buffer
-        cv::Mat croped_ref_Y(frame_mat_Y, cv::Rect(xmin, ymin, crop_width,
-                             crop_height));
-        cv::Mat croped_ref_UV(frame_mat_UV, cv::Rect(xmin, ymin / 2 , crop_width,
-                              (crop_height) / 2));
-        size_Y =  croped_ref_Y.total() * croped_ref_Y.elemSize();
-        size_UV =  croped_ref_UV.total() * croped_ref_UV.elemSize();
-        size = size_Y * 3 / 2;
-        raw_data = g_new0(char, size);
-        cv::Mat crop_mat_Y(crop_height, crop_width, CV_8UC(1),
-                           raw_data);
-        cv::Mat crop_mat_UV((crop_height) / 2 , crop_width, CV_8UC(1),
-                            raw_data + crop_height * crop_width);
-        croped_ref_Y.copyTo(crop_mat_Y);
-        croped_ref_UV.copyTo(crop_mat_UV);
-        new_buf = gst_buffer_new_wrapped(raw_data, size);
+
         gst_buffer_unmap(buffer, &map);
         //reset src caps accroding to the cropped image resolution
         snprintf(caps_string, MAX_BUF_SIZE,
-                 "video/x-raw,format=NV12,width=%u,height=%u,framerate=30/1",
-                 crop_width, crop_height);
+                 "video/x-raw(memory:DMABuf),format=NV12,width=%u,height=%u,framerate=30/1",
+                 branch_ctx->width, ALIGN_POW2(branch_ctx->height, 16));
         LOG_DEBUG("caps = [%s]\n", caps_string);
         src = gst_bin_get_by_name(GST_BIN(pipeline), "mysrc");
         caps = gst_caps_from_string(caps_string);
@@ -370,10 +352,17 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         g_object_set(src, "caps", caps, NULL);
         /* gst_element_set_state(src, GST_STATE_PLAYING); */
         gst_caps_unref(caps);
+
+        sprintf(caps_string, "%c%u%c%u%c%u%c%u%c", '"', xmin, ',', ymin, ',',crop_width, ',', crop_height, '"');
+        g_print("###########crop-roi = [%s]#########\n", caps_string);
+        guint set_ret;
+        MEDIAPIPE_SET_PROPERTY(set_ret, branch_ctx, "enc", "crop-roi", caps_string, NULL);
+        if( set_ret != 0) {
+           LOG_ERROR(" vaapijpegenc set crop-roi error !!\n");
+        }
         branch_ctx->can_pushed = FALSE;
         //push buffer to appsrc
-        g_signal_emit_by_name(GST_APP_SRC(src), "push-buffer", new_buf, &ret);
-        gst_buffer_unref(new_buf);
+        g_signal_emit_by_name(GST_APP_SRC(src), "push-buffer", buffer, &ret);
         if (ret != GST_FLOW_OK) {
             LOG_ERROR(" push buffer error\n");
         }
@@ -751,9 +740,14 @@ init_module(mediapipe_t *mp)
     gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
     ctx->branch_ctx = g_new0(jpeg_branch_ctx_t, 1);
     ctx->branch_ctx->queue = g_queue_new();
+#ifdef CROP_NV12
+    ctx->branch_ctx->pipeline =
+        mediapipe_branch_create_pipeline("appsrc name=mysrc ! vaapijpegenc  name=enc  crop-roi=\"100,100,200,200\" ! fakesink name=mysink");
+#else
     ctx->branch_ctx->pipeline =
         mediapipe_branch_create_pipeline("appsrc name=mysrc ! videoconvert ! jpegenc  name=enc ! fakesink name=mysink");
-    /* mediapipe_branch_create_pipeline("appsrc name=mysrc ! videoconvert ! video/x-raw,format=NV12 ! vaapijpegenc name=enc ! fakesink name=mysink "); */
+#endif
+
     if (ctx->branch_ctx->pipeline == NULL) {
         LOG_ERROR("create jpeg encode pipeline failed");
         return  MP_ERROR;

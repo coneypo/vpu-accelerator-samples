@@ -57,3 +57,7 @@ target_compile_options(
 
 target_compile_definitions(
     ${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:DEBUG>)
+
+if(CROP_NV12)
+    target_compile_definitions(${TARGET_NAME} PRIVATE CROP_NV12)
+endif()
