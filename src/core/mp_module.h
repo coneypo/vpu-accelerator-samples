@@ -288,7 +288,7 @@ mp_int_t
 mp_create_modules(mediapipe_t *mp);
 
 mp_int_t
-mp_modules_prase_json_config(mediapipe_t *mp);
+mp_modules_parse_json_config(mediapipe_t* mp);
 
 mp_int_t
 mp_init_modules(mediapipe_t *mp);
@@ -305,7 +305,7 @@ mp_modules_init_callback(mediapipe_t *mp);
 void
 mp_modules_exit_master(mediapipe_t *mp);
 
-void *mp_modules_find_moudle_ctx(mediapipe_t *mp, const char *module_name);
+void *mp_modules_find_module_ctx(mediapipe_t* mp, const char* module_name);
 
 extern mp_module_t  *mp_modules[];
 extern mp_uint_t     mp_max_module;

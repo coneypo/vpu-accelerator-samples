@@ -226,7 +226,7 @@ mp_create_modules(mediapipe_t *mp)
  */
 /* ----------------------------------------------------------------------------*/
 mp_int_t
-mp_modules_prase_json_config(mediapipe_t *mp)
+mp_modules_parse_json_config(mediapipe_t* mp)
 {
     char           *rv;
     int i;
@@ -418,7 +418,7 @@ mp_modules_message_process(mediapipe_t *mp,  GstMessage* msg)
     return MP_IGNORE;
 }
 
-void *mp_modules_find_moudle_ctx(mediapipe_t *mp, const char *module_name)
+void *mp_modules_find_module_ctx(mediapipe_t* mp, const char* module_name)
 {
     for (mp_uint_t i = 0; mp->modules[i]; i++) {
         if (g_strcmp0(mp->modules[i]->ctx->name.data, module_name) == 0)

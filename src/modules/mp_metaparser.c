@@ -189,7 +189,7 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
 
 static mp_int_t init_callback(mediapipe_t* mp)
 {
-    auto ctx = mp_modules_find_moudle_ctx(mp, "metaparser");
+    auto ctx = mp_modules_find_module_ctx(mp, "metaparser");
     mediapipe_set_user_callback(mp, "src", "src", src_src_callback, ctx);
     mediapipe_set_user_callback(mp, "myconvert", "src", myconvert_src_callback, ctx);
     return MP_OK;

@@ -260,7 +260,7 @@ branch_init(mediapipe_branch_t *mp_branch)
     const gchar *desc_format = NULL;
     gchar description[MAX_BUF_SIZE];
     branch_t *branch = (branch_t *) mp_branch;
-    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp_branch->mp, "openvino");
+    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp_branch->mp, "openvino");
     create_description_from_string_and_params(branch, description);
 
     printf("description:[%s]\n", description);
@@ -297,7 +297,7 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     RETURN_IF_FAIL(mp != NULL);
     RETURN_IF_FAIL(mp->state != STATE_NOT_CREATE);
     RETURN_IF_FAIL(json_object_object_get_ex(root, "openvino_detection", &object));
-    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp, "openvino");
+    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp, "openvino");
     int branch_num = json_object_array_length(object);
     ctx->branch_num = branch_num;
     ctx->branch = (branch_t*)g_malloc0(sizeof(branch_t) * branch_num);
@@ -366,7 +366,7 @@ static void
 subscribe_message(const char *message_name, const char *subscriber_name,
                   mediapipe_t *mp, message_process_fun fun)
 {
-    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp, "openvino");
+    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp, "openvino");
     GList *msg_list = (GList *) g_hash_table_lookup(ctx->msg_hst, message_name);
     GList *l = msg_list;
     message_ctx *t_ctx;
@@ -407,7 +407,7 @@ static mp_int_t
 unsubscribe_message(const char *message_name, const char *subscriber_name,
                     mediapipe_t *mp, message_process_fun fun)
 {
-    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(mp, "openvino");
+    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp, "openvino");
     if (NULL == ctx->msg_hst) {
         return MP_ERROR;
     }
@@ -568,7 +568,7 @@ static GstPadProbeReturn
 detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
     branch_t *branch = (branch_t *) user_data;
-    openvino_ctx *ctx = (openvino_ctx *)mp_modules_find_moudle_ctx(branch->mp_branch.mp, "openvino");
+    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(branch->mp_branch.mp, "openvino");
     if (NULL == ctx->msg_hst) {
         LOG_DEBUG("%s:%d : hash table in NULL", __FILE__, __LINE__);
         return GST_PAD_PROBE_REMOVE;

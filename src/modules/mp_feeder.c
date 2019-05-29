@@ -121,7 +121,7 @@ PacketArray read_files(const std::set<std::string>& files)
 
 static char* parse_config(mediapipe_t* mp, mp_command_t* cmd)
 {
-    feeder_ctx_t* ctx = (feeder_ctx_t*)mp_modules_find_moudle_ctx(mp, "feeder");
+    feeder_ctx_t* ctx = (feeder_ctx_t*) mp_modules_find_module_ctx(mp, "feeder");
 
     const char* packet_folder = nullptr;
     struct json_object* feederconf = nullptr;
@@ -191,7 +191,7 @@ static void stop_feed(GstElement* appsrc, guint unused_size, feeder_ctx_t* ctx)
 
 static mp_int_t init_callback(mediapipe_t* mp)
 {
-    auto ctx = (feeder_ctx_t*)mp_modules_find_moudle_ctx(mp, "feeder");
+    auto ctx = (feeder_ctx_t*) mp_modules_find_module_ctx(mp, "feeder");
 
     if (ctx->packet_folder.empty()) {
         return MP_OK;

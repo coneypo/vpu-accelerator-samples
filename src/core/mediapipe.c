@@ -546,7 +546,7 @@ mediapipe_destroy(mediapipe_t *mp)
 
 void mediapipe_load_config(mediapipe_t* mp)
 {
-    mp_modules_prase_json_config(mp);
+    mp_modules_parse_json_config(mp);
 }
 
 void mediapipe_start_prepare(mediapipe_t* mp)

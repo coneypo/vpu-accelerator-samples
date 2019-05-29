@@ -105,7 +105,7 @@ static mp_int_t
 queue_message_from_observer(const char *message_name, const char *subscribe_name,
                             mediapipe_t *mp, GstMessage *message)
 {
-    mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
+    mix2_ctx *ctx = (mix2_ctx *) mp_modules_find_module_ctx(mp, "mix2");
     for (int i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(message_name, ctx->msg_ctxs[i].message_name)
             && 0 == g_strcmp0(subscribe_name, ctx->msg_ctxs[i].elem_name)) {
@@ -370,7 +370,7 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
     struct json_object *mix_root;
     RETURN_VAL_IF_FAIL(json_object_object_get_ex(mp->config, elem_name,
                        &mix_root), FALSE);
-    mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
+    mix2_ctx *ctx = (mix2_ctx *) mp_modules_find_module_ctx(mp, "mix2");
 
     //init message process fun hash table
     g_hash_table_insert(ctx->msg_pro_fun_hst, g_strdup("vehicle_detection"),
@@ -459,7 +459,7 @@ mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data)
 {
     const char *name = (const char *) user_data;
-    mix2_ctx *ctx = (mix2_ctx *)mp_modules_find_moudle_ctx(mp, "mix2");
+    mix2_ctx *ctx = (mix2_ctx *) mp_modules_find_module_ctx(mp, "mix2");
     gint i;
     for (i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(ctx->msg_ctxs[i].elem_name, name)) {

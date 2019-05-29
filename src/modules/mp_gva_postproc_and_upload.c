@@ -656,7 +656,8 @@ init_callback(mediapipe_t *mp)
     GstPad *pad = NULL;
     //add callback to get detect buffer and meta
     //
-    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *) mp_modules_find_module_ctx(mp,
+                                                                                                      "gva_postproc_and_upload");
     detect = gst_bin_get_by_name(GST_BIN(mp->pipeline), "detect");
     if (detect == NULL) {
         LOG_ERROR("can't find element detect, can't init callback");
@@ -739,7 +740,8 @@ init_module(mediapipe_t *mp)
     GstVideoInfo video_info;
     gchar caps_string[MAX_BUF_SIZE];
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
-    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
+    gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *) mp_modules_find_module_ctx(mp,
+                                                                                                      "gva_postproc_and_upload");
     ctx->branch_ctx = g_new0(jpeg_branch_ctx_t, 1);
     ctx->branch_ctx->queue = g_queue_new();
 #ifdef CROP_NV12
@@ -819,7 +821,7 @@ static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
     }
 
     gva_postproc_and_upload_ctx_t* ctx =
-        (gva_postproc_and_upload_ctx_t*)mp_modules_find_moudle_ctx(mp, "gva_postproc_and_upload");
+        (gva_postproc_and_upload_ctx_t*) mp_modules_find_module_ctx(mp, "gva_postproc_and_upload");
 
 
     GstElement* sink = gst_bin_get_by_name(GST_BIN(ctx->xlink_pipeline), "sink");

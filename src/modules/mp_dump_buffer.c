@@ -104,7 +104,7 @@ static gboolean dump_buffer(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gs
 
 static mp_int_t init_callback(mediapipe_t* mp)
 {
-    auto ctx = (dump_buffer_ctx_t*)mp_modules_find_moudle_ctx(mp, "dump_buffer");
+    auto ctx = (dump_buffer_ctx_t*) mp_modules_find_module_ctx(mp, "dump_buffer");
     mediapipe_set_user_callback(mp, ctx->elemName.c_str(), ctx->padName.c_str(), dump_buffer, ctx);
     return MP_OK;
 }

@@ -159,7 +159,7 @@ static int setup_modules(mediapipe_t* mp)
         return -1;
     }
 
-    if (MP_OK != mp_modules_prase_json_config(mp)) {
+    if (MP_OK != mp_modules_parse_json_config(mp)) {
         printf("modules_prase_json_config failed\n");
         return -1;
     }
