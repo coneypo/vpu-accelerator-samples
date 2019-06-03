@@ -25,13 +25,15 @@ add_library(${TARGET_NAME} STATIC ${HDRS} ${SRCS} ${MODULE_COLLECTION})
 
 find_library (HDDL_PLUGIN_LIBRARY
     NAMES gsthddl
-    PATHS /usr/local/lib/gstreamer-1.0/
+    PATHS
+        /usr/lib/gstreamer-1.0/
+        /usr/local/lib/gstreamer-1.0/
     )
 
 if(HDDL_PLUGIN_LIBRARY)
-    message(STATUS "Find gsthddl library success")
+    message(STATUS "Found gsthddl library: ${HDDL_PLUGIN_LIBRARY}")
 else()
-    message(WARNING "Find gsthddl library faild")
+    message(WARNING "No libgsthddl.so found in '/usr/lib/gstreamer-1.0/' or '/usr/local/lib/gstreamer-1.0/'")
 endif()
 
 target_include_directories(
