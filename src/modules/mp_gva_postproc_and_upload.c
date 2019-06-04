@@ -724,6 +724,22 @@ static void destroy_ctx(void *_ctx)
 
 
     if (ctx->xlink_pipeline) {
+        //send eos to xlink_pipeline
+        GstElement *xlink_src = gst_bin_get_by_name(GST_BIN(ctx->xlink_pipeline), "myxlinksrc");
+        if (xlink_src) {
+            GstPad *src_pad = gst_element_get_static_pad(xlink_src, "src");
+            if (src_pad) {
+                GstEvent *event = gst_event_new_eos();
+                gst_pad_push_event(src_pad, event);
+                gst_object_unref(src_pad);
+            } else {
+                LOG_WARNING("can't find xlink pipeline myxlinksrc src pad");
+            }
+            gst_object_unref(xlink_src);
+        } else {
+            LOG_WARNING("can't find xlink pipeline src element");
+        }
+
         gst_element_set_state(ctx->xlink_pipeline, GST_STATE_NULL);
         gst_object_unref(ctx->xlink_pipeline);
     }
