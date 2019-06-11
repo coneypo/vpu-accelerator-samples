@@ -9,7 +9,7 @@
  */
 
 #include "mediapipe_com.h"
-#include "utils/packet_struct_v2.h"
+#include "utils/packet_struct_v3.h"
 #include <string>
 #include <algorithm>
 #include <vector>
@@ -87,6 +87,20 @@ static mp_command_t  mp_gva_postproc_and_upload_commands[] = {
     },
     mp_null_command
 };
+
+
+static gboolean
+write_file(const gchar *data, guint size, const gchar *file_name)
+{
+    FILE *fp = fopen(file_name, "w");
+    if (fp == NULL) {
+        g_print("Open file %s failed", file_name);
+        return FALSE;
+    }
+    fwrite(data, 1, size, fp);
+    fclose(fp);
+    return TRUE;
+}
 
 static mp_int_t
 init_callback(mediapipe_t *mp);
@@ -407,6 +421,15 @@ push_data(gpointer user_data)
     buffer = (GstBuffer *) g_queue_peek_head(branch_ctx->queue);
     int roi_index = 0;
     int label_id = 0;
+    int roi_num = 0;
+    while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
+        if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
+            continue ;
+        }
+        roi_num ++;
+        continue;
+    }
+    branch_ctx->Jpeg_pag.meta.num_rois = roi_num;
     while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
@@ -422,12 +445,16 @@ push_data(gpointer user_data)
             structure = (GstStructure *) l->data;
             if (gst_structure_has_field(structure, "label_id") &&
                 gst_structure_get_int(structure, "label_id", &label_id)) {
-                printf("label_id: %d", label_id);
+                LOG_DEBUG("label_id: %d", label_id);
                 break;
             }
         }
 
         branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index = label_id;
+        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].left = meta->x;
+        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].top =  meta->y;
+        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].width = meta->w;
+        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].height = meta->h;
 
         structure = gst_video_region_of_interest_meta_get_param(meta, "detection");
 
@@ -437,7 +464,7 @@ push_data(gpointer user_data)
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.version, "metaversion");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.stream_id, "stream_id");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.frame_number, "frame_number");
-        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois");
+        /* PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois"); */
         while (branch_ctx->Jpeg_pag.meta.num_rois > memory_size) {
             memory_size =  memory_size * 2;
         }
@@ -450,7 +477,7 @@ push_data(gpointer user_data)
                     branch_ctx->malloc_max_roi_size);
         }
 
-        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index, "object_index");
+        /* PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index, "object_index"); */
 
         //meta size is fixed , = 8;
         branch_ctx->Jpeg_pag.header.meta_size = 8;
@@ -474,6 +501,13 @@ push_data(gpointer user_data)
             gst_buffer_unref(buffer);
         }
         break;
+    }
+    if(roi_num == 0)
+    {
+        branch_ctx->roi_index = 0;
+        branch_ctx->jpegmem_size = 0;
+        g_queue_pop_head(branch_ctx->queue);
+        gst_buffer_unref(buffer);
     }
     return TRUE;
 }
@@ -561,6 +595,12 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     memcpy(branch_ctx->Jpeg_pag.jpegs + branch_ctx->jpegmem_size, map.data,
            map.size);
 
+    /* static guint file_index = 0; */
+    /* char file_name[100]; */
+    /* snprintf(file_name, 100,  "%d_%d.jpeg",ctx->channel,  file_index); */
+    /* write_file((gchar *)map.data, map.size, file_name); */
+    /* file_index++; */
+
     branch_ctx->jpegmem_size += map.size;
     if (branch_ctx->roi_index + 1 == branch_ctx->Jpeg_pag.meta.num_rois) {
         branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
@@ -635,6 +675,7 @@ detect_src_callback_for_crop_jpeg(GstPad *pad, GstPadProbeInfo *info,
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
     g_queue_push_tail(ctx->branch_ctx->queue, gst_buffer_ref(buffer));
     if (g_queue_get_length(ctx->branch_ctx->queue) > 5) {
+        LOG_DEBUG("buffer queue length:%d\n", g_queue_get_length(ctx->branch_ctx->queue));
         g_usleep(30000 * g_queue_get_length(ctx->branch_ctx->queue));
     }
     return GST_PAD_PROBE_OK;

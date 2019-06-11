@@ -103,6 +103,45 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
     return TRUE;
 }
 
+static gboolean
+insert_metainfo_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
+{
+    auto ctx = (stream_ctx_t*)user_data;
+
+    GstStructure* walk = (GstStructure*)g_async_queue_try_pop(ctx->meta_queue);
+    if (!walk) {
+        return TRUE;
+    }
+
+    const GValue* vlist = gst_structure_get_value(walk, "meta_info");
+    if (!vlist) {
+        LOG_WARNING("unexpected GstStructure object");
+        gst_structure_free(walk);
+        return TRUE;
+    }
+
+    guint nsize = gst_value_list_get_size(vlist);
+
+    GstMeta *gst_meta = NULL;
+    gpointer state = NULL;
+
+    if(nsize > 0)
+    {
+        const GValue* item = gst_value_list_get_value(vlist, 0);
+        GstStructure* boxed = (GstStructure*)g_value_get_boxed(item);
+        while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
+            if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
+                continue ;
+            }
+            gst_video_region_of_interest_meta_add_param((GstVideoRegionOfInterestMeta*)gst_meta, gst_structure_copy(boxed));
+        }
+    }
+
+    gst_structure_free(walk);
+
+    return TRUE;
+}
+
 static void*
 create_ctx(mediapipe_t* mp)
 {
@@ -191,7 +230,8 @@ static mp_int_t init_callback(mediapipe_t* mp)
 {
     auto ctx = mp_modules_find_module_ctx(mp, "metaparser");
     mediapipe_set_user_callback(mp, "src", "src", src_src_callback, ctx);
-    mediapipe_set_user_callback(mp, "myconvert", "src", myconvert_src_callback, ctx);
+    /* mediapipe_set_user_callback(mp, "myconvert", "src", myconvert_src_callback, ctx); */
+    mediapipe_set_user_callback(mp, "detect", "src", insert_metainfo_src_callback, ctx);
     return MP_OK;
 }
 

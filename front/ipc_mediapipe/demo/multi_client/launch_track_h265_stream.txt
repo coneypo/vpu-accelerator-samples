@@ -1,0 +1,11 @@
+hddlsrc name=src !
+h265parse !
+avdec_h265 name=my265dec !
+videoconvert name=myconvert !
+video/x-raw, format=BGRA !
+gvainference model=/home/hu-cmode/config/public-models-master/yolov2_tiny_od/yolo_IR_fp32.xml ! gvayolov2tinyroi !  videoconvert name=test1 ! video/x-raw,format=NV12 !
+vasobjecttracker tracking-type=ZERO_TERM ! vasobjectselector ! videoconvert name=test2 ! video/x-raw,format=BGRA !
+gvaclassify model=/home/hu-cmode/config/public-models-master/resnet_v1_50_75.19/resnet50_v1_fp32.xml  model-proc=/home/hu-cmode/config/model-proc/object-classify.json !
+vasobjectoutput property-config=object.classification name=detect !
+queue !
+fakesink
