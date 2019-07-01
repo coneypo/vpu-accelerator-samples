@@ -6,6 +6,11 @@ file(GLOB HDRS "*.h")
 aux_source_directory(. SRCS)
 list(REMOVE_ITEM SRCS ./mp_crop.c ./mp_mix.c ./mp_metadata.c)
 
+if(NOT HDDL_PLUGIN_LIBRARY)
+    message(STATUS "Disable gsthddl related modules, since libgsthddl.so not found")
+    list(REMOVE_ITEM SRCS ./mp_gva_postproc_and_upload.c ./mp_metaparser.c)
+endif()
+
 # set some module compiled by CXX
 set_source_files_properties(
     ./mp_gva_postproc_and_upload.c
@@ -23,19 +28,6 @@ generate_module_collection_file(MODULE_FILES ${SRCS} OUTPUT ${MODULE_COLLECTION}
 
 add_library(${TARGET_NAME} STATIC ${HDRS} ${SRCS} ${MODULE_COLLECTION})
 
-find_library (HDDL_PLUGIN_LIBRARY
-    NAMES gsthddl
-    PATHS
-        /usr/lib/gstreamer-1.0/
-        /usr/local/lib/gstreamer-1.0/
-    )
-
-if(HDDL_PLUGIN_LIBRARY)
-    message(STATUS "Found gsthddl library: ${HDDL_PLUGIN_LIBRARY}")
-else()
-    message(WARNING "No libgsthddl.so found in '/usr/lib/gstreamer-1.0/' or '/usr/local/lib/gstreamer-1.0/'")
-endif()
-
 target_include_directories(
     ${TARGET_NAME} PUBLIC
     ${GLIB_INCLUDE_DIRS}
@@ -45,8 +37,6 @@ target_include_directories(
     ${GSTREAMER_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/src/core
-    ${PROJECT_SOURCE_DIR}/front/hddl_mediapipe
-    ${PROJECT_SOURCE_DIR}/front/hddl_mediapipe/process_command
 )
 
 target_link_libraries(
@@ -56,11 +46,14 @@ target_link_libraries(
     ${Boost_LIBRARIES}
     ${CAIRO_LIBRARIES}
     ${OpenCV_LIBRARIES}
-    ${HDDL_PLUGIN_LIBRARY}
     ${LIBPANGO_CAIRO_LIBRARY}
     ${GSTREAMER_VIDEO_LIBRARIES}
     ${GSTREAMER_RTSPSERVER_LIBRARIES}
 )
+
+if(HDDL_PLUGIN_LIBRARY)
+    target_link_libraries(${TARGET_NAME} PRIVATE ${HDDL_PLUGIN_LIBRARY})
+endif()
 
 target_compile_options(
     ${TARGET_NAME} PUBLIC
