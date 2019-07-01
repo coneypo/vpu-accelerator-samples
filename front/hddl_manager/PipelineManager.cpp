@@ -1,7 +1,10 @@
 #include "PipelineManager.h"
 #include "FileUtils.h"
 #include "Pipeline.h"
+
+#ifndef LOCAL_MODE
 #include "XLinkConnector.h"
+#endif
 
 #include <fstream>
 #include <sys/stat.h>
@@ -11,7 +14,6 @@ std::atomic<int> PipelineManager::m_idCounter(0);
 
 void PipelineManager::init(int socketId)
 {
-    m_xlink = &(XLinkConnector::getInstance());
 #ifndef MULTI_THREAD_MODE
     m_ipc.init(socketId);
 #endif
@@ -19,7 +21,6 @@ void PipelineManager::init(int socketId)
 
 void PipelineManager::uninit()
 {
-    m_xlink = nullptr;
 #ifndef MULTI_THREAD_MODE
     m_ipc.uninit();
 #endif
@@ -193,6 +194,7 @@ PipelineStatus PipelineManager::setChannel(int id, const std::string& element, c
 
 void PipelineManager::sendEventToHost(int id, PipelineEvent event)
 {
+#ifndef LOCAL_MODE
     HalMsgRspType type;
     switch (event) {
     case PipelineEvent::PIPELINE_EOS:
@@ -205,7 +207,8 @@ void PipelineManager::sendEventToHost(int id, PipelineEvent event)
         return;
     }
 
-    return m_xlink->sendEventToHost(id, type);
+    return XLinkConnector::getInstance().sendEventToHost(id, type);
+#endif
 }
 
 std::shared_ptr<Pipeline> PipelineManager::getPipeline(int id)

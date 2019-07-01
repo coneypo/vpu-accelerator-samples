@@ -15,8 +15,6 @@
 #endif
 
 namespace hddl {
-
-class XLinkConnector;
 class Pipeline;
 
 class PipelineManager {
@@ -65,7 +63,6 @@ private:
     using Map = std::unordered_map<int, std::shared_ptr<Pipeline>>;
     std::mutex m_mapMutex;
     Map m_map;
-    XLinkConnector* m_xlink;
 
     static std::atomic<int> m_idCounter;
 

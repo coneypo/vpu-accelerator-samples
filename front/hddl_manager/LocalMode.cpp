@@ -39,7 +39,7 @@ void LocalMode::launchStartPipelines()
 {
     for (auto& info : m_pipeInfo) {
         for (int i = 0; i < info.threads; i++) {
-            auto status = m_pipeManager->addPipeline(m_pipeId, info.launchData, info.configData);
+            auto status = m_pipeManager->addPipeline(info.launchData, info.configData, m_pipeId);
             if (status != PipelineStatus::SUCCESS) {
                 std::cerr << "Error: launch pipeline failed" << std::endl;
                 stopDestroyPipelines();
