@@ -126,6 +126,13 @@ function(mediapipe_library_build)
         message("DRM_TYPE is unsupported: ${DRM_TYPE}, skip the build")
     endif()
 
+    option(USE_VPUSMM "Use VPUSMM(VPU Shared memory manager) based allocator" OFF)
+    if(USE_VPUSMM)
+        pkg_check_modules (VPUSMM REQUIRED libvpusmm)
+        list(APPEND SRC_LIST ${CMAKE_SOURCE_DIR}/src/vpusmm_allocator/gstvpusmm.c)
+        list(APPEND SRC_LIST ${CMAKE_SOURCE_DIR}/src/vpusmm_allocator/gstvpusmm.h)
+    endif()
+
     #create c code file that contains all select moudles
     set(modulecfile ${CMAKE_CURRENT_BINARY_DIR}/mp_modules.c)
     file(WRITE ${modulecfile} "#include \"mp_module.h\"\n")
@@ -209,6 +216,14 @@ function(mediapipe_library_build)
         target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_ALLOCATORS_LIBRARIES})
 
         target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/drm_allocator)
+    endif()
+
+    if(DEFINED VPUSMM_DEFINITION)
+        target_include_directories(${MEDIAPIPE_NAME} PRIVATE ${VPUSMM_INCLUDE_DIRS})
+        target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${VPUSMM_LIBRARIES})
+        target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_ALLOCATORS_LIBRARIES})
+
+        target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/vpusmm_allocator)
     endif()
 
 endfunction()

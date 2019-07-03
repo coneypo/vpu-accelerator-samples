@@ -11,7 +11,7 @@ include_directories(${PROTOBUF_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(hddl_mediapipe3 ${SRCS} ${HDRS} message.cpp ${PROTO_SRC} ${PROTO_HDR})
-target_link_libraries(hddl_mediapipe3 PRIVATE mp_core_static XLinkARM pthread ${PROTOBUF_LITE_LIBRARY} ${DRMALLOC_STATIC_LIB})
+target_link_libraries(hddl_mediapipe3 PRIVATE mp_core_static XLinkARM pthread ${PROTOBUF_LITE_LIBRARY} ${DMABUF_ALLOC_STATIC_LIB})
 
 #set FOLDER for subdir install
 set_property(TARGET hddl_mediapipe3 PROPERTY FOLDER "executables")

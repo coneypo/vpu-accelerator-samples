@@ -74,6 +74,10 @@ typedef intptr_t        mp_flag_t;
 #include "mp_gstdrmbomemory.h"
 #endif
 
+#ifdef VPUSMM
+#include "gstvpusmm.h"
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -5,7 +5,7 @@ HDDL Manager:
     ./build/front/hddl_manager/hddl_manager
 
 HDDL Manager with DMA Buffer:
-    mkdir build && cd build && cmake -DBUILD_APP=manager -DMULTI_THREAD_MODE=ON  -DUSE_THREAD_DEFAULT_MAIN_CONTEXT=ON -DLOCAL_MODE=OFF -DDRM_TYPE=hantro .. && make -j && sudo make install
+    mkdir build && cd build && cmake -DBUILD_APP=manager -DMULTI_THREAD_MODE=ON  -DUSE_THREAD_DEFAULT_MAIN_CONTEXT=ON -DLOCAL_MODE=OFF -DVPUSMM=ON .. && make -j && sudo make install
     ./build/front/hddl_manager/hddl_manager
 
 Local mode:

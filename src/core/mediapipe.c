@@ -364,9 +364,14 @@ static GstAllocator *allocator = NULL;
 /* ----------------------------------------------------------------------------*/
 GstAllocator *mp_get_dma_allocator()
 {
-#ifdef DRM_TYPE
+#if defined(DRM_TYPE) || defined(USE_VPUSMM)
     if (g_once_init_enter(&allocator)) {
+#ifdef DRM_TYPE
         GstAllocator *setup_allocator = gst_hantrobo_allocator_new();
+#endif
+#ifdef USE_VPUSMM
+        GstAllocator *setup_allocator = gst_vpusmm_allocator_new(0);
+#endif
         if (setup_allocator == NULL) {
             LOG_ERROR("gst_hantrobo_allocator_new() failed!");
             g_once_init_leave(&allocator, setup_allocator);
