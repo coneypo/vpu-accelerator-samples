@@ -86,7 +86,7 @@ void* mp_thread(void* data)
         return NULL;
     }
 
-    if (MP_OK != mp_modules_prase_json_config(mp)) {
+    if (MP_OK != mp_modules_parse_json_config(mp)) {
         printf("modules_prase_json_config failed\n");
         return NULL;
     }
