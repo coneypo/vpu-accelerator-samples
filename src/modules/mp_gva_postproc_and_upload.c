@@ -422,21 +422,34 @@ push_data(gpointer user_data)
     int roi_index = 0;
     int label_id = 0;
     int roi_num = 0;
-    while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
-        if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
-            continue ;
+    if (branch_ctx->roi_index == 0) {
+        //count total roi nums
+        while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
+            if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
+                continue;
+            }
+            roi_num ++;
+            continue;
         }
-        roi_num ++;
-        continue;
+        branch_ctx->Jpeg_pag.meta.num_rois = roi_num;
     }
-    branch_ctx->Jpeg_pag.meta.num_rois = roi_num;
+
+    if (branch_ctx->Jpeg_pag.meta.num_rois == 0 ||
+        branch_ctx->roi_index >= branch_ctx->Jpeg_pag.meta.num_rois) {
+        //the roi info on a buffer is all processed, so pop and release
+        branch_ctx->roi_index = 0;
+        branch_ctx->jpegmem_size = 0;
+        g_queue_pop_head(branch_ctx->queue);
+        gst_buffer_unref(buffer);
+        return TRUE;
+    }
+
     while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
         }
-        if (roi_index < branch_ctx->roi_index &&
-                branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
-            roi_index ++ ;
+        if (roi_index < branch_ctx->roi_index) {
+            roi_index ++;
             continue;
         }
         meta = (GstVideoRegionOfInterestMeta *)gst_meta;
@@ -491,23 +504,8 @@ push_data(gpointer user_data)
             else{
                 LOG_ERROR("not support crop format:%d", branch_ctx->format);
             }
-        } else {
-            //the roi info on a buffer is all processed, so pop and release
-            //the buffer
-            /* branch_ctx->find_package */
-            branch_ctx->roi_index = 0;
-            branch_ctx->jpegmem_size = 0;
-            g_queue_pop_head(branch_ctx->queue);
-            gst_buffer_unref(buffer);
         }
         break;
-    }
-    if(roi_num == 0)
-    {
-        branch_ctx->roi_index = 0;
-        branch_ctx->jpegmem_size = 0;
-        g_queue_pop_head(branch_ctx->queue);
-        gst_buffer_unref(buffer);
     }
     return TRUE;
 }
