@@ -206,7 +206,10 @@ public:
     PipelineStatus play()
     {
         if (m_start) {
-            m_starter = std::thread([this]() { mediapipe_start(m_mp); });
+            m_starter = std::thread([this]() {
+                mp_modules_parse_json_config(m_mp); // load config at second time to make setChannel take effect.
+                mediapipe_start(m_mp);
+            });
             m_start = false;
         } else {
             mediapipe_playing(m_mp);

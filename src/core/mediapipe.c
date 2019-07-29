@@ -543,17 +543,6 @@ mediapipe_destroy(mediapipe_t *mp)
     mp_destory_dma_allocator();
 }
 
-/**
-    @brief Start mediapipe. Thread will loop in this function until calling mediapipe_stop().
-
-    @param mp Pointer to mediapipe.
-*/
-
-void mediapipe_load_config(mediapipe_t* mp)
-{
-    mp_modules_parse_json_config(mp);
-}
-
 void mediapipe_start_prepare(mediapipe_t* mp)
 {
 #ifdef USE_THREAD_DEFAULT_MAIN_CONTEXT
@@ -570,12 +559,13 @@ void mediapipe_start_finish(mediapipe_t* mp)
 #endif
 }
 
-void
-mediapipe_start(mediapipe_t *mp)
+/**
+    @brief Start mediapipe. Thread will loop in this function until calling mediapipe_stop().
+    @param mp Pointer to mediapipe.
+*/
+void mediapipe_start(mediapipe_t *mp)
 {
     g_assert(mp);
-
-    mediapipe_load_config(mp);
 
     gst_element_set_state(mp->pipeline, GST_STATE_PLAYING);
     mp->state = STATE_START;
