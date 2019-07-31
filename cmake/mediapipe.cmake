@@ -166,6 +166,8 @@ function(mediapipe_library_build)
         ${BASE_MODULES_PATH}/mp_mix2.c
         ${BASE_MODULES_PATH}/mp_metadata.c
         ${BASE_MODULES_PATH}/mp_openvino.c
+        ${BASE_MODULES_PATH}/mp_openvino_tracking.c
+        ${BASE_MODULES_PATH}/mp_mix3.c
         ${BASE_MODULES_PATH}/mp_metaparser.c
         ${BASE_MODULES_PATH}/mp_dump_buffer.c
         PROPERTIES LANGUAGE CXX

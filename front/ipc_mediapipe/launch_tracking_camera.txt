@@ -1,0 +1,36 @@
+v4l2src !
+video/x-raw,format=YUY2,width=1920,height=1080 !
+videoconvert !
+capsfilter             name=src_caps !
+videorate !
+capsfilter             name=videorate_caps !
+tee name=t
+t. !
+queue !
+videoscale             name=src !
+queue                  name=mix1_queue !
+videoscale             name=mix1_src !
+capsfilter             name=scale1_caps !
+videoconvert !
+capsfilter             name=convert1_caps !
+vaapih264enc           name=enc1 !
+capsfilter             name=enc1_caps !
+fakesink
+t. !
+queue                  name=mix2_queue !
+videoscale             name=mix2_src !
+capsfilter             name=scale2_caps !
+videoconvert !
+capsfilter             name=convert2_caps !
+vaapih264enc           name=enc2 !
+capsfilter             name=enc2_caps !
+fakesink
+t. !
+queue                  name=mix3_queue !
+videoscale             name=mix3_src !
+capsfilter             name=scale3_caps !
+videoconvert !
+capsfilter             name=convert3_caps !
+vaapih264enc           name=enc3 !
+capsfilter             name=enc3_caps !
+fakesink

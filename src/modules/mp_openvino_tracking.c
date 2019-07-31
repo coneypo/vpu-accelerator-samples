@@ -9,7 +9,8 @@
 #include <vector>
 
 //about subscriber_message start
-typedef int (*message_process_fun)(const char *message_name, const char *subscribe_name,
+typedef int (*message_process_fun)(const char *message_name,
+                                   const char *subscribe_name,
                                    mediapipe_t *mp, GstMessage *message);
 
 typedef struct {
@@ -39,17 +40,17 @@ typedef struct {
     const gchar  *src_name;
     const gchar *message_name;
     const gchar *src_format;
-    struct json_object* pipe_params;
-} openvino_branch_t;
+    struct json_object *pipe_params;
+} openvino_tracking_branch_t;
 
-typedef  openvino_branch_t branch_t;
+typedef  openvino_tracking_branch_t branch_t;
 
 typedef struct {
     mediapipe_t *mp;
     GHashTable  *msg_hst;
     gint branch_num;
-    openvino_branch_t *branch;
-} openvino_ctx;
+    openvino_tracking_branch_t *branch;
+} openvino_tracking_ctx;
 
 static gboolean
 branch_init(mediapipe_branch_t *mp_branch);
@@ -69,8 +70,6 @@ push_buffer_to_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
 static GstPadProbeReturn
 detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
-static gboolean
-get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer, GValue *objectlist);
 
 //get message and progress it end
 
@@ -83,9 +82,9 @@ mp_parse_config(mediapipe_t *mp, mp_command_t *cmd);
 static void *create_ctx(mediapipe_t *mp);
 static void destroy_ctx(void *_ctx);
 
-static mp_command_t  mp_openvino_commands[] = {
+static mp_command_t  mp_openvino_tracking_commands[] = {
     {
-        mp_string("openvino"),
+        mp_string("openvino_tracking"),
         MP_MAIN_CONF,
         mp_parse_config,
         0,
@@ -95,17 +94,17 @@ static mp_command_t  mp_openvino_commands[] = {
     mp_null_command
 };
 
-static mp_module_ctx_t  mp_openvino_module_ctx = {
-    mp_string("openvino"),
+static mp_module_ctx_t  mp_openvino_tracking_module_ctx = {
+    mp_string("openvino_tracking"),
     create_ctx,
     NULL,
     destroy_ctx
 };
 
-mp_module_t  mp_openvino_module = {
+mp_module_t  mp_openvino_tracking_module = {
     MP_MODULE_V1,
-    &mp_openvino_module_ctx,           /* module context */
-    mp_openvino_commands,              /* module directives */
+    &mp_openvino_tracking_module_ctx,           /* module context */
+    mp_openvino_tracking_commands,              /* module directives */
     MP_CORE_MODULE,                    /* module type */
     NULL,                              /* init master */
     NULL,                              /* init module */
@@ -136,9 +135,9 @@ mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
 
 /* --------------------------------------------------------------------------*/
 /**
- * @Synopsis config openvino branch
+ * @Synopsis config openvino_tracking branch
  *
- * @Param branch openvino branch
+ * @Param branch openvino_tracking branch
  *
  * @Returns
  */
@@ -169,8 +168,9 @@ branch_config(branch_t *branch)
     }
     GstPad *pad = gst_element_get_static_pad(detect, "src");
     if (pad) {
-        gulong probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, detect_src_callback, branch,
-                          NULL);
+        gulong probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER,
+                                            detect_src_callback, branch,
+                                            NULL);
         gst_probe_list_append_new_item(branch->mp_branch.probe_items, pad, probe_id);
     }
     gst_object_unref(detect);
@@ -246,7 +246,7 @@ static void create_description_from_string_and_params(branch_t *branch,
 
 /* --------------------------------------------------------------------------*/
 /**
- * @Synopsis openvino custom branch init
+ * @Synopsis openvino_tracking custom branch init
  *
  * @Param mp_branch
  *
@@ -260,14 +260,14 @@ branch_init(mediapipe_branch_t *mp_branch)
     const gchar *desc_format = NULL;
     gchar description[MAX_BUF_SIZE];
     branch_t *branch = (branch_t *) mp_branch;
-    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp_branch->mp, "openvino");
+    openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)
+                                 mp_modules_find_module_ctx(mp_branch->mp, "openvino_tracking");
     create_description_from_string_and_params(branch, description);
-
     printf("description:[%s]\n", description);
     GstElement *new_pipeline = mediapipe_branch_create_pipeline(description);
     if (new_pipeline == NULL) {
-        LOG_ERROR("Failed to create openvino branch, make sure you have installed \
-                openvino plugins and configured all necessary dependencies");
+        LOG_ERROR("Failed to create openvino_tracking branch, make sure you have installed \
+                openvino_tracking plugins and configured all necessary dependencies");
         return FALSE;
     }
     mp_branch->pipeline = new_pipeline;
@@ -281,7 +281,7 @@ branch_init(mediapipe_branch_t *mp_branch)
 
 /* --------------------------------------------------------------------------*/
 /**
- * @Synopsis parse openvino info from root json object and set up
+ * @Synopsis parse openvino_tracking info from root json object and set up
  *
  * @Param mp mediapipe
  * @Param root root json oject
@@ -297,10 +297,11 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     RETURN_IF_FAIL(mp != NULL);
     RETURN_IF_FAIL(mp->state != STATE_NOT_CREATE);
     RETURN_IF_FAIL(json_object_object_get_ex(root, "openvino_detection", &object));
-    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp, "openvino");
+    openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)
+                                 mp_modules_find_module_ctx(mp, "openvino_tracking");
     int branch_num = json_object_array_length(object);
     ctx->branch_num = branch_num;
-    ctx->branch = (branch_t*)g_malloc0(sizeof(branch_t) * branch_num);
+    ctx->branch = (branch_t *)g_malloc0(sizeof(branch_t) * branch_num);
     for (int i = 0; i < branch_num; ++i) {
         detect = json_object_array_get_idx(object, i);
         if (json_check_enable_state(detect, "enable")) {
@@ -317,8 +318,7 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
             ctx->branch[i].enable = TRUE;
             ctx->branch[i].mp_branch.branch_init = branch_init;
             json_object_object_get_ex(detect, "pipe_params",
-                            &(ctx->branch[i].pipe_params));
-
+                                      &(ctx->branch[i].pipe_params));
             load_success = mediapipe_setup_new_branch(mp, ctx->branch[i].src_name, "src",
                            &ctx->branch[i].mp_branch);
             if (load_success) {
@@ -332,7 +332,7 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
 
 /* --------------------------------------------------------------------------*/
 /**
- * @Synopsis push buffer to openvino branch
+ * @Synopsis push buffer to openvino_tracking branch
  *
  * @Param mp
  * @Param buffer
@@ -366,7 +366,8 @@ static void
 subscribe_message(const char *message_name, const char *subscriber_name,
                   mediapipe_t *mp, message_process_fun fun)
 {
-    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp, "openvino");
+    openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)
+                                 mp_modules_find_module_ctx(mp, "openvino_tracking");
     GList *msg_list = (GList *) g_hash_table_lookup(ctx->msg_hst, message_name);
     GList *l = msg_list;
     message_ctx *t_ctx;
@@ -407,7 +408,8 @@ static mp_int_t
 unsubscribe_message(const char *message_name, const char *subscriber_name,
                     mediapipe_t *mp, message_process_fun fun)
 {
-    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp, "openvino");
+    openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)
+                                 mp_modules_find_module_ctx(mp, "openvino_tracking");
     if (NULL == ctx->msg_hst) {
         return MP_ERROR;
     }
@@ -472,12 +474,15 @@ message_process(mediapipe_t *mp, void *message)
                               "subscriber_name", G_TYPE_STRING, &subscriber_name,
                               "message_process_fun", G_TYPE_POINTER, &func,
                               NULL)) {
-            unsubscribe_message(msg_name_s, subscriber_name, mp, (message_process_fun) func);
+            unsubscribe_message(msg_name_s, subscriber_name, mp,
+                                (message_process_fun) func);
         }
         return MP_OK;
     }
     return MP_IGNORE;
 }
+
+
 
 
 /* --------------------------------------------------------------------------*/
@@ -490,8 +495,8 @@ message_process(mediapipe_t *mp, void *message)
  */
 /* ----------------------------------------------------------------------------*/
 static gboolean
-get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer,
-                                  GValue *objectlist)
+get_value_from_buffer_tracking(GstPad *pad, GstBuffer *buffer,
+                               GValue *objectlist)
 {
     GstMeta *gst_meta = NULL;
     gpointer state = NULL;
@@ -504,52 +509,42 @@ get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer,
     }
     gst_caps_unref(caps);
     while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
-        if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE)
+        if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
-
+        }
         GstVideoRegionOfInterestMeta *meta = (GstVideoRegionOfInterestMeta *)gst_meta;
         // maybe need to checkout if it's GVA meta
-        GstStructure *meta_struct = gst_video_region_of_interest_meta_get_param(meta, "detection");
-        if (meta_struct == NULL)
-            continue;
-
-        int label_id;
-        double confidence, x_min, y_min, x_max, y_max;
-        gst_structure_get_int(meta_struct, "label_id", &label_id);
-        gst_structure_get_double(meta_struct, "confidence", &confidence);
-        gst_structure_get_double(meta_struct, "x_min", &x_min);
-        gst_structure_get_double(meta_struct, "y_min", &y_min);
-        gst_structure_get_double(meta_struct, "x_max", &x_max);
-        gst_structure_get_double(meta_struct, "y_max", &y_max);
-        const char *model_name = gst_structure_get_string(meta_struct, "model_name");
-        const char *layer_name = gst_structure_get_string(meta_struct, "layer_name");
-        double xmin = x_min * info.width;
-        double ymin = y_min * info.height;
-        double xmax = x_max * info.width;
-        double ymax = y_max * info.height;
-
+        int label_id = 0;
+        GstStructure *structure = NULL;
+        for (GList *l = meta->params; l; l = g_list_next(l)) {
+            structure = (GstStructure *) l->data;
+            if (gst_structure_has_field(structure, "label_id") &&
+                gst_structure_get_int(structure, "label_id", &label_id)) {
+                LOG_DEBUG("label_id: %d", label_id);
+                break;
+            }
+        }
         //create content list
         GValue tmp_value = { 0 };
         g_value_init(&tmp_value, GST_TYPE_STRUCTURE);
         GstStructure *s =
             gst_structure_new("object",
-                    "x", G_TYPE_UINT, int(xmin),
-                    "y", G_TYPE_UINT, int(ymin),
-                    "width", G_TYPE_UINT, int(xmax - xmin),
-                    "height", G_TYPE_UINT, int(ymax - ymin),
-                    "orign_width", G_TYPE_UINT, info.width, //add for mix2 paint Rectangle
-                    "orign_height", G_TYPE_UINT, info.height,//add for mix2 paint Rectangle
-                    "label_id", G_TYPE_INT, label_id,
-                    "confidence", G_TYPE_DOUBLE, confidence,
-                    NULL);
+                              "x", G_TYPE_UINT, meta->x,
+                              "y", G_TYPE_UINT, meta->y,
+                              "width", G_TYPE_UINT, meta->w,
+                              "height", G_TYPE_UINT, meta->h,
+                              "orign_width", G_TYPE_UINT, info.width, //add for mix2 paint Rectangle
+                              "orign_height", G_TYPE_UINT, info.height,//add for mix2 paint Rectangle
+                              "label_id", G_TYPE_INT, label_id,
+                              NULL);
         g_value_take_boxed(&tmp_value, s);
         gst_value_list_append_value(objectlist, &tmp_value);
         g_value_unset(&tmp_value);
-        LOG_DEBUG("meta data:%d,%d,%d,%d,%d,%f, %ld", int(xmin), int(ymin),
-                int(xmax - xmin), int(ymax - ymin), label_id, confidence,
-                GST_BUFFER_PTS(buffer));
-     }
-     return TRUE;
+        LOG_DEBUG("meta data:%d,%d,%d,%d,%d, %ld", meta->x, meta->y,
+                  meta->w, meta->h, label_id,
+                  GST_BUFFER_PTS(buffer));
+    }
+    return TRUE;
 }
 
 
@@ -568,7 +563,8 @@ static GstPadProbeReturn
 detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
     branch_t *branch = (branch_t *) user_data;
-    openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(branch->mp_branch.mp, "openvino");
+    openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)
+                                 mp_modules_find_module_ctx(branch->mp_branch.mp, "openvino_tracking");
     if (NULL == ctx->msg_hst) {
         LOG_DEBUG("%s:%d : hash table in NULL", __FILE__, __LINE__);
         return GST_PAD_PROBE_REMOVE;
@@ -577,7 +573,7 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     GValue objectlist = { 0 };
     g_value_init(&objectlist, GST_TYPE_LIST);
     LOG_DEBUG("branch->name:%s", branch->name);
-    if (!get_value_from_buffer_new_version(pad, buffer, &objectlist)) {
+    if (!get_value_from_buffer_tracking(pad, buffer, &objectlist)) {
         return GST_PAD_PROBE_OK;
     }
     //create messsage
@@ -600,7 +596,8 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         message_ctx *t_ctx;
         while (l != NULL) {
             t_ctx  = (message_ctx *) l->data;
-            t_ctx->fun(t_ctx->message_name, t_ctx->subscriber_name, branch->mp_branch.mp, msg);
+            t_ctx->fun(t_ctx->message_name, t_ctx->subscriber_name, branch->mp_branch.mp,
+                       msg);
             l = l->next;
         }
     }
@@ -610,20 +607,19 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 
 static void *create_ctx(mediapipe_t *mp)
 {
-    openvino_ctx *ctx = g_new0(openvino_ctx, 1);
-    if (!ctx)
+    openvino_tracking_ctx *ctx = g_new0(openvino_tracking_ctx, 1);
+    if (!ctx) {
         return NULL;
-
+    }
     ctx->mp = mp;
     ctx->msg_hst = g_hash_table_new_full(g_str_hash, g_str_equal,
                                          (GDestroyNotify)g_free, NULL);
-
     return ctx;
 }
 
 static void destroy_ctx(void *_ctx)
 {
-    openvino_ctx *ctx = (openvino_ctx *)_ctx;
+    openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)_ctx;
     if (!ctx) {
         return;
     }
@@ -636,7 +632,7 @@ static void destroy_ctx(void *_ctx)
         GList *l = g_hash_table_get_values(ctx->msg_hst);
         GList *p = l;
         while (p != NULL) {
-            g_list_free_full((GList*)p->data, (GDestroyNotify)g_free);
+            g_list_free_full((GList *)p->data, (GDestroyNotify)g_free);
             p = p->next;
         }
         g_list_free(l);
