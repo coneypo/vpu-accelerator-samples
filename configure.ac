@@ -3,12 +3,13 @@ AC_PREREQ([2.53])
 
 dnl TODO: fill in your package name and package version here
 AC_INIT([my-plugin-package],[1.0.0])
+AC_PROG_CXX([gcc cl KCC CC cxx cc++ xlC aCC c++ g++])
 
 dnl required versions of gstreamer and plugins-base
 GST_REQUIRED=1.0.0
 GSTPB_REQUIRED=1.0.0
 
-AC_CONFIG_SRCDIR([gst/gstapi2d.c])
+AC_CONFIG_SRCDIR([gst/gstapi2d.cpp])
 AC_CONFIG_HEADERS([config.h])
 
 dnl required version of automake
@@ -19,7 +20,7 @@ AM_MAINTAINER_MODE([enable])
 
 dnl check for tools (compiler etc.)
 AC_PROG_CC
-AC_PROG_CXX
+
 
 dnl required version of libtool
 LT_PREREQ([2.2.6])
@@ -48,6 +49,7 @@ PKG_CHECK_MODULES(GST, [
   gstreamer-base-1.0 >= $GST_REQUIRED
   gstreamer-controller-1.0 >= $GST_REQUIRED
   gstreamer-audio-1.0 >= $GST_REQUIRED
+  gstreamer-video-1.0 >= $GST_REQUIRED
 ], [
   AC_SUBST(GST_CFLAGS)
   AC_SUBST(GST_LIBS)

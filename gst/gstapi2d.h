@@ -24,6 +24,7 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
+#include <gst/video/video.h>
 #include <json.h>
 #include "gapiobject.h"
 
@@ -58,8 +59,11 @@ struct _GstApi2d {
     json_object *json_root; // json root object
     GList  *gapi_json_object_list; //store the objects from json config file
     GList  *gapi_buffer_object_list; //store the objects from buffer roi meta
-    BackEndType backend;
+    GstVideoInfo     sink_info;
+    GstVideoInfo     src_info;
+    int backend;
     GAPI_OBJECT_INFO  *object_map;
+    guint  object_map_size;
 };
 
 struct _GstApi2dClass {

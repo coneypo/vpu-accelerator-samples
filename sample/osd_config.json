@@ -1,0 +1,16 @@
+[
+    {
+    "meta_id":1,
+    "meta_type":"text",
+    "text":"testJson12",
+    "font_type":0,
+    "font_scale":2.0,
+    "x":100,
+    "y":100,
+    "color_rgb":[0,0,0],
+    "line_thick":1,
+    "line_type":8,
+    "bottom_left_origin":0
+    }
+]
+

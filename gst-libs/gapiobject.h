@@ -22,7 +22,7 @@
 #ifndef __G_API_OBJECT_H__
 #define __G_API_OBJECT_H__
 
-#include <gst/gst.h>
+#include <gst/video/video.h>
 #include <json.h>
 
 G_BEGIN_DECLS
@@ -37,6 +37,8 @@ G_BEGIN_DECLS
     (G_TYPE_CHECK_INSTANCE_TYPE((obj),G_TYPE_API_OJBECT))
 #define G_IS_API_OBJECT_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_TYPE((klass),G_TYPE_API_OJBECT))
+#define G_API_OBJECT_TO_CLASS(obj) \
+    (G_TYPE_INSTANCE_GET_CLASS(obj, G_TYPE_API_OJBECT, GapiObjectClass))
 
 typedef struct _GapiObject      GapiObject;
 typedef struct _GapiObjectClass GapiObjectClass;
@@ -54,9 +56,10 @@ struct _GapiObjectClass {
     gboolean(*parse_gst_structure)(GapiObject *object, GstStructure *strut);
     GstStructure *(*to_gst_structure)(GapiObject *object);
     //it's used for do operations together
-    void (*render_submit)(GapiObject *object, void *array);
+    void (*render_submit)(GapiObject *object);
     //it's used for do operations one by one
-    gboolean(*render_ip)(GapiObject *object, GstBuffer *buf);
+    gboolean(*render_ip)(GapiObject *object, GstVideoInfo *sink_info,
+                         GstVideoInfo *src_info, GstBuffer *buf);
     //it's used for video scale,video crop, video format convert, or just don't want to modify the origin buffer
     gboolean(*render)(GapiObject *object, GstBuffer *in_buf, GstBuffer *out_buf);
 };
@@ -70,14 +73,16 @@ GType g_api_object_get_type(void);
 typedef GapiObject *(*create_func)();
 
 typedef struct  {
-    char *object_type;
+    const char *object_type;
     GType type;
     create_func create;
 } GAPI_OBJECT_INFO;
 
 
-gboolean render_sync(GstBuffer *outbuf, gpointer array);
+gboolean render_sync(GstBuffer *outbuf, GstVideoInfo *sink_info,
+                     GstVideoInfo *src_info);
 extern GAPI_OBJECT_INFO gapi_info_map[];
+extern const int gapi_info_map_size;
 
 G_END_DECLS
 

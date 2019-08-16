@@ -6,10 +6,12 @@ they depend on opencv G-API
 HOW TO USE IT
 -------------
 
-install them by 
+install them by
 ./autogen.sh
-make 
+make
 make intall
 
 
+clean code
+git clean -x -f -d
 

@@ -72,7 +72,7 @@ static GstStaticPadTemplate sink_template =
         "sink",
         GST_PAD_SINK,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12},  "
+        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12, BGR},  "
                         COMMON_VIDEO_CAPS)
     );
 
@@ -81,7 +81,7 @@ static GstStaticPadTemplate src_template =
         "src",
         GST_PAD_SRC,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12},  "
+        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12, BGR},  "
                         COMMON_VIDEO_CAPS)
     );
 
@@ -102,11 +102,10 @@ static GstFlowReturn gst_api_2d_transform_ip(GstBaseTransform *base,
         GstBuffer *outbuf);
 
 static void
-gst_api_2d_constructed(GObject *object);
+gst_api_2d_finalize(GObject *object);
 
-static void
-gst_api_2d_finalize(GObject *gobject);
-
+static gboolean
+gst_api_2d_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps);
 /* GObject vmethod implementations */
 
 /* initialize the plugin's class */
@@ -117,13 +116,14 @@ gst_api_2d_class_init(GstApi2dClass *klass)
     GstElementClass *gstelement_class;
     gobject_class = (GObjectClass *) klass;
     gstelement_class = (GstElementClass *) klass;
+    GstBaseTransformClass *trans_class = (GstBaseTransformClass *) klass;
     gobject_class->set_property = gst_api_2d_set_property;
     gobject_class->get_property = gst_api_2d_get_property;
-    gobject_class->constructed = gst_api_2d_constructed;
     gobject_class->finalize = gst_api_2d_finalize;
+    trans_class->set_caps = gst_api_2d_set_caps;
     g_object_class_install_property(gobject_class, PROP_CONFIG_PATH,
                                     g_param_spec_string("config-path", "config-path", "json configure path ",
-                                            "osd_config.json", G_PARAM_READWRITE));
+                                            NULL,  GParamFlags(G_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
     g_object_class_install_property(gobject_class, PROP_CONFIG_LIST,
                                     g_param_spec_pointer("config-list", "config-list", "GstStructure GList ",
                                             G_PARAM_READWRITE));
@@ -154,17 +154,10 @@ gst_api_2d_init(GstApi2d *filter)
     filter->json_root = NULL; // json root object
     filter->gapi_json_object_list = NULL; //store the objects from json config file
     filter->gapi_buffer_object_list = NULL; //store the objects from buffer roi meta
-}
-
-static void
-gst_api_2d_constructed(GObject *object)
-{
-    G_OBJECT_CLASS(parent_class)->constructed(object);
-    GstApi2d *filter = GST_API_2D(object);
+    gst_video_info_init(&filter->sink_info);
+    gst_video_info_init(&filter->src_info);
     filter->object_map = gapi_info_map;
-    if(!parse_from_json_file(filter)) {
-        GST_WARNING_OBJECT(object, "parse json file faild");
-    };
+    filter->object_map_size = gapi_info_map_size;
 }
 
 
@@ -172,10 +165,12 @@ static void
 gst_api_2d_set_property(GObject *object, guint prop_id,
                         const GValue *value, GParamSpec *pspec)
 {
+    g_assert(object != NULL);
     GstApi2d *filter = GST_API_2D(object);
     switch (prop_id) {
         case PROP_CONFIG_PATH:
-            filter->config_path = g_value_get_string(value);
+            filter->config_path = g_strdup(g_value_get_string(value));
+            parse_from_json_file(filter);
             break;
         case PROP_CONFIG_LIST:
             //to be done
@@ -193,6 +188,8 @@ static void
 gst_api_2d_get_property(GObject *object, guint prop_id,
                         GValue *value, GParamSpec *pspec)
 {
+    g_assert(object != NULL);
+    g_assert(value != NULL);
     GstApi2d *filter = GST_API_2D(object);
     switch (prop_id) {
         case PROP_CONFIG_PATH:
@@ -219,29 +216,31 @@ gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *outbuf)
 {
     GstApi2d *filter = GST_API_2D(base);
     GList *list = filter->gapi_json_object_list;
-    gpointer array = NULL;
     while (list != NULL) {
-        GapiObject *object = list->data;
-        GapiObjectClass *objectclass = G_API_OBJECT_CLASS(object);
-        objectclass->render_submit(object, array);
+        GapiObject *object = (GapiObject *) list->data;
+        GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
+        objectclass->render_submit(object);
+        list = list->next;
     }
-    render_sync(outbuf, array);
+    render_sync(outbuf, &filter->sink_info, &filter->src_info);
     return GST_FLOW_OK;
 }
 
 static void
-gst_api_2d_finalize(GObject *gobject)
+gst_api_2d_finalize(GObject *object)
 {
-    GstApi2d *filter = GST_API_2D(gobject);
+    g_assert(object != NULL);
+    GstApi2d *filter = GST_API_2D(object);
     if (filter->json_root) {
         json_object_put(filter->json_root);
     }
+    g_free ((gpointer)filter->config_path);
     g_list_free_full(filter->gapi_json_object_list, (GDestroyNotify) g_free);
     g_list_free_full(filter->gapi_buffer_object_list, (GDestroyNotify) g_free);
     /* Always chain up to the parent class; as with dispose(), finalize()
      * is guaranteed to exist on the parent's class virtual function table
      */
-    G_OBJECT_CLASS(parent_class)->finalize(gobject);
+    G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
 GType
@@ -265,6 +264,8 @@ static gboolean parse_from_json_file(GstApi2d *filter)
     if (filter->config_path == NULL) {
         GST_WARNING_OBJECT(filter, "json file path is null");
         return FALSE ;
+    } else{
+        GST_WARNING_OBJECT(filter, "json file path is %s", filter->config_path);
     }
     if (filter->json_root != NULL) {
         return FALSE;
@@ -284,6 +285,8 @@ static gboolean parse_from_json_file(GstApi2d *filter)
         GAPI_OBJECT_INFO  *info = find_info_by_type(filter, item_type);
         if (info) {
             GapiObject *object = info->create();
+            GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
+            objectclass->parse_json(object, item);
             filter->gapi_json_object_list = g_list_append(filter->gapi_json_object_list,
                                             object);
         }
@@ -293,6 +296,8 @@ static gboolean parse_from_json_file(GstApi2d *filter)
 
 const char *get_type_from_json(GstApi2d *filter, json_object *item)
 {
+    g_assert(filter != NULL);
+    g_assert(item != NULL);
     json_object *tmp = NULL;
     if (json_object_object_get_ex(item, "meta_type", &tmp)) {
         const char *item_type = json_object_get_string(tmp);
@@ -303,8 +308,9 @@ const char *get_type_from_json(GstApi2d *filter, json_object *item)
 GAPI_OBJECT_INFO *
 find_info_by_type(GstApi2d *filter, const char *item_type)
 {
-    for (int i = 0; i < sizeof(filter->object_map) / sizeof(GAPI_OBJECT_INFO);
-         i++) {
+    g_assert(filter != NULL);
+    g_assert(item_type != NULL);
+    for (guint i = 0; i < filter->object_map_size; i++) {
         if (0 == g_strcmp0(item_type,   filter->object_map[i].object_type)) {
             return &filter->object_map[i];
         }
@@ -313,6 +319,20 @@ find_info_by_type(GstApi2d *filter, const char *item_type)
     return NULL;
 }
 
+static gboolean
+gst_api_2d_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps)
+{
+    g_assert(trans != NULL);
+    g_assert(incaps != NULL);
+    g_assert(outcaps != NULL);
+    GstApi2d *filter = GST_API_2D(trans);
+    if (!gst_video_info_from_caps(&filter->sink_info, incaps) ||
+        !gst_video_info_from_caps(&filter->src_info, outcaps)) {
+        GST_ERROR_OBJECT(filter, "invalid caps");
+        return FALSE;
+    }
+    return TRUE;
+}
 
 
 /* entry point to initialize the plug-in
@@ -327,7 +347,6 @@ plugin_init(GstPlugin *plugin)
      * FIXME:exchange the string 'Template plugin' with your description
      */
     GST_DEBUG_CATEGORY_INIT(gst_api_2d_debug, "api2d", 0, "api2d plugin");
-
     return gst_element_register(plugin, "api2d", GST_RANK_NONE,
                                 GST_TYPE_API_2D);
 }
