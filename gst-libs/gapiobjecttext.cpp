@@ -87,7 +87,7 @@ static gboolean text_parse_json(GapiObject *apiobject,
     g_assert(apiobject != NULL);
     g_assert(json_object != NULL);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
-    if (g_strcmp0(json_get_string(json_object, "meta_type"), "text") != 0) {
+    if (std::string(json_get_string(json_object, "meta_type")) != std::string("text")) {
         GST_ERROR_OBJECT(object, "json_object with wrong meta_type \n");
         return FALSE;
     }

@@ -39,7 +39,7 @@
 #include <gst/gst.h>
 #include <gst/base/base.h>
 #include <gst/controller/controller.h>
-
+#include <string>
 #include "gstapi2d.h"
 
 GST_DEBUG_CATEGORY_STATIC(gst_api_2d_debug);
@@ -311,7 +311,7 @@ find_info_by_type(GstApi2d *filter, const char *item_type)
     g_assert(filter != NULL);
     g_assert(item_type != NULL);
     for (guint i = 0; i < filter->object_map_size; i++) {
-        if (0 == g_strcmp0(item_type,   filter->object_map[i].object_type)) {
+        if (std::string(item_type) == std::string(filter->object_map[i].object_type)) {
             return &filter->object_map[i];
         }
     }
