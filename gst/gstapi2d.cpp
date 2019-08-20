@@ -93,10 +93,10 @@ static void gst_api_2d_set_property(GObject *object, guint prop_id,
 static void gst_api_2d_get_property(GObject *object, guint prop_id,
                                     GValue *value, GParamSpec *pspec);
 
-GAPI_OBJECT_INFO *find_info_by_type(GstApi2d *filter, const char *item_type);
+static GAPI_OBJECT_INFO *find_info_by_type(GstApi2d *filter, const char *item_type);
 
 static gboolean parse_from_json_file(GstApi2d *filter);
-const char *get_type_from_json(GstApi2d *filter, json_object *item);
+static const char *get_type_from_json(GstApi2d *filter, json_object *item);
 
 static GstFlowReturn gst_api_2d_transform_ip(GstBaseTransform *base,
         GstBuffer *outbuf);
@@ -294,7 +294,7 @@ static gboolean parse_from_json_file(GstApi2d *filter)
     return TRUE;
 }
 
-const char *get_type_from_json(GstApi2d *filter, json_object *item)
+static const char *get_type_from_json(GstApi2d *filter, json_object *item)
 {
     g_assert(filter != NULL);
     g_assert(item != NULL);
@@ -305,7 +305,7 @@ const char *get_type_from_json(GstApi2d *filter, json_object *item)
     }
     return NULL;
 }
-GAPI_OBJECT_INFO *
+static GAPI_OBJECT_INFO *
 find_info_by_type(GstApi2d *filter, const char *item_type)
 {
     g_assert(filter != NULL);

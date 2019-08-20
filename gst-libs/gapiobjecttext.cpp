@@ -183,7 +183,7 @@ static GstStructure *text_to_gst_structure(GapiObject *apiobject)
                           "r", G_TYPE_UINT, object->textInfo.color[0],
                           "g", G_TYPE_UINT, object->textInfo.color[1],
                           "b", G_TYPE_UINT, object->textInfo.color[2],
-                          "y", G_TYPE_INT, object->textInfo.lt,
+                          "line_thick", G_TYPE_INT, object->textInfo.lt,
                           "bottom_left_origin", G_TYPE_BOOLEAN, object->textInfo.bottom_left_origin,
                           NULL);
     return s;
