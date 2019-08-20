@@ -158,6 +158,7 @@ gst_api_2d_init(GstApi2d *filter)
     gst_video_info_init(&filter->src_info);
     filter->object_map = gapi_info_map;
     filter->object_map_size = gapi_info_map_size;
+    filter->prims_pointer = init_array();
 }
 
 
@@ -219,10 +220,10 @@ gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *outbuf)
     while (list != NULL) {
         GapiObject *object = (GapiObject *) list->data;
         GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
-        objectclass->render_submit(object);
+        objectclass->render_submit(object, filter->prims_pointer);
         list = list->next;
     }
-    render_sync(outbuf, &filter->sink_info, &filter->src_info);
+    render_sync(outbuf, &filter->sink_info, &filter->src_info, filter->prims_pointer);
     return GST_FLOW_OK;
 }
 
@@ -240,6 +241,7 @@ gst_api_2d_finalize(GObject *object)
     /* Always chain up to the parent class; as with dispose(), finalize()
      * is guaranteed to exist on the parent's class virtual function table
      */
+    destory_array(filter->prims_pointer);
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 

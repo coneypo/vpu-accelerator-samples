@@ -29,7 +29,7 @@ static gboolean text_parse_gst_structure(GapiObject *apiobject,
         GstStructure *structure);
 static GstStructure *text_to_gst_structure(GapiObject *apiobject);
 //it's used for do operations together
-static void text_render_submit(GapiObject *apiobject);
+static void text_render_submit(GapiObject *apiobject, gpointer prims_pointer);
 //it's used for do operations one by one
 static gboolean text_render_ip(GapiObject *apiobject, GstVideoInfo *sink_info,
                                GstVideoInfo *src_info, GstBuffer *buf);
@@ -189,13 +189,14 @@ static GstStructure *text_to_gst_structure(GapiObject *apiobject)
     return s;
 }
 //it's used for do operations together
-static void text_render_submit(GapiObject *apiobject)
+static void text_render_submit(GapiObject *apiobject, gpointer prims_pointer)
 {
     g_assert(apiobject != NULL);
+    g_assert(prims_pointer != NULL);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
     //AllPrims.emplace_back(object->textInfo);
     //AllPrims.emplace_back(cv::gapi::wip::draw::Text{"testInit",cv::Point(100,100), 0, 2.0,cv::Scalar(0, 0, 0),1,8,0 });
-    AllPrims.emplace_back(cv::gapi::wip::draw::Text(object->textInfo));
+    ((cv::gapi::wip::draw::Prims *)prims_pointer)->emplace_back(cv::gapi::wip::draw::Text(object->textInfo));
     return;
 }
 //it's used for do operations one by one

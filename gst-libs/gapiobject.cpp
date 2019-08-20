@@ -35,13 +35,12 @@
 #include "config.h"
 #endif
 #include "common.h"
+#include <new>
 #include "gapiobject.h"
 #include "gapiobjecttext.h"
 
 #define g_api_object_parent_class parent_class
 G_DEFINE_TYPE(GapiObject, g_api_object, G_TYPE_OBJECT);
-
-cv::gapi::wip::draw::Prims AllPrims;
 
 /* GObject vmethod implementations */
 
@@ -63,11 +62,12 @@ g_api_object_init(GapiObject *object)
 
 
 gboolean render_sync(GstBuffer *outbuf, GstVideoInfo *sink_info,
-                     GstVideoInfo *src_info)
+                     GstVideoInfo *src_info, gpointer prims_pointer)
 {
     g_assert(outbuf != NULL);
     g_assert(sink_info != NULL);
     g_assert(src_info != NULL);
+    g_assert(prims_pointer != NULL);
     GstMapInfo info;
     GstMapFlags mapFlag = GstMapFlags(GST_MAP_READ | GST_MAP_WRITE);
     //map buf to info
@@ -76,24 +76,37 @@ gboolean render_sync(GstBuffer *outbuf, GstVideoInfo *sink_info,
         return FALSE;
     }
     guint8 *pic = info.data;
+    int video_width = GST_VIDEO_INFO_WIDTH(src_info);
+    int video_height = GST_VIDEO_INFO_HEIGHT(src_info);
     //bgr format
     if (GST_VIDEO_INFO_FORMAT(src_info) == GST_VIDEO_FORMAT_BGR) {
-        cv::Mat bgr(GST_VIDEO_INFO_HEIGHT(src_info), GST_VIDEO_INFO_WIDTH(src_info),
-                    CV_8UC3, pic);
-        cv::gapi::wip::draw::render(bgr, AllPrims);
-    }
-    //nv12 format TODO
-    //else if(src_info->finfo.format == GstVideoFormat.GST_VIDEO_FORMAT_NV12) {
-    //    cv::Mat y_plane= cv::Mat(GST_VIDEO_INFO_HEIGHT(src_info),GST_VIDEO_INFO_WIDTH(src_info),cv::CV_8UC1,pic);
-    //    cv::Mat uv_plane= cv::Mat(GST_VIDEO_INFO_HEIGHT(src_info),GST_VIDEO_INFO_WIDTH(src_info),cv::CV_8UC2,pic+(src_info->height * src_info->width));
-    //    render(y_plane, uv_plane, AllPrims);
-    //}//other format
+        cv::Mat bgr(video_height, video_width, CV_8UC3, pic);
+        cv::gapi::wip::draw::render(bgr,
+                *((cv::gapi::wip::draw::Prims *)prims_pointer));
+    }//nv12 format
+    else if (GST_VIDEO_INFO_FORMAT(src_info) == GST_VIDEO_FORMAT_NV12) {
+        cv::Mat y_plane(video_height, video_width, CV_8UC1, pic);
+        cv::Mat uv_plane(video_height/2, video_width/2, CV_8UC2,(pic + (video_width * video_height)));
+        cv::gapi::wip::draw::render(y_plane, uv_plane, *((cv::gapi::wip::draw::Prims *)prims_pointer));
+    }//other format
     else {
         GST_ERROR("render_sync error! format not support!\n");
     }
     gst_buffer_unmap(outbuf, &info);
-    AllPrims.clear();
+    ((cv::gapi::wip::draw::Prims *)prims_pointer)->clear();
     return TRUE;
+}
+gpointer init_array()
+{
+    gpointer prims_pointer = new cv::gapi::wip::draw::Prims;
+    return prims_pointer;
+}
+void destory_array(gpointer prims_pointer)
+{
+    if(NULL != prims_pointer) {
+        delete (cv::gapi::wip::draw::Prims *)prims_pointer;
+    }
+    return;
 }
 
 GAPI_OBJECT_INFO gapi_info_map[] = {

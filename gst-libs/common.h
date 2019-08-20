@@ -9,5 +9,4 @@
 #include <opencv2/opencv.hpp>
 #include "jsonHandle.h"
 
-extern cv::gapi::wip::draw::Prims AllPrims;
 #endif /* __COMMON_H__ */

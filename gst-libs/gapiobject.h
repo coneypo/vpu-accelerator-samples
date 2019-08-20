@@ -56,7 +56,7 @@ struct _GapiObjectClass {
     gboolean(*parse_gst_structure)(GapiObject *object, GstStructure *strut);
     GstStructure *(*to_gst_structure)(GapiObject *object);
     //it's used for do operations together
-    void (*render_submit)(GapiObject *object);
+    void (*render_submit)(GapiObject *object, gpointer prims_pointer);
     //it's used for do operations one by one
     gboolean(*render_ip)(GapiObject *object, GstVideoInfo *sink_info,
                          GstVideoInfo *src_info, GstBuffer *buf);
@@ -80,7 +80,11 @@ typedef struct  {
 
 
 gboolean render_sync(GstBuffer *outbuf, GstVideoInfo *sink_info,
-                     GstVideoInfo *src_info);
+                     GstVideoInfo *src_info, gpointer prims_pointer);
+
+gpointer init_array();
+void destory_array(gpointer prims_pointer);
+extern GAPI_OBJECT_INFO gapi_info_map[];
 extern GAPI_OBJECT_INFO gapi_info_map[];
 extern const int gapi_info_map_size;
 
