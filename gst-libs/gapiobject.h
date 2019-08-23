@@ -85,7 +85,6 @@ gboolean render_sync(GstBuffer *outbuf, GstVideoInfo *sink_info,
 gpointer init_array();
 void destory_array(gpointer prims_pointer);
 extern GAPI_OBJECT_INFO gapi_info_map[];
-extern GAPI_OBJECT_INFO gapi_info_map[];
 extern const int gapi_info_map_size;
 
 G_END_DECLS

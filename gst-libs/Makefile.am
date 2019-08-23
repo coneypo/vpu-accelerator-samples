@@ -1,6 +1,6 @@
 noinst_LTLIBRARIES = libgapiobject.la
 
-libgapiobject_la_SOURCES = gapiobject.cpp gapiobjecttext.cpp jsonHandle.cpp
+libgapiobject_la_SOURCES = gapiobject.cpp gapiobjecttext.cpp jsonHandle.cpp gapiobjectrectangle.cpp
 #nodist_EXTRA_libgapiobject_la_SOURCES = dummy.cxx
 
 libgapiobject_la_CFLAGS = $(GST_CFLAGS)  $(JSONC_CFLAGS)
@@ -9,4 +9,4 @@ libgapiobject_la_LIBADD = $(GST_LIBS) $(JSONC_LIBS) -lstdc++ -L/usr/local/lib  -
 libgapiobject_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
 
 # headers we need but don't want installed
-noinst_HEADERS = gapiobject.h gapiobjecttext.h jsonHandle.h common.h
+noinst_HEADERS = gapiobject.h gapiobjecttext.h jsonHandle.h common.h gapiobjectrectangle.h

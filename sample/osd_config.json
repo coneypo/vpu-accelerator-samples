@@ -11,6 +11,18 @@
     "line_thick":1,
     "line_type":8,
     "bottom_left_origin":0
+    },
+    {
+    "meta_id":2,
+    "meta_type":"rect",
+    "x":100,
+    "y":100,
+    "width":100,
+    "height":100,
+    "color_rgb":[0,0,0],
+    "thick":2,
+    "lt":8,
+    "shift":0
     }
 ]
 
