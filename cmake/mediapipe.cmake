@@ -210,7 +210,10 @@ function(mediapipe_library_build)
     target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${LIBPANGO_LIBRARIES})
     target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${LIBPANGO_CAIRO_LIBRARY})
     target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${ADDON_MODULES_DEP_LIBS})
-    target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${HDDL_PLUGIN_LIBRARY})
+
+    if(${BUILD_APP} STREQUAL "hddl" )
+          target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${HDDL_PLUGIN_LIBRARY})
+    endif()
 
     if(DEFINED DRM_DEFINITION)
         target_include_directories(${MEDIAPIPE_NAME} PRIVATE ${DRM_INCLUDE_DIRS})
