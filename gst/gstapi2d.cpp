@@ -236,8 +236,8 @@ gst_api_2d_finalize(GObject *object)
         json_object_put(filter->json_root);
     }
     g_free ((gpointer)filter->config_path);
-    g_list_free_full(filter->gapi_json_object_list, (GDestroyNotify) g_free);
-    g_list_free_full(filter->gapi_buffer_object_list, (GDestroyNotify) g_free);
+    g_list_free_full(filter->gapi_json_object_list, (GDestroyNotify) g_object_unref);
+    g_list_free_full(filter->gapi_buffer_object_list, (GDestroyNotify) g_object_unref);
     /* Always chain up to the parent class; as with dispose(), finalize()
      * is guaranteed to exist on the parent's class virtual function table
      */
