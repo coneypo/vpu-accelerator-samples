@@ -14,6 +14,16 @@ INSTALL STEPS
 
     $ gst-inspect-1.0 api2d
 
+**Run sample**
+
+    $ cd <patch of>/gst_api_2d/sample
+    a.jsonfile test
+      $ ./test.sh (RGB)
+      $ ./test_nv12.sh (NV12)
+    b.GstStructure test
+      $ gcc -Wall sample_struct.c -o sample $(pkg-config --cflags --libs gstreamer-1.0)
+      $ ./sample
+
 **Code Clean:**
 
     $ git clean -x -f -d

@@ -148,7 +148,6 @@ gst_api_2d_class_init(GstApi2dClass *klass)
     GST_BASE_TRANSFORM_CLASS(klass)->transform_ip =
         GST_DEBUG_FUNCPTR(gst_api_2d_transform_ip);
 }
-
 /* initialize the new element
  * initialize instance structure
  */
@@ -164,8 +163,8 @@ gst_api_2d_init(GstApi2d *filter)
     filter->object_map = gapi_info_map;
     filter->object_map_size = gapi_info_map_size;
     filter->prims_pointer = init_array();
+    g_static_rw_lock_init(&filter->rwlock);
 }
-
 
 static void
 gst_api_2d_set_property(GObject *object, guint prop_id,
@@ -173,13 +172,21 @@ gst_api_2d_set_property(GObject *object, guint prop_id,
 {
     g_assert(object != NULL);
     GstApi2d *filter = GST_API_2D(object);
+    GList *temp = NULL;
     switch (prop_id) {
         case PROP_CONFIG_PATH:
             filter->config_path = g_strdup(g_value_get_string(value));
+            g_static_rw_lock_writer_lock(&filter->rwlock);
+            g_list_free_full(filter->gapi_json_object_list, (GDestroyNotify) g_object_unref);
             parse_from_json_file(filter);
+            g_static_rw_lock_writer_unlock(&filter->rwlock);
             break;
         case PROP_CONFIG_LIST:
-            //to be done
+            temp = parse_gst_structure_list(filter, (GList *)g_value_get_pointer(value));
+            g_static_rw_lock_writer_lock(&filter->rwlock);
+            g_list_free_full(filter->gapi_json_object_list, (GDestroyNotify) g_object_unref);
+            filter->gapi_json_object_list = temp;
+            g_static_rw_lock_writer_unlock(&filter->rwlock);
             break;
         case PROP_BACK_END:
             filter->backend = g_value_get_enum(value);
@@ -221,6 +228,7 @@ static GstFlowReturn
 gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *outbuf)
 {
     GstApi2d *filter = GST_API_2D(base);
+    g_static_rw_lock_reader_lock(&filter->rwlock);
     GList *list = filter->gapi_json_object_list;
     while (list != NULL) {
         GapiObject *object = (GapiObject *) list->data;
@@ -228,6 +236,7 @@ gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *outbuf)
         objectclass->render_submit(object, filter->prims_pointer);
         list = list->next;
     }
+    g_static_rw_lock_reader_unlock(&filter->rwlock);
     render_sync(outbuf, &filter->sink_info, &filter->src_info, filter->prims_pointer);
     return GST_FLOW_OK;
 }

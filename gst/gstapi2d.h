@@ -65,6 +65,7 @@ struct _GstApi2d {
     GAPI_OBJECT_INFO  *object_map;
     guint  object_map_size;
     gpointer prims_pointer;
+    GStaticRWLock rwlock;
 };
 
 struct _GstApi2dClass {
