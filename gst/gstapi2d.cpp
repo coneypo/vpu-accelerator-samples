@@ -96,7 +96,12 @@ static void gst_api_2d_get_property(GObject *object, guint prop_id,
 static GAPI_OBJECT_INFO *find_info_by_type(GstApi2d *filter, const char *item_type);
 
 static gboolean parse_from_json_file(GstApi2d *filter);
+
+static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list);
+
 static const char *get_type_from_json(GstApi2d *filter, json_object *item);
+
+static const gchar *get_type_from_gst_struture(GstApi2d *filter, GstStructure *struct_item);
 
 static GstFlowReturn gst_api_2d_transform_ip(GstBaseTransform *base,
         GstBuffer *outbuf);
@@ -296,6 +301,34 @@ static gboolean parse_from_json_file(GstApi2d *filter)
     return TRUE;
 }
 
+static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list)
+{
+    g_assert(filter != NULL);
+
+    if (structure_list == NULL) {
+        GST_WARNING_OBJECT(filter, "GstStructure_list is null");
+        return NULL ;
+    }
+
+    GstStructure *structure = NULL;
+    GList *object_list = NULL;
+    GList *index = structure_list;
+    while(index) {
+        structure = (GstStructure *)index->data;
+        const char* item_type = get_type_from_gst_struture(filter, structure);
+        GAPI_OBJECT_INFO *info = find_info_by_type(filter, item_type);
+        if (info) {
+            GapiObject *object = info->create();
+            GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
+            if (objectclass->parse_gst_structure(object, structure)) {
+                object_list = g_list_append(object_list, object);
+            }
+        }
+        index = g_list_next(index);
+    }
+    return object_list;
+}
+
 static const char *get_type_from_json(GstApi2d *filter, json_object *item)
 {
     g_assert(filter != NULL);
@@ -307,6 +340,18 @@ static const char *get_type_from_json(GstApi2d *filter, json_object *item)
     }
     return NULL;
 }
+
+static const gchar *get_type_from_gst_struture(GstApi2d *filter, GstStructure *struct_item)
+{
+    g_assert(filter != NULL);
+    g_assert(struct_item != NULL);
+    if(gst_structure_has_field(struct_item, "meta_type")) {
+        const gchar *item_type = gst_structure_get_string(struct_item, "meta_type");
+        return item_type;
+    }
+    return NULL;
+}
+
 static GAPI_OBJECT_INFO *
 find_info_by_type(GstApi2d *filter, const char *item_type)
 {
