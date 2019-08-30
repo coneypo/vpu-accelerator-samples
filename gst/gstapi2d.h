@@ -66,6 +66,7 @@ struct _GstApi2d {
     guint  object_map_size;
     gpointer prims_pointer;
     GStaticRWLock rwlock;
+    gboolean drawroi;
 };
 
 struct _GstApi2dClass {

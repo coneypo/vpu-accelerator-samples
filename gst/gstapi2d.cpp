@@ -56,7 +56,8 @@ enum {
     PROP_CONFIG_PATH,
     PROP_CONFIG_LIST,
     PROP_BACK_END,
-    PROP_MAX
+    PROP_MAX,
+    PROP_DRAW_ROI
 };
 
 #define COMMON_VIDEO_CAPS \
@@ -136,6 +137,9 @@ gst_api_2d_class_init(GstApi2dClass *klass)
                                     g_param_spec_enum("backend", "backend", "backend", GST_API2D_TYPE_BACK_END_TYPE,
                                             0,
                                             G_PARAM_READWRITE));
+    g_object_class_install_property(gobject_class, PROP_DRAW_ROI,
+                                    g_param_spec_boolean("drawroi", "drawroi", "drawroi", false,
+                                            G_PARAM_READWRITE));
     gst_element_class_set_details_simple(gstelement_class,
                                          "Plugin",
                                          "Generic/Filter",
@@ -164,6 +168,7 @@ gst_api_2d_init(GstApi2d *filter)
     filter->object_map_size = gapi_info_map_size;
     filter->prims_pointer = init_array();
     g_static_rw_lock_init(&filter->rwlock);
+    filter->drawroi = false;
 }
 
 static void
@@ -191,6 +196,9 @@ gst_api_2d_set_property(GObject *object, guint prop_id,
         case PROP_BACK_END:
             filter->backend = g_value_get_enum(value);
             break;
+        case PROP_DRAW_ROI:
+            filter->drawroi = g_value_get_boolean(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
@@ -213,6 +221,9 @@ gst_api_2d_get_property(GObject *object, guint prop_id,
             break;
         case PROP_BACK_END:
             g_value_set_enum(value, filter->backend);
+            break;
+        case PROP_DRAW_ROI:
+            g_value_set_boolean(value, filter->drawroi);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
