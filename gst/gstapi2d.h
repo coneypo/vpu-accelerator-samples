@@ -58,6 +58,7 @@ struct _GstApi2d {
     const char *config_path; //json path
     json_object *json_root; // json root object
     GList  *gapi_json_object_list; //store the objects from json config file
+    GList  *gapi_configure_structure_list; //store the structures from configure structure list
     GList  *gapi_buffer_object_list; //store the objects from buffer roi meta
     GstVideoInfo     sink_info;
     GstVideoInfo     src_info;

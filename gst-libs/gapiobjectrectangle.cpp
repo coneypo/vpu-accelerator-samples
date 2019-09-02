@@ -122,7 +122,7 @@ static gboolean rect_parse_gst_structure(GapiObject *apiobject,
 {
     RETURN_VAL_IF_FAIL((apiobject != NULL && structure != NULL), FALSE);
     GApiObjectRect *object = G_API_OBJECT_RECT(apiobject);
-    if (!gst_structure_has_name(structure, "rectObject")) {
+    if (!gst_structure_has_name(structure, "api2d_meta")) {
         GST_ERROR_OBJECT(object, "GstStructure with a wrong name !\n");
         return FALSE;
     }
@@ -168,16 +168,16 @@ static GstStructure *rect_to_gst_structure(GapiObject *apiobject)
     RETURN_VAL_IF_FAIL((apiobject != NULL), NULL);
     GApiObjectRect *object = G_API_OBJECT_RECT(apiobject);
     GstStructure *s =
-        gst_structure_new("rectObject",
+        gst_structure_new("api2d_meta",
                           "meta_id", G_TYPE_UINT, 1,
                           "meta_type", G_TYPE_STRING, "rect",
                           "x", G_TYPE_INT, object->rectInfo.rect.x,
                           "y", G_TYPE_INT, object->rectInfo.rect.y,
                           "width", G_TYPE_INT, object->rectInfo.rect.width,
                           "height", G_TYPE_INT, object->rectInfo.rect.height,
-                          "r", G_TYPE_UINT, object->rectInfo.color[0],
-                          "g", G_TYPE_UINT, object->rectInfo.color[1],
-                          "b", G_TYPE_UINT, object->rectInfo.color[2],
+                          "r", G_TYPE_UINT, (guint)object->rectInfo.color[0],
+                          "g", G_TYPE_UINT, (guint)object->rectInfo.color[1],
+                          "b", G_TYPE_UINT, (guint)object->rectInfo.color[2],
                           "thick", G_TYPE_INT, object->rectInfo.thick,
                           "lt", G_TYPE_INT, object->rectInfo.lt,
                           "shift", G_TYPE_INT, object->rectInfo.shift,

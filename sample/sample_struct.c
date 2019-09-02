@@ -12,9 +12,9 @@
 typedef struct ctx_roi{
     GstElement * pipeline;
     GList * conf_List;
-} ctx;
+} CTX;
 
-gboolean roi_process(ctx *ctx);
+gboolean roi_process(CTX *ctx);
 
 static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data);
 
@@ -22,9 +22,13 @@ GstElement *create_pipeline(const gchar *pipeline_description);
 
 static GstPadProbeReturn api2d_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
-static gboolean Get_GstStructure_List(ctx *ctx);
+static gboolean Get_GstStructure_List(CTX *ctx);
 
-static void Ctx_finalize(ctx *ctx);
+static void Ctx_finalize(CTX *ctx);
+
+static gboolean parse_and_print_config_list_property(GList *pList);
+
+static gboolean print_field(GQuark field, const GValue *value, gpointer pfx);
 
 GstElement *
 create_pipeline(const gchar *pipeline_description)
@@ -40,14 +44,14 @@ create_pipeline(const gchar *pipeline_description)
 
 int main ()
 {
-    ctx *ctx = alloca(sizeof(ctx));
+    CTX *ctx = g_new0(CTX, 1);
     gst_init(0, NULL);
     roi_process(ctx);
     Ctx_finalize(ctx);
     return 0;
 }
 
-gboolean roi_process(ctx *ctx)
+gboolean roi_process(CTX *ctx)
 {
 
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
@@ -118,12 +122,19 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 static GstPadProbeReturn
 api2d_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
-    ctx* roi_ctx = (ctx *)user_data;
+    CTX *roi_ctx = (CTX *)user_data;
+    GList *pList = NULL;
     GstElement *element = gst_bin_get_by_name (GST_BIN((roi_ctx)->pipeline), "api2d0");
     if (NULL != element) {
         GParamSpec* ele_param = g_object_class_find_property(G_OBJECT_GET_CLASS(element), "config-list");
         if (NULL != ele_param) {
             g_object_set(element, "config-list", roi_ctx->conf_List, NULL);
+            g_object_get(element, "config-list", &pList, NULL);
+            if (NULL == pList) {
+                g_print("### get %s propety failed of %s###\n", "config-list" , "api2d0");
+            } else {
+                parse_and_print_config_list_property(pList);
+            }
         } else {
             g_print("### set propety failed Can not find property '%s' , element '%s' ###\n", "config-list" , "api2d0");
         }
@@ -134,10 +145,10 @@ api2d_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     return GST_PAD_PROBE_OK;
 }
 
-static gboolean Get_GstStructure_List(ctx *ctx)
+static gboolean Get_GstStructure_List(CTX *ctx)
 {
     GstStructure *text_s =
-    gst_structure_new("textObject",
+    gst_structure_new("api2d_meta",
                     "meta_id", G_TYPE_UINT, 0,
                     "meta_type", G_TYPE_STRING, "text",
                     "text", G_TYPE_STRING, "testGstStruct",
@@ -151,14 +162,50 @@ static gboolean Get_GstStructure_List(ctx *ctx)
                     "line_thick", G_TYPE_INT, 1,
                     "bottom_left_origin", G_TYPE_BOOLEAN, FALSE,
                     NULL);
+    GstStructure *rect_s =
+        gst_structure_new("api2d_meta",
+                          "meta_id", G_TYPE_UINT, 1,
+                          "meta_type", G_TYPE_STRING, "rect",
+                          "x", G_TYPE_INT, 100,
+                          "y", G_TYPE_INT, 600,
+                          "width", G_TYPE_INT, 200,
+                          "height", G_TYPE_INT, 200,
+                          "r", G_TYPE_UINT, 0,
+                          "g", G_TYPE_UINT, 0,
+                          "b", G_TYPE_UINT, 0,
+                          "thick", G_TYPE_INT, 2,
+                          "lt", G_TYPE_INT, 8,
+                          "shift", G_TYPE_INT, 0,
+                          NULL);
     ctx->conf_List = g_list_append(ctx->conf_List, text_s);
+    ctx->conf_List = g_list_append(ctx->conf_List, rect_s);
     return TRUE;
 }
 
 
-static void Ctx_finalize(ctx *ctx)
+static gboolean parse_and_print_config_list_property(GList *pList)
 {
-    g_object_unref(ctx->pipeline);
+    g_assert(pList != NULL);
+    g_print("###########config_list property:############\n");
+    GstStructure *structure = NULL;
+    GList *index = pList;
+    while (index) {
+        structure = (GstStructure *)index->data;
+        gst_structure_foreach(structure, print_field, NULL);
+        g_print("\n");
+        index = g_list_next(index);
+    }
+    return TRUE;
+}
+static gboolean print_field(GQuark field, const GValue *value, gpointer pfx)
+{
+    gchar *str = gst_value_serialize(value);
+    g_print("%15s: %s\n", g_quark_to_string(field), str);
+    g_free(str);
+    return TRUE;
+}
+static void Ctx_finalize(CTX *ctx)
+{
     g_list_free_full(ctx->conf_List, (GDestroyNotify)gst_structure_free);
     g_free(ctx);
 }

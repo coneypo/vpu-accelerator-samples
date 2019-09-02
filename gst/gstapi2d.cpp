@@ -100,6 +100,8 @@ static gboolean parse_from_json_file(GstApi2d *filter);
 
 static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list);
 
+static GList* get_structure_list_from_object_list(GList *object_list);
+
 static const char *get_type_from_json(GstApi2d *filter, json_object *item);
 
 static const gchar *get_type_from_gst_struture(GstApi2d *filter, GstStructure *struct_item);
@@ -161,6 +163,7 @@ gst_api_2d_init(GstApi2d *filter)
     filter->config_path = NULL;
     filter->json_root = NULL; // json root object
     filter->gapi_json_object_list = NULL; //store the objects from json config file
+    filter->gapi_configure_structure_list = NULL; //store the structures from configure structure list
     filter->gapi_buffer_object_list = NULL; //store the objects from buffer roi meta
     gst_video_info_init(&filter->sink_info);
     gst_video_info_init(&filter->src_info);
@@ -217,7 +220,14 @@ gst_api_2d_get_property(GObject *object, guint prop_id,
             g_value_set_string(value, filter->config_path);
             break;
         case PROP_CONFIG_LIST:
-            //to be done
+            if (filter->gapi_configure_structure_list != NULL) {
+                g_list_free_full(filter->gapi_configure_structure_list, (GDestroyNotify)gst_structure_free);
+                filter->gapi_configure_structure_list = NULL;
+            }
+            g_rw_lock_reader_lock(&filter->rwlock);
+            filter->gapi_configure_structure_list = get_structure_list_from_object_list(filter->gapi_json_object_list);
+            g_rw_lock_reader_unlock(&filter->rwlock);
+            g_value_set_pointer(value, filter->gapi_configure_structure_list);
             break;
         case PROP_BACK_END:
             g_value_set_enum(value, filter->backend);
@@ -263,6 +273,7 @@ gst_api_2d_finalize(GObject *object)
     g_free ((gpointer)filter->config_path);
     g_list_free_full(filter->gapi_json_object_list, (GDestroyNotify) g_object_unref);
     g_list_free_full(filter->gapi_buffer_object_list, (GDestroyNotify) g_object_unref);
+    g_list_free_full(filter->gapi_configure_structure_list, (GDestroyNotify)gst_structure_free);
     /* Always chain up to the parent class; as with dispose(), finalize()
      * is guaranteed to exist on the parent's class virtual function table
      */
@@ -348,6 +359,26 @@ static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list)
         index = g_list_next(index);
     }
     return object_list;
+}
+
+static GList *get_structure_list_from_object_list(GList *object_list)
+{
+    if (NULL == object_list) {
+        return NULL;
+    }
+    GstStructure *structure = NULL;
+    GapiObject *object = NULL;
+    GList *index = object_list;
+    GList * structure_list = NULL;
+    while (index) {
+        object = (GapiObject *)index->data;
+        GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
+        if (structure = objectclass->to_gst_structure(object)) {
+            structure_list= g_list_append(structure_list, structure);
+        }
+        index = g_list_next(index);
+    }
+    return structure_list;
 }
 
 static const char *get_type_from_json(GstApi2d *filter, json_object *item)

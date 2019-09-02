@@ -125,7 +125,7 @@ static gboolean text_parse_gst_structure(GapiObject *apiobject,
 {
     RETURN_VAL_IF_FAIL((apiobject != NULL && structure != NULL), FALSE);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
-    if (!gst_structure_has_name(structure, "textObject")) {
+    if (!gst_structure_has_name(structure, "api2d_meta")) {
         GST_ERROR_OBJECT(object, "GstStructure with a wrong name !\n");
         return FALSE;
     }
@@ -149,6 +149,7 @@ static gboolean text_parse_gst_structure(GapiObject *apiobject,
                        &boolBuf), FALSE);
     object->textInfo.bottom_left_origin = boolBuf;
     object->textInfo.color = cv::Scalar(R, G, B);
+
     return TRUE;
 }
 /*structure_design:*/
@@ -172,7 +173,7 @@ static GstStructure *text_to_gst_structure(GapiObject *apiobject)
     RETURN_VAL_IF_FAIL((apiobject != NULL), NULL);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
     GstStructure *s =
-        gst_structure_new("textObject",
+        gst_structure_new("api2d_meta",
                           "meta_id", G_TYPE_UINT, 0,
                           "meta_type", G_TYPE_STRING, "text",
                           "text", G_TYPE_STRING, object->textInfo.text.c_str(),
@@ -180,9 +181,9 @@ static GstStructure *text_to_gst_structure(GapiObject *apiobject)
                           "font_scale", G_TYPE_DOUBLE, object->textInfo.fs,
                           "x", G_TYPE_INT, object->textInfo.org.x,
                           "y", G_TYPE_INT, object->textInfo.org.y,
-                          "r", G_TYPE_UINT, object->textInfo.color[0],
-                          "g", G_TYPE_UINT, object->textInfo.color[1],
-                          "b", G_TYPE_UINT, object->textInfo.color[2],
+                          "r", G_TYPE_UINT, (guint)object->textInfo.color[0],
+                          "g", G_TYPE_UINT, (guint)object->textInfo.color[1],
+                          "b", G_TYPE_UINT, (guint)object->textInfo.color[2],
                           "line_thick", G_TYPE_INT, object->textInfo.lt,
                           "bottom_left_origin", G_TYPE_BOOLEAN, object->textInfo.bottom_left_origin,
                           NULL);
