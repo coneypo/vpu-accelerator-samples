@@ -44,6 +44,7 @@
 
 GST_DEBUG_CATEGORY_STATIC(gst_api_2d_debug);
 #define GST_CAT_DEFAULT gst_api_2d_debug
+#define DEFAULT_ALLOCATOR_NAME ""
 
 /* Filter signals and args */
 enum {
@@ -57,7 +58,8 @@ enum {
     PROP_CONFIG_LIST,
     PROP_BACK_END,
     PROP_MAX,
-    PROP_DRAW_ROI
+    PROP_DRAW_ROI,
+    PROP_ALLOCATOR_NAME
 };
 
 #define COMMON_VIDEO_CAPS \
@@ -73,8 +75,12 @@ static GstStaticPadTemplate sink_template =
         "sink",
         GST_PAD_SINK,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12, BGR},  "
-                        COMMON_VIDEO_CAPS)
+        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12, BGR}," \
+                        COMMON_VIDEO_CAPS ";"  \
+                        "video/x-raw(memory:DMABuf), format = (string) {NV12, BGR}," \
+                        COMMON_VIDEO_CAPS
+                        )
+
     );
 
 static GstStaticPadTemplate src_template =
@@ -82,8 +88,11 @@ static GstStaticPadTemplate src_template =
         "src",
         GST_PAD_SRC,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12, BGR},  "
-                        COMMON_VIDEO_CAPS)
+        GST_STATIC_CAPS("video/x-raw, format = (string) {NV12, BGR}," \
+                        COMMON_VIDEO_CAPS ";"  \
+                        "video/x-raw(memory:DMABuf), format = (string) {NV12, BGR}," \
+                        COMMON_VIDEO_CAPS
+                        )
     );
 
 #define gst_api_2d_parent_class parent_class
@@ -110,6 +119,9 @@ static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buff
 
 static GstFlowReturn gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *buf);
 
+static gboolean
+gst_api_2d_decide_allocation(GstBaseTransform *trans, GstQuery *query);
+
 static void
 gst_api_2d_finalize(GObject *object);
 
@@ -130,6 +142,7 @@ gst_api_2d_class_init(GstApi2dClass *klass)
     gobject_class->get_property = gst_api_2d_get_property;
     gobject_class->finalize = gst_api_2d_finalize;
     trans_class->set_caps = gst_api_2d_set_caps;
+    trans_class->decide_allocation = gst_api_2d_decide_allocation;
     g_object_class_install_property(gobject_class, PROP_CONFIG_PATH,
                                     g_param_spec_string("config-path", "config-path", "json configure path ",
                                             NULL,  GParamFlags(G_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
@@ -143,6 +156,10 @@ gst_api_2d_class_init(GstApi2dClass *klass)
     g_object_class_install_property(gobject_class, PROP_DRAW_ROI,
                                     g_param_spec_boolean("drawroi", "drawroi", "drawroi", false,
                                             G_PARAM_READWRITE));
+    g_object_class_install_property(gobject_class, PROP_ALLOCATOR_NAME,
+                                    g_param_spec_string("allocator-name", "AllocatorName",
+                                                        "Registered allocator name to be used", DEFAULT_ALLOCATOR_NAME,
+                                                         GParamFlags(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
     gst_element_class_set_details_simple(gstelement_class,
                                          "Plugin",
                                          "Generic/Filter",
@@ -203,6 +220,9 @@ gst_api_2d_set_property(GObject *object, guint prop_id,
         case PROP_DRAW_ROI:
             filter->drawroi = g_value_get_boolean(value);
             break;
+        case PROP_ALLOCATOR_NAME:
+            filter->allocator_name = g_value_dup_string(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
@@ -235,6 +255,9 @@ gst_api_2d_get_property(GObject *object, guint prop_id,
             break;
         case PROP_DRAW_ROI:
             g_value_set_boolean(value, filter->drawroi);
+            break;
+        case PROP_ALLOCATOR_NAME:
+            g_value_set_string(value, filter->allocator_name);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -544,6 +567,81 @@ gst_api_2d_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps)
     return TRUE;
 }
 
+static gboolean
+gst_api_2d_decide_allocation(GstBaseTransform *trans, GstQuery *query)
+{
+    GstApi2d *filter = GST_API_2D(trans);
+    GstCaps *caps = NULL;
+    GstBufferPool *pool = NULL;
+    guint size, min, max;
+    GstVideoInfo info;
+    gboolean update = FALSE;
+    GstCapsFeatures *feature = NULL;
+    GstAllocator *allocator = NULL;
+    gst_query_parse_allocation(query, &caps, NULL);
+    if (!caps) {
+        goto error_no_caps;
+    }
+
+    GST_DEBUG_OBJECT(filter,
+                     "decide gst_query_parse_allocation caps: %" GST_PTR_FORMAT, caps);
+
+    feature = gst_caps_get_features(caps, 0);
+    if (gst_caps_features_contains(feature, "memory:DMABuf")) {
+        if (filter->allocator_name != NULL) {
+            allocator =  gst_allocator_find(filter->allocator_name);
+            if (!allocator) {
+                goto error_no_dma_allocator;
+            }
+            if (gst_query_get_n_allocation_params(query) > 0) {
+                gst_query_set_nth_allocation_param(query, 0, allocator, NULL);
+            } else {
+                gst_query_add_allocation_param(query, allocator, NULL);
+            }
+        } else {
+            goto error_no_allocator_name;
+        }
+    }
+
+    if (gst_query_get_n_allocation_pools(query) > 0) {
+        gst_query_parse_nth_allocation_pool(query, 0, &pool, &size, &min, &max);
+        update = TRUE;
+    } else {
+        pool = NULL;
+        size = min = max = 0;
+        pool = gst_buffer_pool_new();
+    }
+
+    if (!gst_video_info_from_caps(&info, caps)) {
+        GST_DEBUG_OBJECT(trans, "invalid caps specified");
+        return FALSE;
+    }
+
+    size = info.size;
+    if (update) {
+        gst_query_set_nth_allocation_pool(query, 0, pool, size, min, max);
+    } else {
+        gst_query_add_allocation_pool(query,  pool, size, min, max);
+    }
+
+    return  GST_BASE_TRANSFORM_CLASS(parent_class)->decide_allocation(trans, query);
+
+error_no_caps:
+    {
+        GST_ERROR_OBJECT(trans, "no caps specified");
+        return FALSE;
+    }
+error_no_allocator_name:
+    {
+        GST_ERROR_OBJECT(trans, "error_no_allocator_name");
+        return FALSE;
+    }
+error_no_dma_allocator:
+    {
+        GST_ERROR_OBJECT(trans, "error_no_dma_allocator");
+        return FALSE;
+    }
+}
 
 /* entry point to initialize the plug-in
  * initialize the plug-in itself

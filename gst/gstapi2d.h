@@ -68,6 +68,7 @@ struct _GstApi2d {
     gpointer prims_pointer;
     GRWLock rwlock;
     gboolean drawroi;
+    gchar  *allocator_name;
 };
 
 struct _GstApi2dClass {
