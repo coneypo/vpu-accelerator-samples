@@ -106,8 +106,9 @@ static const char *get_type_from_json(GstApi2d *filter, json_object *item);
 
 static const gchar *get_type_from_gst_struture(GstApi2d *filter, GstStructure *struct_item);
 
-static GstFlowReturn gst_api_2d_transform_ip(GstBaseTransform *base,
-        GstBuffer *outbuf);
+static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buffer);
+
+static GstFlowReturn gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *buf);
 
 static void
 gst_api_2d_finalize(GObject *object);
@@ -246,9 +247,10 @@ gst_api_2d_get_property(GObject *object, guint prop_id,
 /* this function does the actual processing
  */
 static GstFlowReturn
-gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *outbuf)
+gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *buf)
 {
     GstApi2d *filter = GST_API_2D(base);
+
     g_rw_lock_reader_lock(&filter->rwlock);
     GList *list = filter->gapi_json_object_list;
     while (list != NULL) {
@@ -258,7 +260,19 @@ gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *outbuf)
         list = list->next;
     }
     g_rw_lock_reader_unlock(&filter->rwlock);
-    render_sync(outbuf, &filter->sink_info, &filter->src_info, filter->prims_pointer);
+
+    filter->gapi_buffer_object_list = parse_gststructure_from_roimeta(filter, buf);
+    list = filter->gapi_buffer_object_list;
+    while (list != NULL) {
+        GapiObject *object = (GapiObject *) list->data;
+        GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
+        objectclass->render_submit(object, filter->prims_pointer);
+        list = list->next;
+    }
+    render_sync(buf, &filter->sink_info, &filter->src_info, filter->prims_pointer);
+    g_list_free_full(filter->gapi_buffer_object_list, (GDestroyNotify) g_object_unref);
+    filter->gapi_buffer_object_list = NULL;
+
     return GST_FLOW_OK;
 }
 
@@ -272,8 +286,10 @@ gst_api_2d_finalize(GObject *object)
     }
     g_free ((gpointer)filter->config_path);
     g_list_free_full(filter->gapi_json_object_list, (GDestroyNotify) g_object_unref);
-    g_list_free_full(filter->gapi_buffer_object_list, (GDestroyNotify) g_object_unref);
     g_list_free_full(filter->gapi_configure_structure_list, (GDestroyNotify)gst_structure_free);
+    if(filter->gapi_buffer_object_list != NULL) {
+        g_list_free_full(filter->gapi_buffer_object_list, (GDestroyNotify) g_object_unref);
+    }
     /* Always chain up to the parent class; as with dispose(), finalize()
      * is guaranteed to exist on the parent's class virtual function table
      */
@@ -359,6 +375,101 @@ static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list)
         index = g_list_next(index);
     }
     return object_list;
+}
+
+static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buffer)
+{
+    g_return_val_if_fail(buffer, NULL);
+
+    GstMeta *gst_meta = NULL;
+    gpointer state = NULL;
+    GstVideoRegionOfInterestMeta *roi_meta = NULL;
+    GList *index = NULL;
+    GList *structure_list = NULL;
+    GList *rect_list = NULL;
+    GList *object_temp = NULL;
+    GList *object_roi = NULL;
+    gint label_id;
+
+    while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
+        if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
+            continue ;
+        }
+        roi_meta = (GstVideoRegionOfInterestMeta *)gst_meta;
+
+        index = roi_meta->params;
+        while(index) {
+            GstStructure *api2d_s = (GstStructure *)index->data;
+            if (gst_structure_has_field(api2d_s, "label_id") &&
+                gst_structure_get_int(api2d_s, "label_id", &label_id)) {
+                break;
+            }
+            index = g_list_next(index);
+        }
+        if(filter->drawroi) {
+            GstStructure *s1 =
+                gst_structure_new("api2d_meta",
+                          "meta_id", G_TYPE_UINT, 1,
+                          "meta_type", G_TYPE_STRING, "rect",
+                          "x", G_TYPE_INT, roi_meta->x,
+                          "y", G_TYPE_INT, roi_meta->y,
+                          "width", G_TYPE_INT, roi_meta->w,
+                          "height", G_TYPE_INT, roi_meta->h,
+                          "r", G_TYPE_UINT, 0,
+                          "g", G_TYPE_UINT, 0,
+                          "b", G_TYPE_UINT, 0,
+                          "thick", G_TYPE_INT, 5,
+                          "lt", G_TYPE_INT, 8,
+                          "shift", G_TYPE_INT, 0,
+                          NULL);
+            rect_list = g_list_append(rect_list, s1);
+            char label[10] = {0};
+            snprintf(label, 10, "%d", label_id);
+            GstStructure *s2 =
+               gst_structure_new("api2d_meta",
+                         "meta_id", G_TYPE_UINT, 0,
+                         "meta_type", G_TYPE_STRING, "text",
+                         "text", G_TYPE_STRING, label,
+                         "font_type", G_TYPE_INT, 0,
+                         "font_scale", G_TYPE_DOUBLE, 2.0,
+                         "x", G_TYPE_INT, roi_meta->x,
+                         "y", G_TYPE_INT, roi_meta->y,
+                         "r", G_TYPE_UINT, 0,
+                         "g", G_TYPE_UINT, 0,
+                         "b", G_TYPE_UINT, 0,
+                         "line_thick", G_TYPE_INT, 1,
+                         "line_type", G_TYPE_INT, 8,
+                         "bottom_left_origin", G_TYPE_BOOLEAN, FALSE,
+                         NULL);
+           rect_list = g_list_append(rect_list, s2);
+        }
+        index = roi_meta->params;
+        while(index) {
+            GstStructure *api2d_s = (GstStructure *)index->data;
+            std::string name = gst_structure_get_name(api2d_s);
+            if(name == "api2d_meta") {
+                GST_DEBUG_OBJECT(filter, "Structure type is api2d_meta\n");
+                structure_list = g_list_append(structure_list, api2d_s);
+            }
+
+            index = g_list_next(index);
+        }
+    }
+    if(structure_list != NULL) {
+        object_temp = parse_gst_structure_list(filter, structure_list);
+    }
+
+    if(rect_list != NULL) {
+        object_roi = parse_gst_structure_list(filter, rect_list);
+        object_temp = g_list_concat(object_temp, object_roi);
+        g_list_free_full(rect_list, (GDestroyNotify)gst_structure_free);
+        rect_list = NULL;
+    }
+    if(object_temp == NULL) {
+        GST_DEBUG_OBJECT(filter, "Can not get gobject for roimeta buffer !\n");
+        return NULL;
+    }
+    return object_temp;
 }
 
 static GList *get_structure_list_from_object_list(GList *object_list)
