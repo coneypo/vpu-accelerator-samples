@@ -1,0 +1,136 @@
+{
+    "module_list": [ "openvino_tracking", "mix3" ],
+    "rtsp":
+    {
+        "rtsp_server":
+        [
+		     {
+                "enable":1,
+                "element":"enc1",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "mount_path":"/test1"
+            },
+
+            {
+                "enable":1,
+                "element":"enc2",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "mount_path":"/test2"
+            },
+            {
+                "enable":1,
+                "element":"enc3",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "mount_path":"/test3"
+            }
+        ],
+        "rtsp_server_port": 8554 //1-65535
+
+    },
+    "openvino_detection":
+    [
+        {
+            "enable":1,
+            "name":"openvino_tracking",
+            "message_name":"tracking",
+            "src_name":"src",
+            "src_format":"NV12",
+            "pipe_string":"appsrc name=source ! roitest name=detect ! fakesink ",
+            "pipe_params":
+            {
+                "MODEL":"/opt/yolotiny/yolotiny.blob",
+                "MODEL1":"/opt/resnet/resnet.blob"
+            }
+        }
+    ],
+    "mix3":
+    [
+		{
+			"subscribe_message" : ["tracking" ],
+			"draw_color" : [[255,0,0]],
+			"delay_queue": "mix1_queue",
+			"element_name": "mix1_src"
+		},
+		{
+			"subscribe_message" : ["tracking" ],
+			"draw_color" : [[0,0,255]],
+			"delay_queue": "mix2_queue",
+			"element_name": "mix2_src"
+		},
+		{
+			"subscribe_message" : ["tracking" ],
+			"draw_color" : [[0,255,0]],
+			"delay_queue": "mix3_queue",
+			"element_name": "mix3_src"
+		}
+
+    ],
+    "element":
+    [
+        {
+            "name":"videorate_caps",
+            "caps":"video/x-raw,framerate=30/1"
+        },
+        //-------------channel: 1---------------
+        {
+            "name":"src1_caps",
+            "caps":"video/x-raw,format=NV12,width=1280,height=720"
+        },
+        {
+            "name":"convert1_caps",
+            "caps":"video/x-raw(memory:DMABuf),format=NV12,width=1280,height=720"
+		},
+        {
+            "name":"scale1_caps",
+            "caps":"video/x-raw(memory:DMABuf),format=NV12,width=1280,height=720"
+        },
+        {
+            "name":"enc1_caps",
+            "caps":"video/x-h264,stream-format=byte-stream,profile=main"
+        },
+        //------------channel: 2-------------
+        {
+            "name":"src2_caps",
+            "caps":"video/x-raw,format=NV12,width=1920,height=1080"
+        },
+        {
+            "name":"scale2_caps",
+            "caps":"video/x-raw(memory:DMABuf),format=NV12,width=1920,height=1080"
+        },
+        {
+            "name":"convert2_caps",
+            "caps":"video/x-raw(memory:DMABuf),format=NV12,width=1920,height=1080"
+		},
+        {
+            "name":"enc2_caps",
+            "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+        },
+
+        //------------channel: 3-------------
+        {
+            "name":"scale3_caps",
+            "caps":"video/x-raw,format=NV12,width=4096,height=2160"
+        },
+        {
+            "name":"convert3_caps",
+            "caps":"video/x-raw,format=I420,width=4096,height=2160"
+        },
+        {
+            "name":"enc3_caps",
+            "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+        }
+    ]
+
+}

@@ -57,6 +57,10 @@ queue_message_from_observer(const char *message_name,
 static gboolean
 draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
                        GstBuffer *buffer, const char *element_name);
+static gboolean
+change_metainfo_by_width_height(GstBuffer *currentBuffer, guint currentBufferWidth,
+                             guint currentBufferHeight, guint branchBufferWidth,
+                             guint branchBufferHeight);
 
 static void *create_ctx(mediapipe_t *mp);
 static void destroy_ctx(void *ctx);
@@ -216,9 +220,11 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
     GstClockTime msg_pts;
     GstClockTime offset = 300000000;
     GstClockTime desired = GST_BUFFER_PTS(buffer);
-    const GstStructure *root, *boxed;
-    const GValue *vlist, *item;
-    guint nsize, i;
+    const GValue *brunchBufferValue;
+    const GstStructure *root;
+    GstBuffer *branchBuffer = NULL;
+    GstMeta *gst_meta = NULL;
+    gpointer state = NULL;
     guint x, y, width, height;
     GstElement *enc_element = NULL;
     GstPad *src_pad = NULL;
@@ -239,8 +245,10 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
         LOG_WARNING("mix3: Have no element named \"%s\"! ", element_name);
     }
     //get width height
-    gint _width;
-    gint _height;
+    guint _width;
+    guint _height;
+    guint branchBufferWidth;
+    guint branchBufferHeight;
     gboolean ret2 = FALSE;
     GstVideoInfo src_video_info;
     if (src_caps != NULL) {
@@ -284,46 +292,50 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
                                        0, NULL);
             }
             g_queue_pop_head(msg_ctx->message_queue);
+            brunchBufferValue = gst_structure_get_value(root, msg_ctx->message_name);
+            branchBuffer = (GstBuffer *)g_value_get_pointer(brunchBufferValue);
+            gst_buffer_unref(branchBuffer);
             gst_message_unref(walk);
             walk = (GstMessage *) g_queue_peek_head(msg_ctx->message_queue);
         }
     }
     g_mutex_unlock(&msg_ctx->lock);
-    //draw info on buffer
+    //copy roimeta to current buffer from branch buffer
     if (walk != NULL) {
-        vlist = gst_structure_get_value(root, msg_ctx->message_name);
-        nsize = gst_value_list_get_size(vlist);
-        std::string textString;
-        for (i = 0; i < nsize; ++i) {
-            item = gst_value_list_get_value(vlist, i);
-            boxed = (GstStructure *) g_value_get_boxed(item);
-            if (gst_structure_get_uint(boxed, "x", &x)
-                && gst_structure_get_uint(boxed, "y", &y)
-                && gst_structure_get_uint(boxed, "width", &width)
-                && gst_structure_get_uint(boxed, "height", &height)) {
-                //draw a border
-                nv12_border(buffer, _width, _height, x, y, width, height,
-                            msg_ctx->draw_color_channel[0],
-                            msg_ctx->draw_color_channel[1],
-                            msg_ctx->draw_color_channel[2]);
-                textString.clear();
-                //draw text
-                gint label_id = 0 ;
-                gchar draw_string[20];
-                if (gst_structure_get_int(boxed, "label_id", &label_id)) {
-                    snprintf(draw_string, 19, "label_id:%d", label_id);
-                    if (!mix3_draw_text(buffer, &src_video_info,
-                                        x + 5, y + 5, width, height, draw_string)) {
-                        LOG_WARNING("draw text:%s failed\n", draw_string);
-                    }
-                }
-                //draw text
-                LOG_DEBUG("draw data:%d,%d,%d,%d,%d,pst:%ld", x, y,
-                          width, height, label_id, GST_BUFFER_PTS(buffer));
-            }
-        }
+        brunchBufferValue = gst_structure_get_value(root, msg_ctx->message_name);
+        branchBuffer = (GstBuffer *)g_value_get_pointer(brunchBufferValue);
+        gst_buffer_copy_into(buffer, branchBuffer,
+                             GstBufferCopyFlags(GST_BUFFER_COPY_NONE | GST_BUFFER_COPY_META), 0, 0);
+        gst_structure_get_uint(root, "orign_width", &branchBufferWidth);
+        gst_structure_get_uint(root, "orign_height", &branchBufferHeight);
+        change_metainfo_by_width_height(buffer, _width, _height, branchBufferWidth, branchBufferHeight);
+        gst_buffer_unref(branchBuffer);
         g_queue_pop_head(msg_ctx->message_queue);
         gst_message_unref(walk);
+    }
+    return TRUE;
+}
+
+static gboolean
+change_metainfo_by_width_height(GstBuffer *currentBuffer, guint currentBufferWidth,
+                             guint currentBufferHeight, guint branchBufferWidth,
+                             guint branchBufferHeight)
+{
+    RETURN_VAL_IF_FAIL(currentBuffer != NULL, FALSE);
+    if ((currentBufferWidth == branchBufferWidth)
+        && (currentBufferHeight == branchBufferHeight)) {
+        return TRUE;
+    }
+    GstMeta *gst_meta = NULL;
+    gpointer state = NULL;
+    while (gst_meta = gst_buffer_iterate_meta(currentBuffer, &state)) {
+        if (gst_meta->info->api == GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
+            GstVideoRegionOfInterestMeta *meta = (GstVideoRegionOfInterestMeta *)gst_meta;
+            meta->x = (guint)(meta->x*((gdouble)(currentBufferWidth)/branchBufferWidth));
+            meta->y = (guint)(meta->y*((gdouble)(currentBufferHeight)/branchBufferHeight));
+            meta->w = (guint)(meta->w*((gdouble)(currentBufferWidth)/branchBufferWidth));
+            meta->h = (guint)(meta->h*((gdouble)(currentBufferHeight)/branchBufferHeight));
+        }
     }
     return TRUE;
 }
@@ -410,7 +422,7 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
                 }
             }
             if (find) {
-                mediapipe_set_user_callback(mp, element_name, "src", mix3_src_callback,
+                mediapipe_set_user_callback(mp, element_name, "sink", mix3_src_callback,
                                             (void *)element_name);
             } else {
                 continue;

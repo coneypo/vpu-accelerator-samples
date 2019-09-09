@@ -79,6 +79,8 @@ message_process(mediapipe_t *mp, void *message);
 static char *
 mp_parse_config(mediapipe_t *mp, mp_command_t *cmd);
 
+static gboolean if_contain_roi_meta(GstBuffer *buffer);
+
 static void *create_ctx(mediapipe_t *mp);
 static void destroy_ctx(void *_ctx);
 
@@ -147,7 +149,7 @@ branch_config(branch_t *branch)
 {
     gchar desc[MAX_BUF_SIZE];
     snprintf(desc, MAX_BUF_SIZE,
-             "video/x-raw,format=%s,width=%u,height=%u,framerate=30/1", branch->src_format,
+             "video/x-raw(memory:DMABuf),format=%s,width=%u,height=%u,framerate=30/1", branch->src_format,
              branch->mp_branch.input_width, branch->mp_branch.input_height);
     GstCaps *caps = gst_caps_from_string(desc);
     guint max_bytes = branch->mp_branch.input_width * branch->mp_branch.input_height
@@ -484,7 +486,17 @@ message_process(mediapipe_t *mp, void *message)
 
 
 
-
+static gboolean if_contain_roi_meta(GstBuffer *buffer)
+{
+    GstMeta *gst_meta = NULL;
+    gpointer state = NULL;
+    while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
+        if (gst_meta->info->api == GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 /* --------------------------------------------------------------------------*/
 /**
  * @Synopsis  get data from buffer meta
@@ -570,23 +582,36 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         return GST_PAD_PROBE_REMOVE;
     }
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
-    GValue objectlist = { 0 };
-    g_value_init(&objectlist, GST_TYPE_LIST);
     LOG_DEBUG("branch->name:%s", branch->name);
-    if (!get_value_from_buffer_tracking(pad, buffer, &objectlist)) {
+    if (!if_contain_roi_meta(buffer)) {
         return GST_PAD_PROBE_OK;
     }
+    //get videoInfo for getting width and height
+    GstCaps *caps = gst_pad_get_current_caps(pad);
+    GstVideoInfo bufferInfo;
+    if (!gst_video_info_from_caps(&bufferInfo, caps)) {
+        LOG_ERROR("get video info form caps falied");
+        gst_caps_unref(caps);
+        return GST_PAD_PROBE_OK;
+    }
+    gst_caps_unref(caps);
+
+    GValue bufferValue = { 0 };
+    g_value_init(&bufferValue, G_TYPE_POINTER);
+    g_value_set_pointer(&bufferValue, buffer);
     //create messsage
     GstStructure *s = gst_structure_new(branch->name,
                                         "timestamp", G_TYPE_UINT64,
                                         GST_BUFFER_PTS(buffer),
+                                        "orign_width", G_TYPE_UINT, bufferInfo.width,
+                                        "orign_height", G_TYPE_UINT, bufferInfo.height,
                                         NULL);
     GstMessage *msg =  gst_message_new_element(NULL, s);
     gst_structure_set_value(
         (GstStructure *) gst_message_get_structure(msg),
         branch->message_name,
-        &objectlist);
-    g_value_unset(&objectlist);
+        &bufferValue);
+    g_value_unset(&bufferValue);
     //let subscribe to progress msg
     GList *msg_pro_list = (GList *) g_hash_table_lookup(ctx->msg_hst,
                           branch->message_name);
@@ -596,6 +621,7 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         message_ctx *t_ctx;
         while (l != NULL) {
             t_ctx  = (message_ctx *) l->data;
+            gst_buffer_ref(buffer);
             t_ctx->fun(t_ctx->message_name, t_ctx->subscriber_name, branch->mp_branch.mp,
                        msg);
             l = l->next;

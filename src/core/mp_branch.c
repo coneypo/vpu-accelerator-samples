@@ -203,11 +203,17 @@ mediapipe_branch_push_buffer(mediapipe_branch_t *branch, GstBuffer *buffer)
         g_print("branch or buffer is null when push buffer to branch\n");
         return FALSE;
     }
+    g_print("[mediapipe:]Enter mediapipe_branch_push_buffer\n");
 
+    GstBuffer *buffercopy = gst_buffer_copy(buffer);
+    GstMemory *memorysrc = gst_buffer_get_memory(buffercopy, 0);
+    gst_memory_unlock(memorysrc, GST_LOCK_FLAG_EXCLUSIVE);
+    gst_memory_unref(memorysrc);
     if (branch && branch->source) {
         gst_app_src_push_buffer(GST_APP_SRC(branch->source),
-                                gst_buffer_copy(buffer));
+                buffercopy);
     }
+    g_print("[mediapipe:]Out mediapipe_branch_push_buffer\n");
 
     return TRUE;
 }
