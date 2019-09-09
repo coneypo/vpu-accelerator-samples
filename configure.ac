@@ -50,6 +50,7 @@ PKG_CHECK_MODULES(GST, [
   gstreamer-controller-1.0 >= $GST_REQUIRED
   gstreamer-audio-1.0 >= $GST_REQUIRED
   gstreamer-video-1.0 >= $GST_REQUIRED
+  gstreamer-check-1.0 >= $GST_REQUIRED
 ], [
   AC_SUBST(GST_CFLAGS)
   AC_SUBST(GST_LIBS)
@@ -97,6 +98,6 @@ dnl set proper LDFLAGS for plugins
 GST_PLUGIN_LDFLAGS='-module -avoid-version -export-symbols-regex [_]*\(gst_\|Gst\|GST_\).*'
 AC_SUBST(GST_PLUGIN_LDFLAGS)
 
-AC_CONFIG_FILES([Makefile gst-libs/Makefile gst/Makefile sample/Makefile])
+AC_CONFIG_FILES([Makefile gst-libs/Makefile gst/Makefile sample/Makefile  unittest/Makefile])
 AC_OUTPUT
 
