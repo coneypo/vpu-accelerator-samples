@@ -129,11 +129,19 @@ insert_metainfo_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, g
     {
         const GValue* item = gst_value_list_get_value(vlist, 0);
         GstStructure* boxed = (GstStructure*)g_value_get_boxed(item);
+        guint meta_num = 0 ;
         while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
             if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
                 continue ;
             }
+            meta_num++;
             gst_video_region_of_interest_meta_add_param((GstVideoRegionOfInterestMeta*)gst_meta, gst_structure_copy(boxed));
+        }
+        //add a fake roi into buffer to store stream info,the info will be push back to host
+        if(meta_num == 0){
+            GstVideoRegionOfInterestMeta *meta = gst_buffer_add_video_region_of_interest_meta(
+                    buffer, "label", 0, 0, 0, 0);
+            gst_video_region_of_interest_meta_add_param(meta, gst_structure_copy(boxed));
         }
     }
 
@@ -212,6 +220,32 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
         g_value_take_boxed(&tmp_value, s);
         gst_value_list_append_value(&objectlist, &tmp_value);
         g_value_unset(&tmp_value);
+    }
+
+    //even if there is no roi,  I also need to store the stream info
+    if(meta->num_rois == 0){
+        GValue tmp_value0 = { 0 };
+        g_value_init(&tmp_value0, GST_TYPE_STRUCTURE);
+        GstStructure* s0 = gst_structure_new(
+                "detection",
+                "magic", G_TYPE_UINT, header->magic,
+                "version", G_TYPE_UINT, header->version,
+                "metaversion", G_TYPE_UINT, meta->version,
+                "packet_type", G_TYPE_UINT, meta->packet_type,
+                "stream_id", G_TYPE_UINT, meta->stream_id,
+                "frame_number", G_TYPE_UINT, meta->frame_number,
+                "num_rois", G_TYPE_UINT, meta->num_rois,
+                "classification_index", G_TYPE_UINT, 0,
+                "reserved", G_TYPE_UINT, 0,
+                "object_index", G_TYPE_UINT, 0,
+                "left", G_TYPE_UINT, 0,
+                "top", G_TYPE_UINT, 0,
+                "width", G_TYPE_UINT, 0,
+                "height", G_TYPE_UINT, 0, NULL);
+
+        g_value_take_boxed(&tmp_value0, s0);
+        gst_value_list_append_value(&objectlist, &tmp_value0);
+        g_value_unset(&tmp_value0);
     }
 
     GstStructure* s = gst_structure_new_empty("detection");

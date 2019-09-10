@@ -75,6 +75,10 @@ stop_feed(GstElement *appsrc, gpointer user_data);
 static uint8_t
 get_receive_flag_by_send_flag(uint8_t sendFlag);
 
+static gboolean
+push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
+                          GstVideoRegionOfInterestMeta *meta);
+
 //module define start
 static void
 exit_master(void);
@@ -274,6 +278,44 @@ crop_and_push_buffer_BGRA(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         gst_object_unref(src);
     }
     return true;
+}
+
+static gboolean
+push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
+                          GstVideoRegionOfInterestMeta *meta)
+{
+    char *pbuffer = NULL;
+    char *pbegin  = NULL;
+    GstBuffer *bufferTemp = NULL;
+    GstElement *xlink_appsrc  = NULL;
+    GstFlowReturn ret;
+    branch_ctx->Jpeg_pag.meta.num_rois = 0;
+    branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
+        + branch_ctx->Jpeg_pag.header.meta_size;
+    branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
+    //set packet_type
+    LOG_DEBUG("meta size:%u\n", branch_ctx->Jpeg_pag.header.meta_size);
+    LOG_DEBUG("package size:%u\n", branch_ctx->Jpeg_pag.header.package_size);
+    LOG_DEBUG("num_rois:%d\n", branch_ctx->Jpeg_pag.meta.num_rois);
+    pbuffer = g_new0(char, branch_ctx->Jpeg_pag.header.package_size);
+    pbegin = pbuffer;
+    //copy
+    memcpy(pbuffer, &branch_ctx->Jpeg_pag.header, sizeof(Header));
+    pbuffer += sizeof(Header);
+    memcpy(pbuffer, &branch_ctx->Jpeg_pag.meta, sizeof(Meta));
+    pbuffer += sizeof(Meta);
+
+    bufferTemp = gst_buffer_new_wrapped(pbegin,
+            branch_ctx->Jpeg_pag.header.package_size);
+    xlink_appsrc = (GstElement *)branch_ctx->other_data;
+    g_assert(xlink_appsrc != NULL);
+    g_signal_emit_by_name(xlink_appsrc, "push-buffer", bufferTemp, &ret);
+    gst_buffer_unref(bufferTemp);
+    if (ret != GST_FLOW_OK) {
+        LOG_ERROR(" push buffer error\n");
+    }
+    branch_ctx->roi_index++;
+    return TRUE;
 }
 
 static gboolean
@@ -500,7 +542,13 @@ push_data(gpointer user_data)
         branch_ctx->Jpeg_pag.header.meta_size = 8;
         if (branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
             LOG_DEBUG("roi_index:%d", branch_ctx->roi_index);
-            if(branch_ctx->format == GST_VIDEO_FORMAT_NV12 ){
+            if(meta->x == 0
+                    && meta->y == 0
+                    && meta->w == 0
+                    && meta->h  == 0
+                    && branch_ctx->Jpeg_pag.meta.num_rois == 1){
+                push_none_roi_data(buffer, branch_ctx, meta);
+            }else if(branch_ctx->format == GST_VIDEO_FORMAT_NV12 ){
                 crop_and_push_buffer_NV12(buffer, branch_ctx, meta);
             }else if(branch_ctx->format == GST_VIDEO_FORMAT_BGRA ){
                 crop_and_push_buffer_BGRA(buffer, branch_ctx, meta);
