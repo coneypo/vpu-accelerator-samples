@@ -1,4 +1,8 @@
 #!/bin/sh
+#
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+#
 # you can either set the environment variables AUTOCONF, AUTOHEADER, AUTOMAKE,
 # ACLOCAL, AUTOPOINT and/or LIBTOOLIZE to the right versions, or leave them
 # unset and get the defaults

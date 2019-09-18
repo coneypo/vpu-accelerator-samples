@@ -1,3 +1,7 @@
+/* * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef __COMMON_H__
 #define __COMMON_H__
 #include <gst/gst.h>
