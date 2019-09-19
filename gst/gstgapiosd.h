@@ -2,8 +2,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __GST_API_2D_H__
-#define __GST_API_2D_H__
+#ifndef __GST_GAPI_OSD_H__
+#define __GST_GAPI_OSD_H__
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
@@ -13,30 +13,30 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_API_2D \
-    (gst_api_2d_get_type())
-#define GST_API_2D(obj) \
-    (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_API_2D,GstApi2d))
-#define GST_API_2D_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_API_2D,GstApi2dClass))
-#define GST_IS_API_2D(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_API_2D))
-#define GST_IS_API_2D_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_API_2D))
+#define GST_TYPE_GAPI_OSD \
+    (gst_gapi_osd_get_type())
+#define GST_GAPI_OSD(obj) \
+    (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_GAPI_OSD,GstGapiosd))
+#define GST_GAPI_OSD_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_GAPI_OSD,GstGapiosdClass))
+#define GST_IS_GAPI_OSD(obj) \
+    (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_GAPI_OSD))
+#define GST_IS_GAPI_OSD_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_GAPI_OSD))
 
-typedef struct _GstApi2d      GstApi2d;
-typedef struct _GstApi2dClass GstApi2dClass;
+typedef struct _GstGapiosd      GstGapiosd;
+typedef struct _GstGapiosdClass GstGapiosdClass;
 typedef enum {
     BACK_END_TYPE_GAPI = 0
 } BackEndType;
 
-#define GST_API2D_TYPE_BACK_END_TYPE \
-    (gst_api2d_backend_type_get_type())
+#define GST_GAPIOSD_TYPE_BACK_END_TYPE \
+    (gst_gapiosd_backend_type_get_type())
 
 GType
-gst_api2d_backend_type_get_type(void) G_GNUC_CONST;
+gst_gapiosd_backend_type_get_type(void) G_GNUC_CONST;
 
-struct _GstApi2d {
+struct _GstGapiosd {
     GstBaseTransform element;
     const char *config_path; //json path
     json_object *json_root; // json root object
@@ -54,12 +54,12 @@ struct _GstApi2d {
     gchar  *allocator_name;
 };
 
-struct _GstApi2dClass {
+struct _GstGapiosdClass {
     GstBaseTransformClass parent_class;
 };
 
-GType gst_api_2d_get_type(void);
+GType gst_gapi_osd_get_type(void);
 
 G_END_DECLS
 
-#endif /* __GST_API_2D_H__ */
+#endif /* __GST_GAPI_OSD_H__ */

@@ -23,10 +23,10 @@
 #include <gst/base/base.h>
 #include <gst/controller/controller.h>
 #include <string>
-#include "gstapi2d.h"
+#include "gstgapiosd.h"
 
-GST_DEBUG_CATEGORY_STATIC(gst_api_2d_debug);
-#define GST_CAT_DEFAULT gst_api_2d_debug
+GST_DEBUG_CATEGORY_STATIC(gst_gapi_osd_debug);
+#define GST_CAT_DEFAULT gst_gapi_osd_debug
 #define DEFAULT_ALLOCATOR_NAME ""
 
 /* Filter signals and args */
@@ -78,54 +78,54 @@ static GstStaticPadTemplate src_template =
                         )
     );
 
-#define gst_api_2d_parent_class parent_class
-G_DEFINE_TYPE(GstApi2d, gst_api_2d, GST_TYPE_BASE_TRANSFORM);
+#define gst_gapi_osd_parent_class parent_class
+G_DEFINE_TYPE(GstGapiosd, gst_gapi_osd, GST_TYPE_BASE_TRANSFORM);
 
-static void gst_api_2d_set_property(GObject *object, guint prop_id,
+static void gst_gapi_osd_set_property(GObject *object, guint prop_id,
                                     const GValue *value, GParamSpec *pspec);
-static void gst_api_2d_get_property(GObject *object, guint prop_id,
+static void gst_gapi_osd_get_property(GObject *object, guint prop_id,
                                     GValue *value, GParamSpec *pspec);
 
-static GAPI_OBJECT_INFO *find_info_by_type(GstApi2d *filter, const char *item_type);
+static GAPI_OBJECT_INFO *find_info_by_type(GstGapiosd *filter, const char *item_type);
 
-static gboolean parse_from_json_file(GstApi2d *filter);
+static gboolean parse_from_json_file(GstGapiosd *filter);
 
-static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list);
+static GList* parse_gst_structure_list(GstGapiosd *filter, GList* structure_list);
 
 static GList* get_structure_list_from_object_list(GList *object_list);
 
-static const char *get_type_from_json(GstApi2d *filter, json_object *item);
+static const char *get_type_from_json(GstGapiosd *filter, json_object *item);
 
-static const gchar *get_type_from_gst_struture(GstApi2d *filter, GstStructure *struct_item);
+static const gchar *get_type_from_gst_struture(GstGapiosd *filter, GstStructure *struct_item);
 
-static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buffer);
+static GList * parse_gststructure_from_roimeta(GstGapiosd *filter, GstBuffer *buffer);
 
-static GstFlowReturn gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *buf);
+static GstFlowReturn gst_gapi_osd_transform_ip(GstBaseTransform *base, GstBuffer *buf);
 
 static gboolean
-gst_api_2d_decide_allocation(GstBaseTransform *trans, GstQuery *query);
+gst_gapi_osd_decide_allocation(GstBaseTransform *trans, GstQuery *query);
 
 static void
-gst_api_2d_finalize(GObject *object);
+gst_gapi_osd_finalize(GObject *object);
 
 static gboolean
-gst_api_2d_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps);
+gst_gapi_osd_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps);
 /* GObject vmethod implementations */
 
 /* initialize the plugin's class */
 static void
-gst_api_2d_class_init(GstApi2dClass *klass)
+gst_gapi_osd_class_init(GstGapiosdClass *klass)
 {
     GObjectClass *gobject_class;
     GstElementClass *gstelement_class;
     gobject_class = (GObjectClass *) klass;
     gstelement_class = (GstElementClass *) klass;
     GstBaseTransformClass *trans_class = (GstBaseTransformClass *) klass;
-    gobject_class->set_property = gst_api_2d_set_property;
-    gobject_class->get_property = gst_api_2d_get_property;
-    gobject_class->finalize = gst_api_2d_finalize;
-    trans_class->set_caps = gst_api_2d_set_caps;
-    trans_class->decide_allocation = gst_api_2d_decide_allocation;
+    gobject_class->set_property = gst_gapi_osd_set_property;
+    gobject_class->get_property = gst_gapi_osd_get_property;
+    gobject_class->finalize = gst_gapi_osd_finalize;
+    trans_class->set_caps = gst_gapi_osd_set_caps;
+    trans_class->decide_allocation = gst_gapi_osd_decide_allocation;
     g_object_class_install_property(gobject_class, PROP_CONFIG_PATH,
                                     g_param_spec_string("config-path", "config-path", "json configure path ",
                                             NULL,  GParamFlags(G_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
@@ -133,7 +133,7 @@ gst_api_2d_class_init(GstApi2dClass *klass)
                                     g_param_spec_pointer("config-list", "config-list", "GstStructure GList ",
                                             G_PARAM_READWRITE));
     g_object_class_install_property(gobject_class, PROP_BACK_END,
-                                    g_param_spec_enum("backend", "backend", "backend", GST_API2D_TYPE_BACK_END_TYPE,
+                                    g_param_spec_enum("backend", "backend", "backend", GST_GAPIOSD_TYPE_BACK_END_TYPE,
                                             0,
                                             G_PARAM_READWRITE));
     g_object_class_install_property(gobject_class, PROP_DRAW_ROI,
@@ -153,13 +153,13 @@ gst_api_2d_class_init(GstApi2dClass *klass)
     gst_element_class_add_pad_template(gstelement_class,
                                        gst_static_pad_template_get(&sink_template));
     GST_BASE_TRANSFORM_CLASS(klass)->transform_ip =
-        GST_DEBUG_FUNCPTR(gst_api_2d_transform_ip);
+        GST_DEBUG_FUNCPTR(gst_gapi_osd_transform_ip);
 }
 /* initialize the new element
  * initialize instance structure
  */
 static void
-gst_api_2d_init(GstApi2d *filter)
+gst_gapi_osd_init(GstGapiosd *filter)
 {
     filter->config_path = NULL;
     filter->json_root = NULL; // json root object
@@ -176,11 +176,11 @@ gst_api_2d_init(GstApi2d *filter)
 }
 
 static void
-gst_api_2d_set_property(GObject *object, guint prop_id,
+gst_gapi_osd_set_property(GObject *object, guint prop_id,
                         const GValue *value, GParamSpec *pspec)
 {
     g_assert(object != NULL);
-    GstApi2d *filter = GST_API_2D(object);
+    GstGapiosd *filter = GST_GAPI_OSD(object);
     GList *temp = NULL;
     switch (prop_id) {
         case PROP_CONFIG_PATH:
@@ -213,12 +213,12 @@ gst_api_2d_set_property(GObject *object, guint prop_id,
 }
 
 static void
-gst_api_2d_get_property(GObject *object, guint prop_id,
+gst_gapi_osd_get_property(GObject *object, guint prop_id,
                         GValue *value, GParamSpec *pspec)
 {
     g_assert(object != NULL);
     g_assert(value != NULL);
-    GstApi2d *filter = GST_API_2D(object);
+    GstGapiosd *filter = GST_GAPI_OSD(object);
     switch (prop_id) {
         case PROP_CONFIG_PATH:
             g_value_set_string(value, filter->config_path);
@@ -253,9 +253,9 @@ gst_api_2d_get_property(GObject *object, guint prop_id,
 /* this function does the actual processing
  */
 static GstFlowReturn
-gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *buf)
+gst_gapi_osd_transform_ip(GstBaseTransform *base, GstBuffer *buf)
 {
-    GstApi2d *filter = GST_API_2D(base);
+    GstGapiosd *filter = GST_GAPI_OSD(base);
 
     g_rw_lock_reader_lock(&filter->rwlock);
     GList *list = filter->gapi_json_object_list;
@@ -283,10 +283,10 @@ gst_api_2d_transform_ip(GstBaseTransform *base, GstBuffer *buf)
 }
 
 static void
-gst_api_2d_finalize(GObject *object)
+gst_gapi_osd_finalize(GObject *object)
 {
     g_assert(object != NULL);
-    GstApi2d *filter = GST_API_2D(object);
+    GstGapiosd *filter = GST_GAPI_OSD(object);
     if (filter->json_root) {
         json_object_put(filter->json_root);
     }
@@ -305,7 +305,7 @@ gst_api_2d_finalize(GObject *object)
 }
 
 GType
-gst_api2d_backend_type_get_type(void)
+gst_gapiosd_backend_type_get_type(void)
 {
     static volatile GType g_type;
     static const GEnumValue backend_type[] = {
@@ -313,14 +313,14 @@ gst_api2d_backend_type_get_type(void)
         {0, NULL, NULL }
     };
     if (g_once_init_enter(&g_type)) {
-        GType type = g_enum_register_static("GstApi2dBackEndType", backend_type);
-        GST_INFO("Registering Gst Api2d BackEnd Type");
+        GType type = g_enum_register_static("GstGapiosdBackEndType", backend_type);
+        GST_INFO("Registering Gst gapiosd BackEnd Type");
         g_once_init_leave(&g_type, type);
     }
     return g_type;
 }
 
-static gboolean parse_from_json_file(GstApi2d *filter)
+static gboolean parse_from_json_file(GstGapiosd *filter)
 {
     if (filter->config_path == NULL) {
         GST_WARNING_OBJECT(filter, "json file path is null");
@@ -355,7 +355,7 @@ static gboolean parse_from_json_file(GstApi2d *filter)
     return TRUE;
 }
 
-static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list)
+static GList* parse_gst_structure_list(GstGapiosd *filter, GList* structure_list)
 {
     g_assert(filter != NULL);
 
@@ -383,7 +383,7 @@ static GList* parse_gst_structure_list(GstApi2d *filter, GList* structure_list)
     return object_list;
 }
 
-static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buffer)
+static GList * parse_gststructure_from_roimeta(GstGapiosd *filter, GstBuffer *buffer)
 {
     g_return_val_if_fail(buffer, NULL);
 
@@ -405,16 +405,16 @@ static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buff
 
         index = roi_meta->params;
         while(index) {
-            GstStructure *api2d_s = (GstStructure *)index->data;
-            if (gst_structure_has_field(api2d_s, "label_id") &&
-                gst_structure_get_int(api2d_s, "label_id", &label_id)) {
+            GstStructure *gapiosd_s = (GstStructure *)index->data;
+            if (gst_structure_has_field(gapiosd_s, "label_id") &&
+                gst_structure_get_int(gapiosd_s, "label_id", &label_id)) {
                 break;
             }
             index = g_list_next(index);
         }
         if(filter->drawroi) {
             GstStructure *s1 =
-                gst_structure_new("api2d_meta",
+                gst_structure_new("gapiosd_meta",
                           "meta_id", G_TYPE_UINT, 1,
                           "meta_type", G_TYPE_STRING, "rect",
                           "x", G_TYPE_INT, roi_meta->x,
@@ -432,7 +432,7 @@ static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buff
             char label[10] = {0};
             snprintf(label, 10, "%d", label_id);
             GstStructure *s2 =
-               gst_structure_new("api2d_meta",
+               gst_structure_new("gapiosd_meta",
                          "meta_id", G_TYPE_UINT, 0,
                          "meta_type", G_TYPE_STRING, "text",
                          "text", G_TYPE_STRING, label,
@@ -451,11 +451,11 @@ static GList * parse_gststructure_from_roimeta(GstApi2d *filter, GstBuffer *buff
         }
         index = roi_meta->params;
         while(index) {
-            GstStructure *api2d_s = (GstStructure *)index->data;
-            std::string name = gst_structure_get_name(api2d_s);
-            if(name == "api2d_meta") {
-                GST_DEBUG_OBJECT(filter, "Structure type is api2d_meta\n");
-                structure_list = g_list_append(structure_list, api2d_s);
+            GstStructure *gapiosd_s = (GstStructure *)index->data;
+            std::string name = gst_structure_get_name(gapiosd_s);
+            if(name == "gapiosd_meta") {
+                GST_DEBUG_OBJECT(filter, "Structure type is gapiosd_meta\n");
+                structure_list = g_list_append(structure_list, gapiosd_s);
             }
 
             index = g_list_next(index);
@@ -498,7 +498,7 @@ static GList *get_structure_list_from_object_list(GList *object_list)
     return structure_list;
 }
 
-static const char *get_type_from_json(GstApi2d *filter, json_object *item)
+static const char *get_type_from_json(GstGapiosd *filter, json_object *item)
 {
     g_assert(filter != NULL);
     g_assert(item != NULL);
@@ -510,7 +510,7 @@ static const char *get_type_from_json(GstApi2d *filter, json_object *item)
     return NULL;
 }
 
-static const gchar *get_type_from_gst_struture(GstApi2d *filter, GstStructure *struct_item)
+static const gchar *get_type_from_gst_struture(GstGapiosd *filter, GstStructure *struct_item)
 {
     g_assert(filter != NULL);
     g_assert(struct_item != NULL);
@@ -522,7 +522,7 @@ static const gchar *get_type_from_gst_struture(GstApi2d *filter, GstStructure *s
 }
 
 static GAPI_OBJECT_INFO *
-find_info_by_type(GstApi2d *filter, const char *item_type)
+find_info_by_type(GstGapiosd *filter, const char *item_type)
 {
     g_assert(filter != NULL);
     g_assert(item_type != NULL);
@@ -536,12 +536,12 @@ find_info_by_type(GstApi2d *filter, const char *item_type)
 }
 
 static gboolean
-gst_api_2d_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps)
+gst_gapi_osd_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps)
 {
     g_assert(trans != NULL);
     g_assert(incaps != NULL);
     g_assert(outcaps != NULL);
-    GstApi2d *filter = GST_API_2D(trans);
+    GstGapiosd *filter = GST_GAPI_OSD(trans);
     if (!gst_video_info_from_caps(&filter->sink_info, incaps) ||
         !gst_video_info_from_caps(&filter->src_info, outcaps)) {
         GST_ERROR_OBJECT(filter, "invalid caps");
@@ -551,9 +551,9 @@ gst_api_2d_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps)
 }
 
 static gboolean
-gst_api_2d_decide_allocation(GstBaseTransform *trans, GstQuery *query)
+gst_gapi_osd_decide_allocation(GstBaseTransform *trans, GstQuery *query)
 {
-    GstApi2d *filter = GST_API_2D(trans);
+    GstGapiosd *filter = GST_GAPI_OSD(trans);
     GstCaps *caps = NULL;
     GstBufferPool *pool = NULL;
     guint size, min, max;
@@ -637,9 +637,9 @@ plugin_init(GstPlugin *plugin)
      *
      * FIXME:exchange the string 'Template plugin' with your description
      */
-    GST_DEBUG_CATEGORY_INIT(gst_api_2d_debug, "api2d", 0, "api2d plugin");
-    return gst_element_register(plugin, "api2d", GST_RANK_NONE,
-                                GST_TYPE_API_2D);
+    GST_DEBUG_CATEGORY_INIT(gst_gapi_osd_debug, "gapiosd", 0, "gapiosd plugin");
+    return gst_element_register(plugin, "gapiosd", GST_RANK_NONE,
+                                GST_TYPE_GAPI_OSD);
 }
 
 /* gstreamer looks for this structure to register plugins
@@ -649,8 +649,8 @@ plugin_init(GstPlugin *plugin)
 GST_PLUGIN_DEFINE(
     GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    api2d,
-    "api2d plugin",
+    gapiosd,
+    "gapiosd plugin",
     plugin_init,
     VERSION,
     "LGPL",

@@ -70,19 +70,19 @@ static gboolean text_parse_json(GapiObject *apiobject,
     g_assert(apiobject != NULL);
     g_assert(json_object != NULL);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
-    if (std::string(json_get_string(json_object, "meta_type")) != std::string("text")) {
+    if (std::string(gapiosd_json_get_string(json_object, "meta_type")) != std::string("text")) {
         GST_ERROR_OBJECT(object, "json_object with wrong meta_type \n");
         return FALSE;
     }
-    object->textInfo.text = json_get_string(json_object, "text");
-    json_get_int(json_object, "font_type", &(object->textInfo.ff));
-    json_get_double(json_object, "font_scale", &(object->textInfo.fs));
-    json_get_int(json_object, "x", &(object->textInfo.org.x));
-    json_get_int(json_object, "y", &(object->textInfo.org.y));
-    json_get_rgb(json_object, "color_rgb", &(object->textInfo.color));
-    json_get_int(json_object, "line_thick", &(object->textInfo.thick));
-    json_get_int(json_object, "line_type", &(object->textInfo.lt));
-    object->textInfo.bottom_left_origin = json_check_enable_state(json_object,
+    object->textInfo.text = gapiosd_json_get_string(json_object, "text");
+    gapiosd_json_get_int(json_object, "font_type", &(object->textInfo.ff));
+    gapiosd_json_get_double(json_object, "font_scale", &(object->textInfo.fs));
+    gapiosd_json_get_int(json_object, "x", &(object->textInfo.org.x));
+    gapiosd_json_get_int(json_object, "y", &(object->textInfo.org.y));
+    gapiosd_json_get_rgb(json_object, "color_rgb", &(object->textInfo.color));
+    gapiosd_json_get_int(json_object, "line_thick", &(object->textInfo.thick));
+    gapiosd_json_get_int(json_object, "line_type", &(object->textInfo.lt));
+    object->textInfo.bottom_left_origin = gapiosd_json_check_enable_state(json_object,
                                           "bottom_left_origin");
     return TRUE;
 }
@@ -108,7 +108,7 @@ static gboolean text_parse_gst_structure(GapiObject *apiobject,
 {
     RETURN_VAL_IF_FAIL((apiobject != NULL && structure != NULL), FALSE);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
-    if (!gst_structure_has_name(structure, "api2d_meta")) {
+    if (!gst_structure_has_name(structure, "gapiosd_meta")) {
         GST_ERROR_OBJECT(object, "GstStructure with a wrong name !\n");
         return FALSE;
     }
@@ -156,7 +156,7 @@ static GstStructure *text_to_gst_structure(GapiObject *apiobject)
     RETURN_VAL_IF_FAIL((apiobject != NULL), NULL);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
     GstStructure *s =
-        gst_structure_new("api2d_meta",
+        gst_structure_new("gapiosd_meta",
                           "meta_id", G_TYPE_UINT, 0,
                           "meta_type", G_TYPE_STRING, "text",
                           "text", G_TYPE_STRING, object->textInfo.text.c_str(),

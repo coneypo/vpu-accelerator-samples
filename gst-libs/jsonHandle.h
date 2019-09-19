@@ -18,16 +18,16 @@ G_BEGIN_DECLS
     }while(0)
 #endif
 
-gboolean json_get_int(struct json_object *parent, const char *name,
+gboolean gapiosd_json_get_int(struct json_object *parent, const char *name,
                       int *value);
-gboolean json_get_uint(struct json_object *parent, const char *name,
+gboolean gapiosd_json_get_uint(struct json_object *parent, const char *name,
                        guint *value);
-const char *json_get_string(struct json_object *parent, const char *name);
-gboolean json_get_double(struct json_object *parent, const char *name,
+const char *gapiosd_json_get_string(struct json_object *parent, const char *name);
+gboolean gapiosd_json_get_double(struct json_object *parent, const char *name,
                          gdouble *value);
-gboolean json_get_rgb(struct json_object *parent, const char *name,
+gboolean gapiosd_json_get_rgb(struct json_object *parent, const char *name,
                       cv::Scalar *color);
-gboolean json_check_enable_state(struct json_object *parent,
+gboolean gapiosd_json_check_enable_state(struct json_object *parent,
                                  const char *enable_string);
 G_END_DECLS
 

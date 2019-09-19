@@ -69,18 +69,18 @@ static gboolean rect_parse_json(GapiObject *apiobject,
     g_assert(apiobject != NULL);
     g_assert(json_object != NULL);
     GApiObjectRect *object = G_API_OBJECT_RECT(apiobject);
-    if (std::string(json_get_string(json_object, "meta_type")) != std::string("rect")) {
+    if (std::string(gapiosd_json_get_string(json_object, "meta_type")) != std::string("rect")) {
         GST_ERROR_OBJECT(object, "json_object with wrong meta_type \n");
         return FALSE;
     }
-    json_get_int(json_object, "x", &(object->rectInfo.rect.x));
-    json_get_int(json_object, "y", &(object->rectInfo.rect.y));
-    json_get_int(json_object, "width", &(object->rectInfo.rect.width));
-    json_get_int(json_object, "height", &(object->rectInfo.rect.height));
-    json_get_rgb(json_object, "color_rgb", &(object->rectInfo.color));
-    json_get_int(json_object, "thick", &(object->rectInfo.thick));
-    json_get_int(json_object, "lt", &(object->rectInfo.lt));
-    json_get_int(json_object, "shift", &(object->rectInfo.shift));
+    gapiosd_json_get_int(json_object, "x", &(object->rectInfo.rect.x));
+    gapiosd_json_get_int(json_object, "y", &(object->rectInfo.rect.y));
+    gapiosd_json_get_int(json_object, "width", &(object->rectInfo.rect.width));
+    gapiosd_json_get_int(json_object, "height", &(object->rectInfo.rect.height));
+    gapiosd_json_get_rgb(json_object, "color_rgb", &(object->rectInfo.color));
+    gapiosd_json_get_int(json_object, "thick", &(object->rectInfo.thick));
+    gapiosd_json_get_int(json_object, "lt", &(object->rectInfo.lt));
+    gapiosd_json_get_int(json_object, "shift", &(object->rectInfo.shift));
     return TRUE;
 }
 
@@ -105,7 +105,7 @@ static gboolean rect_parse_gst_structure(GapiObject *apiobject,
 {
     RETURN_VAL_IF_FAIL((apiobject != NULL && structure != NULL), FALSE);
     GApiObjectRect *object = G_API_OBJECT_RECT(apiobject);
-    if (!gst_structure_has_name(structure, "api2d_meta")) {
+    if (!gst_structure_has_name(structure, "gapiosd_meta")) {
         GST_ERROR_OBJECT(object, "GstStructure with a wrong name !\n");
         return FALSE;
     }
@@ -151,7 +151,7 @@ static GstStructure *rect_to_gst_structure(GapiObject *apiobject)
     RETURN_VAL_IF_FAIL((apiobject != NULL), NULL);
     GApiObjectRect *object = G_API_OBJECT_RECT(apiobject);
     GstStructure *s =
-        gst_structure_new("api2d_meta",
+        gst_structure_new("gapiosd_meta",
                           "meta_id", G_TYPE_UINT, 1,
                           "meta_type", G_TYPE_STRING, "rect",
                           "x", G_TYPE_INT, object->rectInfo.rect.x,

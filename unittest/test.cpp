@@ -3,7 +3,7 @@
  */
 
 #include "../gst-libs/gapiobjecttext.h"
-#include "../gst/gstapi2d.h"
+#include "../gst/gstgapiosd.h"
 #include <opencv2/imgcodecs.hpp>
 #include <gst/check/gstcheck.h>
 

@@ -1,6 +1,6 @@
 INTRO
 ----------
-This project is used to create one api2d plugin which is used to draw 2d object on video frame.
+This project is used to create one gapiosd plugin which is used to draw 2d object on video frame.
 2d objects include text, rectangle, circle and line.
 The plugin depends on opencv G-API and supports BGR and NV12 video formats.
 
@@ -12,11 +12,11 @@ INSTALL STEPS
 
 **Install Result Test:**
 
-    $ gst-inspect-1.0 api2d
+    $ gst-inspect-1.0 gapiosd
 
 **Run sample**
 
-    $ cd <patch of>/gst_api_2d/sample
+    $ cd <patch of>/gstreamer-osd/sample
     a.jsonfile test
       $ ./test.sh (RGB)
       $ ./test_nv12.sh (NV12)

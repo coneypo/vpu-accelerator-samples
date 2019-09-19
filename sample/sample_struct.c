@@ -24,7 +24,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data);
 
 GstElement *create_pipeline(const gchar *pipeline_description);
 
-static GstPadProbeReturn api2d_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+static GstPadProbeReturn gapiosd_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
 static gboolean Get_GstStructure_List(CTX *ctx);
 
@@ -59,21 +59,21 @@ gboolean roi_process(CTX *ctx)
 {
 
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
-    ctx->pipeline = create_pipeline("videotestsrc ! video/x-raw,format=BGR,width=1920,height=1080 ! api2d name=api2d0 ! videoconvert ! ximagesink ");
+    ctx->pipeline = create_pipeline("videotestsrc ! video/x-raw,format=BGR,width=1920,height=1080 ! gapiosd name=gapiosd0 ! videoconvert ! ximagesink ");
     if (ctx->pipeline == NULL) {
         g_print("create jpeg encode pipeline failed");
         return FALSE;
     }
 
-    GstElement *api2d = gst_bin_get_by_name( GST_BIN(ctx->pipeline), "api2d0");
-    GstPad *pad = gst_element_get_static_pad(api2d, "sink");
-    if (api2d == NULL || pad == NULL) {
-        g_print("can't find element api2d, can't init callback");
+    GstElement *gapiosd = gst_bin_get_by_name( GST_BIN(ctx->pipeline), "gapiosd0");
+    GstPad *pad = gst_element_get_static_pad(gapiosd, "sink");
+    if (gapiosd == NULL || pad == NULL) {
+        g_print("can't find element gapiosd, can't init callback");
         return FALSE;
     }
     Get_GstStructure_List(ctx);
     guint callback_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER,
-                            api2d_sink_callback, ctx,
+                            gapiosd_sink_callback, ctx,
                             NULL);
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
 
@@ -124,26 +124,26 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 
 
 static GstPadProbeReturn
-api2d_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
+gapiosd_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
     CTX *roi_ctx = (CTX *)user_data;
     GList *pList = NULL;
-    GstElement *element = gst_bin_get_by_name (GST_BIN((roi_ctx)->pipeline), "api2d0");
+    GstElement *element = gst_bin_get_by_name (GST_BIN((roi_ctx)->pipeline), "gapiosd0");
     if (NULL != element) {
         GParamSpec* ele_param = g_object_class_find_property(G_OBJECT_GET_CLASS(element), "config-list");
         if (NULL != ele_param) {
             g_object_set(element, "config-list", roi_ctx->conf_List, NULL);
             g_object_get(element, "config-list", &pList, NULL);
             if (NULL == pList) {
-                g_print("### get %s propety failed of %s###\n", "config-list" , "api2d0");
+                g_print("### get %s propety failed of %s###\n", "config-list" , "gapiosd0");
             } else {
                 parse_and_print_config_list_property(pList);
             }
         } else {
-            g_print("### set propety failed Can not find property '%s' , element '%s' ###\n", "config-list" , "api2d0");
+            g_print("### set propety failed Can not find property '%s' , element '%s' ###\n", "config-list" , "gapiosd0");
         }
     } else {
-        g_print ("### set propety failed Can not find element '%s' ###\n", "api2d0");
+        g_print ("### set propety failed Can not find element '%s' ###\n", "gapiosd0");
     }
 
     return GST_PAD_PROBE_OK;
@@ -152,7 +152,7 @@ api2d_sink_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 static gboolean Get_GstStructure_List(CTX *ctx)
 {
     GstStructure *text_s =
-    gst_structure_new("api2d_meta",
+    gst_structure_new("gapiosd_meta",
                     "meta_id", G_TYPE_UINT, 0,
                     "meta_type", G_TYPE_STRING, "text",
                     "text", G_TYPE_STRING, "testGstStruct",
@@ -167,7 +167,7 @@ static gboolean Get_GstStructure_List(CTX *ctx)
                     "bottom_left_origin", G_TYPE_BOOLEAN, FALSE,
                     NULL);
     GstStructure *rect_s =
-        gst_structure_new("api2d_meta",
+        gst_structure_new("gapiosd_meta",
                           "meta_id", G_TYPE_UINT, 1,
                           "meta_type", G_TYPE_STRING, "rect",
                           "x", G_TYPE_INT, 100,

@@ -5,7 +5,7 @@
 #include "jsonHandle.h"
 
 gboolean
-json_check_enable_state(struct json_object *parent, const char *enable_string)
+gapiosd_json_check_enable_state(struct json_object *parent, const char *enable_string)
 {
     struct json_object *object = NULL;
     json_bool enable_value = FALSE;
@@ -18,7 +18,7 @@ json_check_enable_state(struct json_object *parent, const char *enable_string)
 }
 
 gboolean
-json_get_int(struct json_object *parent, const char *name, int *value)
+gapiosd_json_get_int(struct json_object *parent, const char *name, int *value)
 {
     struct json_object *object = NULL;
     RETURN_VAL_IF_FAIL(json_object_object_get_ex(parent, name, &object), FALSE);
@@ -28,7 +28,7 @@ json_get_int(struct json_object *parent, const char *name, int *value)
 }
 
 gboolean
-json_get_double(struct json_object *parent, const char *name, gdouble *value)
+gapiosd_json_get_double(struct json_object *parent, const char *name, gdouble *value)
 {
     struct json_object *object = NULL;
     RETURN_VAL_IF_FAIL(json_object_object_get_ex(parent, name, &object), FALSE);
@@ -40,7 +40,7 @@ json_get_double(struct json_object *parent, const char *name, gdouble *value)
 }
 
 gboolean
-json_get_uint(struct json_object *parent, const char *name, guint *value)
+gapiosd_json_get_uint(struct json_object *parent, const char *name, guint *value)
 {
     struct json_object *object = NULL;
     RETURN_VAL_IF_FAIL(json_object_object_get_ex(parent, name, &object), FALSE);
@@ -52,7 +52,7 @@ json_get_uint(struct json_object *parent, const char *name, guint *value)
 }
 
 const char *
-json_get_string(struct json_object *parent, const char *name)
+gapiosd_json_get_string(struct json_object *parent, const char *name)
 {
     struct json_object *object = NULL;
     RETURN_VAL_IF_FAIL(json_object_object_get_ex(parent, name, &object), NULL);
@@ -61,7 +61,7 @@ json_get_string(struct json_object *parent, const char *name)
 }
 
 gboolean
-json_get_rgb(struct json_object *parent, const char *name, cv::Scalar *color)
+gapiosd_json_get_rgb(struct json_object *parent, const char *name, cv::Scalar *color)
 {
     struct json_object *array = NULL;
     struct json_object *object = NULL;
