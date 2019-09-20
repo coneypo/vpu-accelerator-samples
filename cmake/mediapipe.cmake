@@ -224,7 +224,7 @@ function(mediapipe_library_build)
         target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/drm_allocator)
     endif()
 
-    if(DEFINED VPUSMM_DEFINITION)
+    if(USE_VPUSMM)
         target_include_directories(${MEDIAPIPE_NAME} PRIVATE ${VPUSMM_INCLUDE_DIRS})
         target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${VPUSMM_LIBRARIES})
         target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_ALLOCATORS_LIBRARIES})
