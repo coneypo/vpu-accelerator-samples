@@ -23,6 +23,7 @@
 #include "gapiobject.h"
 #include "gapiobjecttext.h"
 #include "gapiobjectrectangle.h"
+#include "gapiobjectline.h"
 
 #define g_api_object_parent_class parent_class
 G_DEFINE_TYPE(GapiObject, g_api_object, G_TYPE_OBJECT);
@@ -104,6 +105,11 @@ GAPI_OBJECT_INFO gapi_info_map[] = {
         "rect",
         g_api_object_rect_get_type(),
         gapiobjectRect_create
+    },
+    {
+        "line",
+        g_api_object_line_get_type(),
+        gapiobjectLine_create
     }
 };
 

@@ -23,6 +23,18 @@
     "thick":2,
     "lt":8,
     "shift":0
+    },
+    {
+    "meta_id":3,
+    "meta_type":"line",
+    "x":100,
+    "y":100,
+    "x2":200,
+    "y2":200,
+    "color_rgb":[0,0,0],
+    "thick":2,
+    "lt":8,
+    "shift":0
     }
 ]
 
