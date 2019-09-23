@@ -72,6 +72,9 @@ start_feed(GstElement *appsrc, guint unused_size, gpointer user_data);
 static void
 stop_feed(GstElement *appsrc, gpointer user_data);
 
+static uint8_t
+get_receive_flag_by_send_flag(uint8_t sendFlag);
+
 //module define start
 static void
 exit_master(void);
@@ -477,6 +480,7 @@ push_data(gpointer user_data)
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.version, "metaversion");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.stream_id, "stream_id");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.frame_number, "frame_number");
+        PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.packet_type, "packet_type");
         /* PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois"); */
         while (branch_ctx->Jpeg_pag.meta.num_rois > memory_size) {
             memory_size =  memory_size * 2;
@@ -555,6 +559,25 @@ stop_feed(GstElement *appsrc, gpointer user_data)
     }
 }
 
+static uint8_t get_receive_flag_by_send_flag(uint8_t sendFlag)
+{
+    if (sendFlag < PACKET_SEND_HEVC || sendFlag > PACKET_SEND_AVC) {
+        LOG_ERROR("Error packet_type of send!\n");
+        return 0;
+    }
+    switch (sendFlag) {
+        case PACKET_SEND_HEVC:
+            return PACKET_RECEIVE_HEVC;
+        case PACKET_SEND_JPEG:
+            return PACKET_RECEIVE_JPEG;
+        case PACKET_SEND_AVC:
+            return PACKET_RECEIVE_AVC;
+        default:
+            LOG_ERROR("Error packet_type of send!\n");
+            return 0;
+    }
+}
+
 static GstPadProbeReturn
 Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
@@ -605,7 +628,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
                 + branch_ctx->Jpeg_pag.header.meta_size
                 + sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois
                 + branch_ctx->jpegmem_size;
-        branch_ctx->Jpeg_pag.meta.packet_type = 1;
+        branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
         //set packet_type
         LOG_DEBUG("meta size:%u\n", branch_ctx->Jpeg_pag.header.meta_size);
         LOG_DEBUG("package size:%u\n", branch_ctx->Jpeg_pag.header.package_size);

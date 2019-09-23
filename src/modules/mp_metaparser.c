@@ -4,7 +4,7 @@
  */
 #include "mediapipe.h"
 #include "mediapipe_com.h"
-#include "utils/packet_struct_v2.h"
+#include "utils/packet_struct_v3.h"
 
 #include <gst/app/app.h>
 #include <vector>
@@ -197,6 +197,7 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
             "magic", G_TYPE_UINT, header->magic,
             "version", G_TYPE_UINT, header->version,
             "metaversion", G_TYPE_UINT, meta->version,
+            "packet_type", G_TYPE_UINT, meta->packet_type,
             "stream_id", G_TYPE_UINT, meta->stream_id,
             "frame_number", G_TYPE_UINT, meta->frame_number,
             "num_rois", G_TYPE_UINT, meta->num_rois,
