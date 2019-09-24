@@ -74,6 +74,19 @@ PKG_CHECK_MODULES(JSONC, [
       You need to install libjson-c ])
 ])
 
+PKG_CHECK_MODULES(OPENCV, [
+   opencv
+], [
+  AC_SUBST(OPENCV_CFLAGS)
+  AC_SUBST(OPENCV_LIBS)
+], [
+  AC_MSG_WARN([
+      can't find opencv by pkg-config, use /usr/local/ and /opt/opencv as default path ])
+  AC_SUBST(OPENCV_CFLAGS,"-I/usr/local/include/opencv4 -I/opt/opencv/include")
+  AC_SUBST(OPENCV_LIBS,"-L/usr/local/lib -L/opt/opencv/lib -lopencv_imgproc \
+           -lopencv_gapi -lopencv_core -lopencv_video -lopencv_highgui -lopencv_imgcodecs")
+])
+
 
 dnl check if compiler understands -Wall (if yes, add -Wall to GST_CFLAGS)
 AC_MSG_CHECKING([to see if compiler understands -Wall])
