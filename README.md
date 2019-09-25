@@ -6,15 +6,25 @@ The plugin depends on opencv G-API and supports BGR and NV12 video formats.
 
 INSTALL STEPS
 -------------
+**evm platform:**
+
+    $ export LD_LIBRARY_PATH=/opt/opencv/lib:/usr/local/lib
     $ ./autogen.sh
     $ make
-    $ make intall
+    $ sudo make install
+
+**other platform:**
+
+    $ export LD_LIBRARY_PATH=<your_opencv_path>/lib
+    $ ./autogen.sh
+    $ make
+    $ sudo make install
 
 **Install Result Test:**
 
     $ gst-inspect-1.0 gapiosd
 
-**Run sample**
+**Run sample:**
 
     $ cd <patch of>/gstreamer-osd/sample
     a.jsonfile test
@@ -26,7 +36,7 @@ INSTALL STEPS
 
 **Code Clean:**
 
-    $ git clean -x -f -d
+    $ git clean -xdf
 
 OPENCV LIB INSTALL STEPS
 ------------------------
