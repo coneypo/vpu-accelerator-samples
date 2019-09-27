@@ -41,14 +41,14 @@ g_api_object_rect_class_init(GApiObjectRectClass *klass)
 static void
 g_api_object_rect_init(GApiObjectRect *object)
 {
-    object->rectInfo.rect.x = 3000;
-    object->rectInfo.rect.y = 800;
-    object->rectInfo.rect.width = 12000;
-    object->rectInfo.rect.height = 4000;
+    object->rectInfo.rect.x = 100;
+    object->rectInfo.rect.y = 100;
+    object->rectInfo.rect.width = 100;
+    object->rectInfo.rect.height = 100;
     object->rectInfo.color = cv::Scalar(0, 0, 0);
-    object->rectInfo.thick = 5;
+    object->rectInfo.thick = 1;
     object->rectInfo.lt = 8;
-    object->rectInfo.shift = 5;
+    object->rectInfo.shift = 0;
 }
 /*json_design:*/
 /*{*/
@@ -81,11 +81,11 @@ static gboolean rect_parse_json(GapiObject *apiobject,
     gapiosd_json_get_int(json_object, "thick", &(object->rectInfo.thick));
     gapiosd_json_get_int(json_object, "lt", &(object->rectInfo.lt));
     gapiosd_json_get_int(json_object, "shift", &(object->rectInfo.shift));
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_json(apiobject, json_object);
 }
 
 /*structure_design:*/
-/*typedef struct Text*/
+/*typedef struct Rect*/
 /*{*/
 /*uint "meta_id"*/
 /*string "meta_type"*/
@@ -128,10 +128,10 @@ static gboolean rect_parse_gst_structure(GapiObject *apiobject,
     RETURN_VAL_IF_FAIL(gst_structure_get_int(structure, "shift",
                        &(object->rectInfo.shift)), FALSE);
     object->rectInfo.color = cv::Scalar(R, G, B);
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_gst_structure(apiobject, structure);
 }
 /*structure_design:*/
-/*typedef struct Text*/
+/*typedef struct Rect*/
 /*{*/
 /*uint "meta_id"*/
 /*string "meta_type"*/
@@ -152,8 +152,8 @@ static GstStructure *rect_to_gst_structure(GapiObject *apiobject)
     GApiObjectRect *object = G_API_OBJECT_RECT(apiobject);
     GstStructure *s =
         gst_structure_new("gapiosd_meta",
-                          "meta_id", G_TYPE_UINT, 1,
-                          "meta_type", G_TYPE_STRING, "rect",
+                          "meta_id", G_TYPE_UINT, apiobject->meta_id,
+                          "meta_type", G_TYPE_STRING, apiobject->meta_type,
                           "x", G_TYPE_INT, object->rectInfo.rect.x,
                           "y", G_TYPE_INT, object->rectInfo.rect.y,
                           "width", G_TYPE_INT, object->rectInfo.rect.width,

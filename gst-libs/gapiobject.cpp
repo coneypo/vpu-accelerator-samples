@@ -28,15 +28,18 @@
 
 #define g_api_object_parent_class parent_class
 G_DEFINE_TYPE(GapiObject, g_api_object, G_TYPE_OBJECT);
-
+static gboolean gapiobject_parse_json(GapiObject *object,
+                                      json_object *json_object);
+static gboolean gapiobject_parse_gst_structure(GapiObject *object,
+        GstStructure *strut);
 /* GObject vmethod implementations */
 
 /* initialize the plugin's class */
 static void
 g_api_object_class_init(GapiObjectClass *klass)
 {
-    /* GObjectClass* gobject_class; */
-    /* gobject_class = (GObjectClass*) klass; */
+    klass->parse_json = gapiobject_parse_json;
+    klass->parse_gst_structure = gapiobject_parse_gst_structure;
 }
 
 /* initialize the new element
@@ -45,8 +48,29 @@ g_api_object_class_init(GapiObjectClass *klass)
 static void
 g_api_object_init(GapiObject *object)
 {
+    object->meta_id = 0;
+    object->meta_type = NULL;
 }
 
+static gboolean gapiobject_parse_json(GapiObject *object,
+                                      json_object *json_object)
+{
+    g_assert(object != NULL);
+    g_assert(json_object != NULL);
+    gapiosd_json_get_uint(json_object, "meta_id", &(object->meta_id));
+    object->meta_type = gapiosd_json_get_string(json_object, "meta_type");
+    return TRUE;
+}
+static gboolean gapiobject_parse_gst_structure(GapiObject *object,
+        GstStructure *strut)
+{
+    g_assert(object != NULL);
+    g_assert(strut != NULL);
+    RETURN_VAL_IF_FAIL(gst_structure_get_uint(strut, "meta_id",
+                       &(object->meta_id)), FALSE);
+    object->meta_type = gst_structure_get_string(strut, "meta_type");
+    return TRUE;
+}
 
 gboolean render_sync(GstBuffer *outbuf, GstVideoInfo *sink_info,
                      GstVideoInfo *src_info, gpointer prims_pointer)

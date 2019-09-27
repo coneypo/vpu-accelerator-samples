@@ -28,9 +28,8 @@ typedef struct _GapiObjectClass GapiObjectClass;
 
 struct _GapiObject {
     GObject parent;
-    int     object_id;  // uniqu in a list
-    char   *object_type; // for exampe： text, pic, mask
-
+    guint   meta_id;  // uniqu in a list
+    const char *meta_type; // for exampe： text, pic, mask
 };
 
 struct _GapiObjectClass {

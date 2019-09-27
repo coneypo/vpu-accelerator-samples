@@ -76,7 +76,7 @@ static gboolean circle_parse_json(GapiObject *apiobject,
     gapiosd_json_get_int(json_object, "thick", &(object->circleInfo.thick));
     gapiosd_json_get_int(json_object, "lt", &(object->circleInfo.lt));
     gapiosd_json_get_int(json_object, "shift", &(object->circleInfo.shift));
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_json(apiobject, json_object);
 }
 
 /*structure_design:*/
@@ -120,7 +120,7 @@ static gboolean circle_parse_gst_structure(GapiObject *apiobject,
     RETURN_VAL_IF_FAIL(gst_structure_get_int(structure, "shift",
                        &(object->circleInfo.shift)), FALSE);
     object->circleInfo.color = cv::Scalar(R, G, B);
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_gst_structure(apiobject, structure);
 }
 
 static GstStructure *circle_to_gst_structure(GapiObject *apiobject)
@@ -129,8 +129,8 @@ static GstStructure *circle_to_gst_structure(GapiObject *apiobject)
     GApiObjectCircle *object = G_API_OBJECT_CIRCLE(apiobject);
     GstStructure *s =
         gst_structure_new("gapiosd_meta",
-                          "meta_id", G_TYPE_UINT, 1,
-                          "meta_type", G_TYPE_STRING, "circle",
+                          "meta_id", G_TYPE_UINT, apiobject->meta_id,
+                          "meta_type", G_TYPE_STRING, apiobject->meta_type,
                           "x", G_TYPE_INT, object->circleInfo.center.x,
                           "y", G_TYPE_INT, object->circleInfo.center.y,
                           "radius", G_TYPE_INT, object->circleInfo.radius,

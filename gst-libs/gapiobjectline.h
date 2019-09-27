@@ -2,8 +2,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __G_API_OBJECT_LINEANGLE_H__
-#define __G_API_OBJECT_LINEANGLE_H__
+#ifndef __G_API_OBJECT_LINE_H__
+#define __G_API_OBJECT_LINE_H__
 
 #include "common.h"
 #include "gapiobject.h"
@@ -38,4 +38,4 @@ GapiObject *gapiobjectLine_create(void);
 
 G_END_DECLS
 
-#endif /* __G_API_OBJECT_LINEANGLE_H__ */
+#endif /* __G_API_OBJECT_LINE_H__ */

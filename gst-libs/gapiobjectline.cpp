@@ -48,7 +48,7 @@ g_api_object_line_init(GApiObjectLine *object)
     object->lineInfo.color = cv::Scalar(0, 0, 0);
     object->lineInfo.thick = 1;
     object->lineInfo.lt = 8;
-    object->lineInfo.shift = 5;
+    object->lineInfo.shift = 0;
 }
 /*json_design:*/
 /*{*/
@@ -61,7 +61,7 @@ g_api_object_line_init(GApiObjectLine *object)
 /*"color_rgb":[0,0,0],*/
 /*"thick":1,*/
 /*"lt":8,*/
-/*"shift":5*/
+/*"shift":0*/
 /*}*/
 static gboolean line_parse_json(GapiObject *apiobject,
                                 json_object *json_object)
@@ -81,11 +81,11 @@ static gboolean line_parse_json(GapiObject *apiobject,
     gapiosd_json_get_int(json_object, "thick", &(object->lineInfo.thick));
     gapiosd_json_get_int(json_object, "lt", &(object->lineInfo.lt));
     gapiosd_json_get_int(json_object, "shift", &(object->lineInfo.shift));
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_json(apiobject, json_object);
 }
 
 /*structure_design:*/
-/*typedef struct Text*/
+/*typedef struct Line*/
 /*{*/
 /*uint "meta_id"*/
 /*string "meta_type"*/
@@ -128,10 +128,10 @@ static gboolean line_parse_gst_structure(GapiObject *apiobject,
     RETURN_VAL_IF_FAIL(gst_structure_get_int(structure, "shift",
                        &(object->lineInfo.shift)), FALSE);
     object->lineInfo.color = cv::Scalar(R, G, B);
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_gst_structure(apiobject, structure);
 }
 /*structure_design:*/
-/*typedef struct Text*/
+/*typedef struct Line*/
 /*{*/
 /*uint "meta_id"*/
 /*string "meta_type"*/
@@ -152,8 +152,8 @@ static GstStructure *line_to_gst_structure(GapiObject *apiobject)
     GApiObjectLine *object = G_API_OBJECT_LINE(apiobject);
     GstStructure *s =
         gst_structure_new("gapiosd_meta",
-                          "meta_id", G_TYPE_UINT, 1,
-                          "meta_type", G_TYPE_STRING, "line",
+                          "meta_id", G_TYPE_UINT, apiobject->meta_id,
+                          "meta_type", G_TYPE_STRING, apiobject->meta_type,
                           "x", G_TYPE_INT, object->lineInfo.pt1.x,
                           "y", G_TYPE_INT, object->lineInfo.pt1.y,
                           "x2", G_TYPE_INT, object->lineInfo.pt2.x,

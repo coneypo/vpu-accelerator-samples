@@ -183,7 +183,7 @@ static gboolean Get_GstStructure_List(CTX *ctx)
                           NULL);
     GstStructure *circle_s =
         gst_structure_new("gapiosd_meta",
-                          "meta_id", G_TYPE_UINT, 1,
+                          "meta_id", G_TYPE_UINT, 2,
                           "meta_type", G_TYPE_STRING, "circle",
                           "x", G_TYPE_INT, 100,
                           "y", G_TYPE_INT, 600,
@@ -195,9 +195,25 @@ static gboolean Get_GstStructure_List(CTX *ctx)
                           "lt", G_TYPE_INT, 8,
                           "shift", G_TYPE_INT, 0,
                           NULL);
+    GstStructure *line_s =
+        gst_structure_new("gapiosd_meta",
+                          "meta_id", G_TYPE_UINT, 3,
+                          "meta_type", G_TYPE_STRING, "line",
+                          "x", G_TYPE_INT, 100,
+                          "y", G_TYPE_INT, 600,
+                          "x2", G_TYPE_INT, 200,
+                          "y2", G_TYPE_INT, 700,
+                          "r", G_TYPE_UINT, 0,
+                          "g", G_TYPE_UINT, 0,
+                          "b", G_TYPE_UINT, 0,
+                          "thick", G_TYPE_INT, 2,
+                          "lt", G_TYPE_INT, 8,
+                          "shift", G_TYPE_INT, 0,
+                          NULL);
     ctx->conf_List = g_list_append(ctx->conf_List, text_s);
     ctx->conf_List = g_list_append(ctx->conf_List, rect_s);
     ctx->conf_List = g_list_append(ctx->conf_List, circle_s);
+    ctx->conf_List = g_list_append(ctx->conf_List, line_s);
     return TRUE;
 }
 

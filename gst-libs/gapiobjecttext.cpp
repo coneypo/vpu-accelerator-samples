@@ -84,7 +84,7 @@ static gboolean text_parse_json(GapiObject *apiobject,
     gapiosd_json_get_int(json_object, "line_type", &(object->textInfo.lt));
     object->textInfo.bottom_left_origin = gapiosd_json_check_enable_state(json_object,
                                           "bottom_left_origin");
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_json(apiobject, json_object);
 }
 
 /*structure_design:*/
@@ -133,7 +133,7 @@ static gboolean text_parse_gst_structure(GapiObject *apiobject,
     object->textInfo.bottom_left_origin = boolBuf;
     object->textInfo.color = cv::Scalar(R, G, B);
 
-    return TRUE;
+    return G_API_OBJECT_CLASS(parent_class)->parse_gst_structure(apiobject, structure);
 }
 /*structure_design:*/
 /*typedef struct Text*/
@@ -157,8 +157,8 @@ static GstStructure *text_to_gst_structure(GapiObject *apiobject)
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
     GstStructure *s =
         gst_structure_new("gapiosd_meta",
-                          "meta_id", G_TYPE_UINT, 0,
-                          "meta_type", G_TYPE_STRING, "text",
+                          "meta_id", G_TYPE_UINT, apiobject->meta_id,
+                          "meta_type", G_TYPE_STRING, apiobject->meta_type,
                           "text", G_TYPE_STRING, object->textInfo.text.c_str(),
                           "font_type", G_TYPE_INT, object->textInfo.ff,
                           "font_scale", G_TYPE_DOUBLE, object->textInfo.fs,
