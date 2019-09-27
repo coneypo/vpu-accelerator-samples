@@ -35,6 +35,16 @@
     "thick":2,
     "lt":8,
     "shift":0
+    },
+    {
+    "meta_id":4,
+    "meta_type":"circle",
+    "x":100,
+    "y":200,
+    "radius":50,
+    "color_rgb":[0,0,0],
+    "thick":2,
+    "lt":8,
+    "shift":0
     }
 ]
-

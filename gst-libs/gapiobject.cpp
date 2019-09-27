@@ -24,6 +24,7 @@
 #include "gapiobjecttext.h"
 #include "gapiobjectrectangle.h"
 #include "gapiobjectline.h"
+#include "gapiobjectcircle.h"
 
 #define g_api_object_parent_class parent_class
 G_DEFINE_TYPE(GapiObject, g_api_object, G_TYPE_OBJECT);
@@ -110,6 +111,11 @@ GAPI_OBJECT_INFO gapi_info_map[] = {
         "line",
         g_api_object_line_get_type(),
         gapiobjectLine_create
+    },
+    {
+        "circle",
+        g_api_object_circle_get_type(),
+        gapiobjectCircle_create
     }
 };
 
