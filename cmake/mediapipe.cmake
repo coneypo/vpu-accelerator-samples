@@ -225,6 +225,7 @@ function(mediapipe_library_build)
     endif()
 
     if(USE_VPUSMM)
+        add_definitions(-DUSE_VPUSMM)
         target_include_directories(${MEDIAPIPE_NAME} PRIVATE ${VPUSMM_INCLUDE_DIRS})
         target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${VPUSMM_LIBRARIES})
         target_link_libraries(${MEDIAPIPE_NAME} PRIVATE ${GSTREAMER_ALLOCATORS_LIBRARIES})

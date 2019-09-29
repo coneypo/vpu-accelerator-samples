@@ -74,7 +74,7 @@ typedef intptr_t        mp_flag_t;
 #include "mp_gstdrmbomemory.h"
 #endif
 
-#ifdef VPUSMM
+#if defined(VPUSMM) || defined(USE_VPUSMM)
 #include "gstvpusmm.h"
 #endif
 
