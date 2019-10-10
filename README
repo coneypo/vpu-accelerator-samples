@@ -14,7 +14,8 @@ Local mode:
 
     note:If you want to use the gva_postproc_and_upload module to crop the NV12 format surface, add the following command after Cmake (Default processing RGBx format surface):
          camke -DCROP_NV12=ON .. 
-
+Autonomous mode:
+    cmake -DBUILD_APP=manager -DMULTI_THREAD_MODE=ON  -DUSE_THREAD_DEFAULT_MAIN_CONTEXT=ON -DLOCAL_MODE=OFF -DVPUSMM=ON -DCROP_NV12=ON  ..
 Develop document
 How to develop and build custom modules 
     A module C file must be named of "mp_${modulename}.c"

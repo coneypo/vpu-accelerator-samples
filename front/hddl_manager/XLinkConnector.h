@@ -6,7 +6,7 @@
 #include <set>
 #include <string>
 
-#include <XLink.h>
+#include <xlink_uapi.h>
 
 #include "PipelineStatus.h"
 #include "hal_message.pb.h"
@@ -66,22 +66,21 @@ private:
     void handleDeallocateChannel(HalMsgRequest& request, HalMsgResponse& response);
     void handleSetChannel(HalMsgRequest& request, HalMsgResponse& response);
 
-    std::vector<channelId_t> allocateChannel(uint32_t numChannel);
-    void deallocateChannel(const std::vector<channelId_t>&);
+    std::vector<xlink_channel_id_t> allocateChannel(uint32_t numChannel);
+    void deallocateChannel(const std::vector<xlink_channel_id_t>&);
 
     PipelineManager* m_pipeManager;
 
     std::atomic<bool> m_init;
-    XLinkGlobalHandler_t m_ghandler;
-    XLinkHandler_t m_handler;
+    xlink_handle m_handler;
 
     std::mutex m_channelMutex;
-    channelId_t m_channelMinValue;
-    channelId_t m_channelMaxValue;
-    std::set<channelId_t> m_channelSet;
+    xlink_channel_id_t m_channelMinValue;
+    xlink_channel_id_t m_channelMaxValue;
+    std::set<xlink_channel_id_t> m_channelSet;
 
     std::mutex m_commChannelMutex;
-    const channelId_t m_commChannel = 0x400;
+    const xlink_channel_id_t m_commChannel = 0x401;
 };
 }
 

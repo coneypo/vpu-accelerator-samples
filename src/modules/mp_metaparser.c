@@ -285,8 +285,9 @@ static char* load_config(mediapipe_t* mp, mp_command_t* cmd)
 
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(src), "selected-target-context")) {
         GstHddlContext *context = gst_hddl_context_new (CONNECT_XLINK);
-        context->hddl_xlink->xlink_handler->devicePath = (char *)XLINK_DEVICE_PATH;
-        context->hddl_xlink->xlink_handler->deviceType = XLINK_DEVICE_TYPE;
+        context->hddl_xlink->xlink_handler->dev_path = (char *)XLINK_DEVICE_PATH;
+        context->hddl_xlink->xlink_handler->dev_type = XLINK_DEVICE_TYPE;
+        context->hddl_xlink->xlink_handler->link_id = 0;
         context->hddl_xlink->channelId = channelId;
         g_object_set(src, "selected-target-context", context, NULL);
         gst_hddl_context_free(context);

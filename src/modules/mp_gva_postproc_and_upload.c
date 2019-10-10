@@ -477,6 +477,7 @@ push_data(gpointer user_data)
             continue;
         }
         branch_ctx->Jpeg_pag.meta.num_rois = roi_num;
+        GST_WARNING("ROIENC|ROI Num %d\n", roi_num);
     }
 
     if (branch_ctx->Jpeg_pag.meta.num_rois == 0 ||
@@ -697,6 +698,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
                                             branch_ctx->Jpeg_pag.header.package_size);
         xlink_appsrc = (GstElement *)branch_ctx->other_data;
         g_assert(xlink_appsrc != NULL);
+        GST_WARNING("ROIENC|Send to HDDLSink\n");
         g_signal_emit_by_name(xlink_appsrc, "push-buffer", bufferTemp, &ret);
         gst_buffer_unref(bufferTemp);
         if (ret != GST_FLOW_OK) {
@@ -958,8 +960,9 @@ static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
 
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(sink), "selected-target-context")) {
         GstHddlContext *context = gst_hddl_context_new (CONNECT_XLINK);
-        context->hddl_xlink->xlink_handler->devicePath = (char *)XLINK_DEVICE_PATH;
-        context->hddl_xlink->xlink_handler->deviceType = XLINK_DEVICE_TYPE;
+        context->hddl_xlink->xlink_handler->dev_path = (char *)XLINK_DEVICE_PATH;
+        context->hddl_xlink->xlink_handler->dev_type = XLINK_DEVICE_TYPE;
+        context->hddl_xlink->xlink_handler->link_id = 0;
         context->hddl_xlink->channelId = channelId;
         g_object_set(sink, "selected-target-context", context, NULL);
         gst_hddl_context_free(context);

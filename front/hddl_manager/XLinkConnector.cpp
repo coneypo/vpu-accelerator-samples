@@ -4,14 +4,14 @@
 #include "XLinkConnector.h"
 
 /* Not really used in xlink simulator, place holder for now */
-const uint32_t DATA_FRAGMENT_SIZE = 8192;
+const uint32_t DATA_FRAGMENT_SIZE = 1024*1024*4;
 const uint32_t TIMEOUT = 0;
 
 namespace hddl {
 
 XLinkConnector::XLinkConnector()
     : m_init(false)
-    , m_channelMinValue(0x401)
+    , m_channelMinValue(0x402)
     , m_channelMaxValue(0xFFF)
 {
 }
@@ -19,19 +19,21 @@ XLinkConnector::XLinkConnector()
 int XLinkConnector::init()
 {
     m_pipeManager = &(PipelineManager::getInstance());
-    m_ghandler.protocol = PCIE;
-    m_ghandler.profEnable = 1;
-    auto status = XLinkInitialize(&m_ghandler);
+    auto status = xlink_initialize(NULL);
     if (status != X_LINK_SUCCESS)
         return -1;
 
-    m_handler.deviceType = PCIE_DEVICE;
-    m_handler.devicePath = (char*)"/tmp/xlink_mock";
-
-    OperationMode_t operationType = RXB_TXB;
-
-    if (XLinkOpenChannel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
-        return -1;
+    m_handler.dev_type = PCIE_DEVICE;
+    m_handler.dev_path = (char*)"/tmp/xlink_mock";
+    xlink_connect(&m_handler);
+    xlink_opmode operationType = RXB_TXB;
+    printf("****open command channel %d\n", m_commChannel);
+    if (xlink_open_channel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
+    {
+        printf("****Fail to open command channel %d\n", m_commChannel);
+        exit(-1);
+    }
+    printf("****Successfully to open command channel %d\n", m_commChannel);
 
     m_init = true;
     return 0;
@@ -39,7 +41,7 @@ int XLinkConnector::init()
 
 void XLinkConnector::uninit()
 {
-    XLinkCloseChannel(&m_handler, m_commChannel);
+    xlink_close_channel(&m_handler, m_commChannel);
     m_init = false;
     m_pipeManager = nullptr;
 }
@@ -51,30 +53,39 @@ void XLinkConnector::stop()
 
 void XLinkConnector::run()
 {
-    uint8_t* message = nullptr;
+    uint8_t* message = new uint8_t[1024*1024*4];
     uint32_t size = 0;
-
     while (m_init) {
-        auto status = XLinkReadData(&m_handler, m_commChannel, &message, &size);
+        printf("YITEST|xlink_read chn %d\n", m_commChannel);
+        auto status = xlink_read_data(&m_handler, m_commChannel, &message, &size);
         if (status != X_LINK_SUCCESS)
+        {
+            printf("YITEST|xlink_read failed rc %d\n", status);
             continue;
-
+        }
+        printf("YITEST|xlink_read SUCC chn %d msg size%d\n", m_commChannel, size);
         std::string response = generateResponse(message, size);
-
-        status = XLinkReleaseData(&m_handler, m_commChannel, message);
+        status = xlink_release_data(&m_handler, m_commChannel, NULL);
+        if (status != X_LINK_SUCCESS)
+        {
+            printf("YITEST|xlink_release failed rc %d\n", status);
+            continue;
+        }
+        memset((void*)message, 0, 1024*1024*4);
         if (status != X_LINK_SUCCESS)
             continue;
 
         if (!response.empty()) {
             std::lock_guard<std::mutex> lock(m_commChannelMutex);
-            status = XLinkWriteData(&m_handler, m_commChannel, (const uint8_t*)response.c_str(), response.length());
+            printf("YITEST|xlink_write chn %d msg %lu\n", m_commChannel, response.length());
+            status = xlink_write_data(&m_handler, m_commChannel, (const uint8_t*)response.c_str(), response.length());
             if (status != X_LINK_SUCCESS)
                 continue;
         }
     }
 }
 
-std::vector<channelId_t> XLinkConnector::allocateChannel(uint32_t numChannel)
+std::vector<xlink_channel_id_t> XLinkConnector::allocateChannel(uint32_t numChannel)
 {
     if (!numChannel) {
         return {};
@@ -82,8 +93,8 @@ std::vector<channelId_t> XLinkConnector::allocateChannel(uint32_t numChannel)
 
     std::lock_guard<std::mutex> lock(m_channelMutex);
 
-    channelId_t channel = m_channelMinValue;
-    std::vector<channelId_t> channels;
+    xlink_channel_id_t channel = m_channelMinValue;
+    std::vector<xlink_channel_id_t> channels;
 
     while (channel < m_channelMaxValue) {
         if (m_channelSet.count(channel)) {
@@ -104,7 +115,7 @@ std::vector<channelId_t> XLinkConnector::allocateChannel(uint32_t numChannel)
     return {};
 }
 
-void XLinkConnector::deallocateChannel(const std::vector<channelId_t>& channels)
+void XLinkConnector::deallocateChannel(const std::vector<xlink_channel_id_t>& channels)
 {
     if (channels.empty()) {
         return;
@@ -132,7 +143,6 @@ std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t si
     response.set_req_seq_no(request.req_seq_no());
     response.set_pipeline_id(request.pipeline_id());
     response.set_ret_code(RC_ERROR);
-
     switch (request.req_type()) {
     case CREATE_PIPELINE_REQUEST:
         handleCreate(request, response);
@@ -171,9 +181,7 @@ std::string XLinkConnector::generateResponse(const uint8_t* message, uint32_t si
         response.set_ret_code(RC_ERROR);
         break;
     }
-
     response.SerializeToString(&rsp);
-
     return rsp;
 }
 
@@ -262,7 +270,7 @@ void XLinkConnector::handleAllocateChannel(HalMsgRequest& request, HalMsgRespons
 
 void XLinkConnector::handleDeallocateChannel(HalMsgRequest& request, HalMsgResponse& response)
 {
-    std::vector<channelId_t> channels;
+    std::vector<xlink_channel_id_t> channels;
     for (int i = 0; i < request.deallocate_channel().channelid_size(); ++i) {
         channels.push_back(request.deallocate_channel().channelid(i));
     }
@@ -292,7 +300,7 @@ void XLinkConnector::sendEventToHost(int id, HalMsgRspType type)
     response.SerializeToString(&rsp);
 
     std::lock_guard<std::mutex> lock(m_commChannelMutex);
-    XLinkWriteData(&m_handler, m_commChannel, (const uint8_t*)rsp.c_str(), rsp.length());
+    xlink_write_data(&m_handler, m_commChannel, (const uint8_t*)rsp.c_str(), rsp.length());
 }
 
 HalRetCode XLinkConnector::mapStatus(PipelineStatus status)
