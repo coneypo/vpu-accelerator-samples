@@ -56,14 +56,12 @@ void XLinkConnector::run()
     uint8_t* message = new uint8_t[1024*1024*4];
     uint32_t size = 0;
     while (m_init) {
-        printf("YITEST|xlink_read chn %d\n", m_commChannel);
         auto status = xlink_read_data(&m_handler, m_commChannel, &message, &size);
         if (status != X_LINK_SUCCESS)
         {
             printf("YITEST|xlink_read failed rc %d\n", status);
             continue;
         }
-        printf("YITEST|xlink_read SUCC chn %d msg size%d\n", m_commChannel, size);
         std::string response = generateResponse(message, size);
         status = xlink_release_data(&m_handler, m_commChannel, NULL);
         if (status != X_LINK_SUCCESS)
@@ -77,10 +75,11 @@ void XLinkConnector::run()
 
         if (!response.empty()) {
             std::lock_guard<std::mutex> lock(m_commChannelMutex);
-            printf("YITEST|xlink_write chn %d msg %lu\n", m_commChannel, response.length());
             status = xlink_write_data(&m_handler, m_commChannel, (const uint8_t*)response.c_str(), response.length());
-            if (status != X_LINK_SUCCESS)
+            if (status != X_LINK_SUCCESS) {
+                printf("YITEST|xlink_release failed rc %d\n", status);
                 continue;
+            }
         }
     }
 }

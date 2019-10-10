@@ -698,7 +698,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
                                             branch_ctx->Jpeg_pag.header.package_size);
         xlink_appsrc = (GstElement *)branch_ctx->other_data;
         g_assert(xlink_appsrc != NULL);
-        GST_WARNING("ROIENC|Send to HDDLSink\n");
+        GST_WARNING("ROIENC|Send to HDDLSink GstBufferSize %d\n", gst_buffer_get_size(bufferTemp));
         g_signal_emit_by_name(xlink_appsrc, "push-buffer", bufferTemp, &ret);
         gst_buffer_unref(bufferTemp);
         if (ret != GST_FLOW_OK) {
