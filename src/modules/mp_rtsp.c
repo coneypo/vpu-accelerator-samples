@@ -531,6 +531,7 @@ rtsp_probe_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
                 ctx->fps);
         ctx->timestamp += GST_BUFFER_DURATION(buffer);
     }
+    GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
     GstFlowReturn status;
     g_signal_emit_by_name(ctx->src, "push-buffer", buffer, &status);
     gst_buffer_unref(buffer);
