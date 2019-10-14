@@ -69,7 +69,11 @@ static gboolean rect_parse_json(GapiObject *apiobject,
     g_assert(apiobject != NULL);
     g_assert(json_object != NULL);
     GApiObjectRect *object = G_API_OBJECT_RECT(apiobject);
-    if (std::string(gapiosd_json_get_string(json_object, "meta_type")) != std::string("rect")) {
+    const char *meta_type_str = gapiosd_json_get_string(json_object, "meta_type");
+    if (meta_type_str == NULL) {
+        return FALSE;
+    }
+    if (std::string(meta_type_str) != std::string("rect")) {
         GST_ERROR_OBJECT(object, "json_object with wrong meta_type \n");
         return FALSE;
     }

@@ -70,11 +70,19 @@ static gboolean text_parse_json(GapiObject *apiobject,
     g_assert(apiobject != NULL);
     g_assert(json_object != NULL);
     GApiObjectText *object = G_API_OBJECT_TEXT(apiobject);
-    if (std::string(gapiosd_json_get_string(json_object, "meta_type")) != std::string("text")) {
+    const char *meta_type_str = gapiosd_json_get_string(json_object, "meta_type");
+    if (meta_type_str == NULL) {
+        return FALSE;
+    }
+    if (std::string(meta_type_str) != std::string("text")) {
         GST_ERROR_OBJECT(object, "json_object with wrong meta_type \n");
         return FALSE;
     }
-    object->textInfo.text = gapiosd_json_get_string(json_object, "text");
+    const char *meta_type_text = gapiosd_json_get_string(json_object, "text");
+    if (meta_type_text == NULL) {
+        return FALSE;
+    }
+    object->textInfo.text = meta_type_text;
     gapiosd_json_get_int(json_object, "font_type", &(object->textInfo.ff));
     gapiosd_json_get_double(json_object, "font_scale", &(object->textInfo.fs));
     gapiosd_json_get_int(json_object, "x", &(object->textInfo.org.x));

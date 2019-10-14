@@ -69,7 +69,11 @@ static gboolean line_parse_json(GapiObject *apiobject,
     g_assert(apiobject != NULL);
     g_assert(json_object != NULL);
     GApiObjectLine *object = G_API_OBJECT_LINE(apiobject);
-    if (std::string(gapiosd_json_get_string(json_object, "meta_type")) != std::string("line")) {
+    const char *meta_type_str = gapiosd_json_get_string(json_object, "meta_type");
+    if (meta_type_str == NULL) {
+        return FALSE;
+    }
+    if (std::string(meta_type_str) != std::string("line")) {
         GST_ERROR_OBJECT(object, "json_object with wrong meta_type \n");
         return FALSE;
     }

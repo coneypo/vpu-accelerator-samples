@@ -347,7 +347,10 @@ static gboolean parse_from_json_file(GstGapiosd *filter)
         if (info) {
             GapiObject *object = info->create();
             GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
-            objectclass->parse_json(object, item);
+            if (objectclass->parse_json(object, item) == false) {
+                g_object_unref(object);
+                continue;
+            }
             filter->gapi_json_object_list = g_list_append(filter->gapi_json_object_list,
                                             object);
         }
@@ -395,7 +398,7 @@ static GList * parse_gststructure_from_roimeta(GstGapiosd *filter, GstBuffer *bu
     GList *rect_list = NULL;
     GList *object_temp = NULL;
     GList *object_roi = NULL;
-    gint label_id;
+    gint label_id = 0;
 
     while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
