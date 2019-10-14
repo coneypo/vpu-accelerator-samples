@@ -20,6 +20,12 @@ INSTALL STEPS
     $ make
     $ sudo make install
 
+**NOTE:**
+
+    1.You can also use the --with-opencv-path option of ./configure to input opencv path,
+    such as:
+    $ ./configure --with-opencv-path=/opt/opencv/lib
+
 **Install Result Test:**
 
     $ gst-inspect-1.0 gapiosd
