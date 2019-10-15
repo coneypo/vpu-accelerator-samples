@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 mediapipe_library_build(NAME xlinkreaderlib MODULES element xlinkreader)
 
 set(TargetName xlinkreader)

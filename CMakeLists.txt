@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 2.8)
 project(mediapipe2)
 

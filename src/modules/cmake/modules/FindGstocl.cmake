@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 FIND_PATH(GSTOCL_INCLUDE_DIRS
     NAMES gstocl/oclcommon.h
     HINTS /usr/include/

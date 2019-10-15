@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef _XLINKCONNECTOR_H_
 #define _XLINKCONNECTOR_H_
 

@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 find_package(OpenCV REQUIRED)
 
 mediapipe_library_build(NAME mulclientlib MODULES element metaparser gva_postproc_and_upload)

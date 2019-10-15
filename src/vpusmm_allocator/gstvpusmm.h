@@ -1,3 +1,7 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
 
 #ifndef GST_VPUSMM_H
 #define GST_VPUSMM_H

@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef _LOCALMODE_H
 #define _LOCALMODE_H
 

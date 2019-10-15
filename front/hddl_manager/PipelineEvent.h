@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef MEDIAPIPE2_PIPELINEEVENT_H
 #define MEDIAPIPE2_PIPELINEEVENT_H
 

@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 mediapipe_library_build(NAME mediapipe2_lib MODULES element rtsp changeformat onvif openvino mix2 encoder openvino_tracking mix3)
 
 #file(GLOB_RECURSE HDRS "*.h")

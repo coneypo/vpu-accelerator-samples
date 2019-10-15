@@ -1,3 +1,5 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
 
 set(DRM_TYPE "0" CACHE STRING "DRM bo based Allocator  intel, hantro")
 

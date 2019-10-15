@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+#
 # - Try to find Pango
 # Once done, this will define
 #

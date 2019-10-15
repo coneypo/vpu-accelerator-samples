@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef _PIPELINESTATUS_H_
 #define _PIPELINESTATUS_H_
 

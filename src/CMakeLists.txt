@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 find_package(Glib REQUIRED)
 find_package(Cairo REQUIRED)
 find_package(Pango REQUIRED)

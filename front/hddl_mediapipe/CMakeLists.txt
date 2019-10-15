@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 mediapipe_library_build(NAME hddl_mediapipe2_lib MODULES element openvino metadata)
 
 file(GLOB_RECURSE HDRS "*.h")

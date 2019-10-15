@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 mediapipe_library_build(NAME xlinkwriterlib MODULES element xlinkwriter)
 
 set(TargetName xlinkwriter)

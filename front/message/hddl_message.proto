@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 syntax = "proto2";
 
 option optimize_for = LITE_RUNTIME;

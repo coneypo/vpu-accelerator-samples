@@ -1,3 +1,5 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
 
 FIND_PACKAGE(PkgConfig)
 PKG_CHECK_MODULES(PC_CAIRO cairo) # FIXME: After we require CMake 2.8.2 we can pass QUIET to this call.

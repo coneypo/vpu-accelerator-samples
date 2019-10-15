@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "PipelineIPC.h"
 #include <arpa/inet.h>
 #include <chrono>

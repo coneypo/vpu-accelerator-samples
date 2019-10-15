@@ -1,4 +1,7 @@
-
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
 
 #include <stdio.h>
 #include <gst/check/gstcheck.h>

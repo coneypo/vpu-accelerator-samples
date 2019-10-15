@@ -1,3 +1,5 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
 
 FIND_PACKAGE(PkgConfig)
 PKG_CHECK_MODULES(PC_GLIB QUIET glib-2.0)

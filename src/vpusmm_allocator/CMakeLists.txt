@@ -1,3 +1,5 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
 
 option(USE_VPUSMM "Use VPUSMM(VPU Shared memory manager) based allocator" OFF)
 if(USE_VPUSMM)

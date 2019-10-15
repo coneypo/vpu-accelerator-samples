@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "Pipeline.h"
 #include "mediapipe.h"
 #include <gst/gst.h>

@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+
 set(TARGET_NAME mp_core_static)
 
 file(GLOB HDRS "*.h")
