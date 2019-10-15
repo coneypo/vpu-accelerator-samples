@@ -82,6 +82,7 @@ void XLinkConnector::run()
             }
         }
     }
+    delete []message;
 }
 
 std::vector<xlink_channel_id_t> XLinkConnector::allocateChannel(uint32_t numChannel)

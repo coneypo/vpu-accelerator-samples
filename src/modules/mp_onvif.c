@@ -200,7 +200,7 @@ static int get_enc_num(char *str, char *delim)
     char s[20] = {'\0'};
     char *p = NULL;
     int num = -1;
-    strcpy(s, str);
+    g_strlcpy(s, str, 19);
     strtok_r(s, delim, &p);
     num = atoi(p);
     return num;
@@ -777,7 +777,6 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     } else {
         LOG_WARNING("get video config: video element name is NULL");
     }
-
     //get enc src and sink caps
     GstPad *sink_pad = NULL;
     GstPad *src_pad = NULL;
@@ -825,8 +824,8 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     } else {
         LOG_WARNING("get video config: sink caps is NULL");
     }
-    sprintf(width, "%d", _width);
-    sprintf(height, "%d", _height);
+    g_snprintf(width, 10, "%d", _width);
+    g_snprintf(height, 10, "%d", _height);
 
     //get format
     char format[10] = {"H264"};
@@ -893,7 +892,7 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
         if (!ret2) {
             LOG_WARNING("fail to get value, use default value \"%s\"", framerate);
         } else {
-            sprintf(framerate, "%d/%d", numerator, denominator);
+            g_snprintf(framerate, 9, "%d/%d", numerator, denominator);
         }
         gst_caps_ref(rate_caps);
     }
@@ -906,7 +905,6 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     json_object_object_add(obj, "framerate", json_object_new_string(framerate));
     json_object_object_add(obj, "encoder", json_object_new_string(format));
     *res_status = 0;
-
 }
 
 static void _get_image_config(struct json_object *obj, int *res_status,
@@ -1109,11 +1107,11 @@ static void _get_stream_uri(struct json_object *obj, int *res_status, gchar *res
          LOG_WARNING("fail to get value(rtsp_server_port), use default value \"%d\"\n", iRtspport);
     }
     if (ctx->stream_uri != NULL) {
-        snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d%s", get_local_ip_addr(),
-                 iRtspport, ctx->stream_uri);
+        g_snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d%s", get_local_ip_addr(),
+                    iRtspport, ctx->stream_uri);
     } else {
-        snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d/test0", get_local_ip_addr(),
-                 iRtspport);
+        g_snprintf(szRtsp, RTSP_LEN - 1, "rtsp://%s:%d/test0", get_local_ip_addr(),
+                iRtspport);
     }
     json_object_object_add(obj,  "streamuri", json_object_new_string(szRtsp));
     *res_status = RET_SUCESS;
@@ -1354,7 +1352,9 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
     gint client_socket;
 
     gint socket_fd = g_io_channel_unix_get_fd(gio);
-
+    if (socket_fd < 0) {
+        perror("create socket failed");
+    }
     if(condition & G_IO_HUP) {
         LOG_ERROR("Unexpected Broken pipe error on socket_fd !");
         close(socket_fd);
@@ -1413,6 +1413,9 @@ static void onvif_server_start(mediapipe_t *mp)
 {
     GIOChannel *gio_socket_channel;
     gint server_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_sockfd < 0) {
+        perror("create socket failed");
+    }
     struct sockaddr_un server_sockaddr;
     server_sockaddr.sun_family = AF_UNIX;
     strncpy(server_sockaddr.sun_path, SERVERNAME, sizeof(server_sockaddr.sun_path)-1);

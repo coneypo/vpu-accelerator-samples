@@ -88,7 +88,7 @@ static int usclient_connect(const char *server_uri, const int pipe_id)
     //Connect to server
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sun_family = AF_UNIX;
-    strcpy(serv_addr.sun_path, server_uri);
+    g_strlcpy(serv_addr.sun_path, server_uri, 107);
     int ret = connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
     if (ret < 0) {
         perror("ERROR connecting!");

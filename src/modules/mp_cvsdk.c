@@ -4,6 +4,7 @@
  */
 
 #include "mediapipe_com.h"
+#include "glib.h"
 
 #define CVSDK_BASE_TRACKID 1024
 #define MAX_BUF_SIZE 512
@@ -311,7 +312,7 @@ branch_init(mediapipe_branch_t *mp_branch)
     const gchar *desc_format = NULL;
     gchar description[MAX_BUF_SIZE];
     cvsdk_branch_t *branch = (cvsdk_branch_t *) mp_branch;
-    snprintf(description, MAX_BUF_SIZE, branch->format, branch->scale_w,
+    g_snprintf(description, MAX_BUF_SIZE, branch->format, branch->scale_w,
              branch->scale_h);
     printf("description:[%s]\n",description);
     GstElement *new_pipeline = mediapipe_branch_create_pipeline(description);
@@ -418,6 +419,7 @@ push_buffer_to_cvsdk_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
 {
     cvsdk_branch_t *branch = (cvsdk_branch_t *) user_data;
     mediapipe_branch_push_buffer(&branch->mp_branch, buffer);
+    return TRUE;
 }
 
 static mp_int_t
@@ -459,6 +461,7 @@ subscribe_message(const char *message_name,
         msg_list = g_list_append(msg_list, t_ctx);
         g_hash_table_replace(ctx.msg_hst, g_strdup(message_name), (gpointer)msg_list);
     }
+    return MP_OK;
 }
 
 static mp_int_t

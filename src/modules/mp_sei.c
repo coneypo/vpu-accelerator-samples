@@ -143,5 +143,6 @@ static mp_int_t
 init_callback(mediapipe_t *mp)
 {
     mediapipe_set_user_callback(mp, "enc0", "sink", enc0_sink_callback, NULL);
+    return MP_OK;
 }
 

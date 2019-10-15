@@ -344,7 +344,7 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
                 //convert const char * to char *
                 char *p = const_cast<char *>(textString.c_str());
                 //delete , in the end
-                int len = strlen(p);
+                int len =textString.length();
                 if (p[len - 1] == ',') {
                     p[len - 1] = '\0';
                 }

@@ -213,5 +213,6 @@ static mp_int_t
 init_callback(mediapipe_t *mp)
 {
     mediapipe_set_user_callback(mp, "mix", "src", mix_src_callback, &ctx.branch);
+    return MP_OK;
 }
 

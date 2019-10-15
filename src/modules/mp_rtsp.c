@@ -4,7 +4,7 @@
  */
 
 #include "../core/mediapipe_com.h"
-
+#include "glib.h"
 static char *
 mp_rtsp_block(mediapipe_t *mp, mp_command_t *cmd);
 
@@ -476,7 +476,7 @@ mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
         LOG_ERROR("Caps for rtsp server is wrong.");
         return FALSE;
     }
-    strcat(launch, ")");
+    g_strlcat(launch, ")", 199);
     gst_rtsp_media_factory_set_launch(factory, launch);
     gst_rtsp_media_factory_set_shared(factory, TRUE);
     ctx[0] = create_callback_context(mp, element_name, "src");
@@ -489,10 +489,14 @@ mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
 
     ctx[0]->caps_string = caps_string;
     ctx[0]->fps = fps;
-    ctx[0]->user_data = srtp_conf[0].key;
+    if (srtp_conf) {
+        ctx[0]->user_data = srtp_conf[0].key;
+    }
     ctx[1]->caps_string = caps_string1;
     ctx[1]->fps = fps1;
-    ctx[1]->user_data = srtp_conf[1].key;
+    if (srtp_conf) {
+        ctx[1]->user_data = srtp_conf[1].key;
+    }
     g_signal_connect(factory, "media-configure", (GCallback)merge_av_media_configure, ctx);
     gst_rtsp_mount_points_add_factory(mounts, mount_path, factory);
     gst_object_unref(mounts);
@@ -505,7 +509,6 @@ mediapipe_merge_av_rtsp_server_new(mediapipe_t *mp,
     } else {
         g_print("rtsp address: rtsp://%s:8554%s\n", get_local_ip_addr(), mount_path);
     }
-
     return TRUE;
 }
 
@@ -583,7 +586,7 @@ json_setup_rtsp_server(mediapipe_t *mp, struct json_object *root)
 
     if (has_port && port > 0 && port <= 65535) {
         char sport[6];
-        sprintf(sport, "%d", port);
+        g_snprintf(sport, 6, "%d", port);
 
         if (!mp->rtsp_server) {
             mp->rtsp_server = gst_rtsp_server_new();

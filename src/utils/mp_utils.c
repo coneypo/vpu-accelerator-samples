@@ -131,6 +131,10 @@ static void get_local_net_name(char *szCardName)
     FILE *f;
     char line[100], *p, *c;
     f = fopen("/proc/net/route" ,"r");
+    if (f == NULL) {
+        LOG_ERROR("I/O error !");
+        return;
+    }
     while(fgets(line, 100, f)) {
         p = strtok(line, " \t");
         c = strtok(NULL, " \t");
