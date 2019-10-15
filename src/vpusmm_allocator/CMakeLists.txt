@@ -22,11 +22,6 @@ if(USE_VPUSMM)
 
     target_include_directories(${DMABUF_ALLOC_STATIC_LIB} PUBLIC ${CMAKE_SOURCE_DIR}/src/vpusmm_allocator)
 
-    add_executable(gstvpusmm_test gstvpusmm_test.c)
-    target_include_directories(gstvpusmm_test PRIVATE ${GLIB_INCLUDE_DIRS})
-    target_include_directories(gstvpusmm_test PRIVATE ${GSTREAMER_INCLUDE_DIRS})
-    target_include_directories(gstvpusmm_test PRIVATE ${GSTREAMER_CHECK_INCLUDE_DIRS})
-    target_link_libraries(gstvpusmm_test ${DMABUF_ALLOC_STATIC_LIB} ${GSTREAMER_CHECK_LIBRARIES})
 else()
     set(DMABUF_ALLOC_STATIC_LIB "" CACHE STRING "dmabuf allocator static lib targets" FORCE)
     message("skip build vpusmm based DMABUF_ALLOC_STATIC_LIB")
