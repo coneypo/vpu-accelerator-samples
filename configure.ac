@@ -1,3 +1,7 @@
+dnl Copyright (C) 2019 Intel Corporation
+dnl SPDX-License-Identifier: MIT
+dnl
+
 dnl required version of autoconf
 AC_PREREQ([2.53])
 

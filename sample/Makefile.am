@@ -1,3 +1,6 @@
+# Copyright (C) 2019 Intel Corporation
+# SPDX-License-Identifier: MIT
+#
 noinst_PROGRAMS = sample
 
 sample_SOURCES = sample_struct.c
