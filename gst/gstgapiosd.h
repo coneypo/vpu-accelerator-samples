@@ -51,6 +51,7 @@ struct _GstGapiosd {
     gpointer prims_pointer;
     GRWLock rwlock;
     gboolean drawroi;
+    gboolean is_dma;
     gchar  *allocator_name;
 };
 

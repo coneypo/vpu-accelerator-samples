@@ -173,6 +173,7 @@ gst_gapi_osd_init(GstGapiosd *filter)
     filter->prims_pointer = init_array();
     g_rw_lock_init(&filter->rwlock);
     filter->drawroi = false;
+    filter->is_dma = false;
 }
 
 static void
@@ -252,10 +253,20 @@ gst_gapi_osd_get_property(GObject *object, guint prop_id,
 
 /* this function does the actual processing
  */
+#define ALIGN(i, n)    (((i) + (n) - 1) & ~((n) - 1))
 static GstFlowReturn
 gst_gapi_osd_transform_ip(GstBaseTransform *base, GstBuffer *buf)
 {
     GstGapiosd *filter = GST_GAPI_OSD(base);
+    GstVideoMeta * dmeta = NULL;
+
+    if(filter->is_dma){
+        dmeta = gst_buffer_get_video_meta(buf);
+        if(dmeta && GST_VIDEO_INFO_FORMAT(&filter->src_info) == GST_VIDEO_FORMAT_NV12){
+            GST_VIDEO_INFO_WIDTH(&filter->src_info) = ALIGN(GST_VIDEO_INFO_WIDTH(&filter->src_info), 64);
+            GST_VIDEO_INFO_HEIGHT(&filter->src_info) = ALIGN(GST_VIDEO_INFO_HEIGHT(&filter->src_info), 64);
+        }
+    }
 
     g_rw_lock_reader_lock(&filter->rwlock);
     GList *list = filter->gapi_json_object_list;
@@ -545,10 +556,15 @@ gst_gapi_osd_set_caps(GstBaseTransform *trans, GstCaps *incaps, GstCaps *outcaps
     g_assert(incaps != NULL);
     g_assert(outcaps != NULL);
     GstGapiosd *filter = GST_GAPI_OSD(trans);
+    GstCapsFeatures *feature = NULL;
     if (!gst_video_info_from_caps(&filter->sink_info, incaps) ||
         !gst_video_info_from_caps(&filter->src_info, outcaps)) {
         GST_ERROR_OBJECT(filter, "invalid caps");
         return FALSE;
+    }
+    feature = gst_caps_get_features(outcaps, 0);
+    if (gst_caps_features_contains(feature, "memory:DMABuf")) {
+       filter->is_dma = TRUE;
     }
     return TRUE;
 }
