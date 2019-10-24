@@ -11,7 +11,13 @@
 #include <set>
 #include <string>
 
-#include <xlink_uapi.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include <uapi/misc/xlink_uapi.h>
+#ifdef __cplusplus
+}
+#endif
 
 #include "PipelineStatus.h"
 #include "hal_message.pb.h"
