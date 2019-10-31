@@ -3,7 +3,7 @@ set(SAMPLE_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../inc")
 add_executable(GstHvaSample "GstHvaSample.cpp")
 target_include_directories(GstHvaSample PUBLIC "$<BUILD_INTERFACE:${SAMPLE_INC_DIR}>")
 target_include_directories(GstHvaSample PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_INCLUDE_DIRS}")
-target_link_libraries(GstHvaSample glib-2.0 gstreamer-1.0 gstbase-1.0)
+target_link_libraries(GstHvaSample glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0)
 
 # message("GstHvaSample linked libraries: ${GLIB_LIBRARIES} ${GSTREAMER_LIBRARIES} ${GSTREAMER_BASE_LIBRARIES}")
 
