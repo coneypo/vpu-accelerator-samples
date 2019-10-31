@@ -1,0 +1,18 @@
+set(SAMPLE_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../inc")
+
+add_executable(GstHvaSample "GstHvaSample.cpp")
+target_include_directories(GstHvaSample PUBLIC "$<BUILD_INTERFACE:${SAMPLE_INC_DIR}>")
+target_include_directories(GstHvaSample PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_INCLUDE_DIRS}")
+target_link_libraries(GstHvaSample glib-2.0 gstreamer-1.0 gstbase-1.0)
+
+# message("GstHvaSample linked libraries: ${GLIB_LIBRARIES} ${GSTREAMER_LIBRARIES} ${GSTREAMER_BASE_LIBRARIES}")
+
+# get_target_property(SAMPLE_LINK_FLAGS GstHvaSample LINK_FLAGS)
+# set_target_properties(GstHvaSample PROPERTIES LINK_FLAGS "${SAMPLE_LINK_FLAGS} -L${GLIB_LIBRARY_DIRS} -L${GSTREAMER_LIBRARY_DIR} -L${GSTREAMER_BASE_LIBRARY_DIR}")
+# target_link_directories(GstHvaSample PUBLIC GLIB_LIBRARy_DIRS GSTREAMER_LIBRARY_DIR GSTREAMER_BASE_LIBRARY_DIR)
+
+get_target_property(SAMPLE_INC_DIR GstHvaSample INCLUDE_DIRECTORIES)
+message("SAMPLE_INC_DIR: ${SAMPLE_INC_DIR}")
+
+get_target_property(NEW_SAMPLE_LINK_FLAGS GstHvaSample LINK_FLAGS)
+message("NEW_SAMPLE_LINK_FLAGS: ${NEW_SAMPLE_LINK_FLAGS}")
