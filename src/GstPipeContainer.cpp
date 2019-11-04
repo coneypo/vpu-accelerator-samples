@@ -2,6 +2,7 @@
 #include <glib-object.h>
 #include <gst/app/gstappsink.h>
 #include <iostream>
+#include <vpusmm/vpusmm.h>
 
 GstPipeContainer::GstPipeContainer():pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
@@ -136,6 +137,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     if (!gst_buffer_map(buf, info, GST_MAP_READ))
         return false;
 
+    
+
     blob->emplace<unsigned char, std::pair<unsigned, unsigned>>(info->data, m_width*m_height*3/2,
             new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
                 gst_buffer_unmap(buf, info);
@@ -161,4 +164,27 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     gst_sample_unref(m_sampleRead);
     m_sampleRead = nullptr;
 */
+}
+
+bool GstPipeContainer::_gst_dmabuffer_import(GstBuffer *buffer){
+    GstMemory *mem = gst_buffer_get_memory(buffer, 0);
+    if (mem == nullptr || !gst_is_dmabuf_memory(mem)) {
+        gst_memory_unref(mem);
+        return false;
+    } else {
+        int fd = gst_dmabuf_memory_get_fd(mem);
+        if (fd <= 0) {
+            gst_memory_unref(mem);
+            return false;
+        } else {
+            long int phyAddr = vpusmm_import_dmabuf(fd, VPU_DEFAULT);
+            if (phyAddr <= 0) {
+                gst_memory_unref(mem);
+                return false;
+            }
+        }
+    }
+    gst_memory_unref(mem);
+    return true;
+
 }

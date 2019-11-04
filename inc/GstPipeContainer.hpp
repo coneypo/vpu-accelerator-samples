@@ -27,6 +27,8 @@ public:
     GstElement* app_queue;
 
 private:
+    bool _gst_dmabuffer_import(GstBuffer *buffer);
+
     bool m_bStart;
 
     GstPad* m_tee_vaapi_pad;
