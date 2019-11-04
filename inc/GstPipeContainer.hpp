@@ -2,6 +2,7 @@
 #define GST_PIPE_CONTAINER_HPP
 
 #include <gst/gst.h>
+#include <hvaPipeline.hpp>
 
 class GstPipeContainer{
 public:
@@ -13,7 +14,7 @@ public:
 
     ~GstPipeContainer();
 
-    bool read();
+    bool read(std::shared_ptr<hva::hvaBlob_t>& blob);
 
     GstElement* pipeline;
     GstElement* file_source;
@@ -31,7 +32,7 @@ private:
     GstPad* m_tee_vaapi_pad;
     GstPad* m_tee_app_pad;
 
-    GstSample* m_sampleRead;
+    // GstSample* m_sampleRead;
 
     int m_width;
     int m_height;

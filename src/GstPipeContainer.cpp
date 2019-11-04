@@ -6,7 +6,7 @@
 GstPipeContainer::GstPipeContainer():pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
             m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr),
-            m_sampleRead(nullptr), m_width(0), m_height(0){
+            m_width(0), m_height(0){
 
 }
 
@@ -100,7 +100,7 @@ int GstPipeContainer::start(){
     m_bStart = true;
 }
 
-bool GstPipeContainer::read(){
+bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     if (!pipeline || !GST_IS_ELEMENT(pipeline))
         return false;
 
@@ -112,29 +112,41 @@ bool GstPipeContainer::read(){
     if (gst_app_sink_is_eos(GST_APP_SINK(app_sink)))
         return false;
 
-    if(!m_sampleRead){
-        gst_sample_unref(m_sampleRead);
-        m_sampleRead = nullptr;
-    }
-    m_sampleRead = gst_app_sink_pull_sample(GST_APP_SINK(app_sink));
-    if(!m_sampleRead)
+    // if(!m_sampleRead){
+    //     gst_sample_unref(m_sampleRead);
+    //     m_sampleRead = nullptr;
+    // }
+    GstSample* sampleRead = gst_app_sink_pull_sample(GST_APP_SINK(app_sink));
+    if(!sampleRead)
         return false;
 
     if(m_width == 0 || m_height == 0){
-        GstCaps * frame_caps = gst_sample_get_caps(m_sampleRead);
+        GstCaps * frame_caps = gst_sample_get_caps(sampleRead);
         GstStructure* structure = gst_caps_get_structure(frame_caps, 0);
         gst_structure_get_int(structure, "width", &m_width);
         gst_structure_get_int(structure, "height", &m_height);
     }
 
-    GstBuffer* buf = gst_sample_get_buffer(m_sampleRead);
+    GstBuffer* buf = gst_sample_get_buffer(sampleRead);
     if (!buf)
         return false;
 
-    GstMapInfo info = {};
-    if (!gst_buffer_map(buf, &info, GST_MAP_READ))
+    // GstMapInfo info = {};
+    GstMapInfo* info = new GstMapInfo;
+    if (!gst_buffer_map(buf, info, GST_MAP_READ))
         return false;
 
+    blob->emplace<unsigned char, std::pair<unsigned, unsigned>>(info->data, m_width*m_height*3/2,
+            new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
+                gst_buffer_unmap(buf, info);
+                gst_sample_unref(sampleRead);
+                delete info;
+                delete meta;
+            });
+
+    return true;
+
+/*
     uint8_t* cur = info.data;
     std::cout<<"\nFrame Received: "<<std::endl;
     for(unsigned row = 0; row < m_height; ++row){
@@ -148,5 +160,5 @@ bool GstPipeContainer::read(){
     gst_buffer_unmap(buf, &info);
     gst_sample_unref(m_sampleRead);
     m_sampleRead = nullptr;
-
+*/
 }
