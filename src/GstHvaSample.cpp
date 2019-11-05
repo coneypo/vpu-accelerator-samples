@@ -12,7 +12,7 @@ int main(){
 
     hva::hvaPipeline_t pl;
 
-    InferInputParams paramsInfer;  // input param for infer
+    InferInputParams_t paramsInfer;  // input param for infer
     paramsInfer.filenameModel = "yolov2_tiny_od_yolo_IR_fp32.xml";
     paramsInfer.format = INFER_FORMAT_NV12;
     paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2;

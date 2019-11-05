@@ -12,6 +12,7 @@
 #include <utility>
 
 #include <ie_blob.h>
+#include <iomanip>
 
 /**
  * @class ClassificationResult

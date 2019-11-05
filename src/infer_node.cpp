@@ -1,5 +1,5 @@
 // #define HVA_CV
-// #define HVA_KMB
+#define HVA_KMB
 
 #include <infer_node.hpp>
 #include <timeMeasure.hpp>
@@ -16,8 +16,8 @@
 #include "include/ocv_common.hpp"
 #endif
 
-#include "include/classification_results.h"
-#include "include/tinyYolov2_post.h"
+#include "classification_results.h"
+#include "tinyYolov2_post.h"
 #include <ie_iextension.h>
 
 #ifdef HVA_KMB
@@ -27,7 +27,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "include/region_yolov2tiny.h"
+#include "region_yolov2tiny.h"
 #endif
 using namespace InferenceEngine;
 
@@ -448,7 +448,7 @@ void InferNodeWorker::postprocessClassification(InferNodeWorker& inferWorker) {
     auto dims = desc.getDims();
     float* data = static_cast<float*>(output->buffer());
 #ifdef HVA_KMB
-    Blob::Ptr output = InferNodeWorker::deQuantizeClassification(output, 1, 0);
+    output = InferNodeWorker::deQuantizeClassification(output, 1, 0);
 #endif
     // Print classification results
     std::vector<std::string> filenames;

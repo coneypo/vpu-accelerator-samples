@@ -1,3 +1,5 @@
+#include <cmath>
+
 namespace YoloV2Tiny {
     std::vector<DetectedObject_t> run_nms(std::vector<DetectedObject_t> candidates, double threshold) {
         std::vector<DetectedObject_t> nms_candidates;

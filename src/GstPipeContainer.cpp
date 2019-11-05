@@ -1,6 +1,7 @@
 #include <GstPipeContainer.hpp>
 #include <glib-object.h>
 #include <gst/app/gstappsink.h>
+#include <gst/allocators/allocators.h>
 #include <iostream>
 #include <vpusmm/vpusmm.h>
 

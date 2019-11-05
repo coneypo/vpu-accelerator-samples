@@ -8,7 +8,7 @@ add_executable(GstHvaSample "${SAMPLE_SRC}")
 target_include_directories(GstHvaSample PUBLIC "$<BUILD_INTERFACE:${SAMPLE_INC_DIR}>")
 
 target_include_directories(GstHvaSample PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_INCLUDE_DIRS}")
-target_link_libraries(GstHvaSample glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0)
+target_link_libraries(GstHvaSample glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0 gstallocators-1.0 vpusmm)
 
 target_link_libraries(GstHvaSample "${InferenceEngine_LIBRARIES}" dl)
 target_include_directories(GstHvaSample PUBLIC "${InferenceEngine_INCLUDE_DIRS}")
