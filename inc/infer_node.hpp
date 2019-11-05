@@ -96,7 +96,7 @@ public:
 
 #ifdef HVA_KMB
     static InferenceEngine::Blob::Ptr deQuantize(const InferenceEngine::Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint);
-    static InferenceEngine::Blob::Ptr deQuantizeClassification(const Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint);
+    static InferenceEngine::Blob::Ptr deQuantizeClassification(const InferenceEngine::Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint);
 #endif
 
 private:

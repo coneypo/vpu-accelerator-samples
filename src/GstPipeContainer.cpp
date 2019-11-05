@@ -44,7 +44,7 @@ int GstPipeContainer::init(){
     g_object_set(app_sink, "caps", caps, NULL);
     gst_caps_unref(caps);
 
-    g_object_set(file_source, "location", "/Workspace/barrier_1080x720.h264", NULL);
+    g_object_set(file_source, "location", "./barrier_1080x720.h264", NULL);
 
     gst_bin_add_many(GST_BIN(pipeline), file_source, parser, dec,
             tee, vaapi_queue, app_queue, vaapi_sink, app_sink, NULL);
