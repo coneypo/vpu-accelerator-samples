@@ -1,5 +1,5 @@
 {
-    "module_list": [ "rtsp", "openvino_tracking", "mix3"],
+    "module_list": [ "rtsp", "openvino_tracking", "mix3", "onvif", "changeformat"],
     "rtsp":
     {
         "rtsp_server":
@@ -84,10 +84,18 @@
     [
         {
             "name":"src_caps",
-            "caps":"video/x-raw,format=NV12,width=1920,height=1080"
+            "caps":"video/x-raw,format=NV12,width=1280,height=720"
         },
         {
-            "name":"videorate_caps",
+            "name":"videorate1_caps",
+            "caps":"video/x-raw,framerate=30/1"
+        },
+        {
+            "name":"videorate2_caps",
+            "caps":"video/x-raw,framerate=30/1"
+        },
+        {
+            "name":"videorate3_caps",
             "caps":"video/x-raw,framerate=30/1"
         },
         //-------------channel: 1---------------
@@ -98,11 +106,16 @@
         {
             "name":"convert1_caps",
             "caps":"video/x-raw,format=I420,width=1280,height=720"
-		},
+	    },
+	    {
+            "name":"enc1",
+            "resend-pps":1,
+            "resend-sps":1
+	    },
         {
             "name":"enc1_caps",
             "caps":"video/x-h264,stream-format=byte-stream,profile=high"
-        },
+	    },
         //------------channel: 2-------------
         {
             "name":"scale2_caps",
@@ -120,16 +133,28 @@
         //------------channel: 3-------------
         {
             "name":"scale3_caps",
-            "caps":"video/x-raw,format=NV12,width=4096,height=2160"
+            "caps":"video/x-raw,format=NV12,width=3840,height=2160"
         },
         {
             "name":"convert3_caps",
-            "caps":"video/x-raw,format=I420,width=4096,height=2160"
+            "caps":"video/x-raw,format=I420,width=3840,height=2160"
         },
         {
             "name":"enc3_caps",
             "caps":"video/x-h264,stream-format=byte-stream,profile=high"
         }
-    ]
+    ],
+    "changeformat":{
+        "plugin_264_class_name" : "vaapih264enc",
+        "plugin_265_class_name" : "vaapih265enc",
+        "plugin_jpeg_class_name" : "vaapijpegenc"
+
+    },
+    "onvif":{
+        "image_element": "src",
+        "video_element": "enc1",
+        "stream_uri": "/test1",
+        "videorate_capsfilter": "videorate_caps"
+    }
 
 }

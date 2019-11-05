@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <semaphore.h>
 #define SERVER_PORT 8889
 #define BUF_LEN 1024
 #define DEFAULT_WIDTH "1920"
@@ -46,6 +47,8 @@
 #define SERVERNAME "/tmp/onvif"
 
 static GHashTable *client_table = NULL;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t needProduct = PTHREAD_COND_INITIALIZER;
 
 typedef void (*func)(struct json_object *, int *res_status, gchar *res_msg,
                      gpointer data);
@@ -112,6 +115,10 @@ typedef struct {
     const char *image_element;
     const char *stream_uri;
     const char *videorate_capsfilter;
+    int width;
+    int height;
+    GMainContext *context;
+    GMainLoop *loop;
 } Context;
 
 static Context *onvif_ctx = NULL ;
@@ -396,6 +403,8 @@ change_format_in_channel(gpointer user_data)
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "bitrate", bitrate, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "keyframe-period", govlen, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "rate-control", 1, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "resend-pps", 1, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "resend-sps", 1, NULL);
     }
     gst_object_unref(enc_caps_element);
     if (caps != NULL) {
@@ -419,6 +428,7 @@ change_format_in_channel(gpointer user_data)
         sprintf(r_caps_s, "image/jpeg,width=%d,height=%d", width, height);
     }
     gst_caps_unref(new_caps);
+
     //reset sink
     GstElement *sink = gst_bin_get_by_name(GST_BIN((mp)->pipeline), sink_name);
     gst_element_set_state(sink, GST_STATE_NULL);
@@ -445,6 +455,7 @@ change_format_in_channel(gpointer user_data)
     gst_bus_post(test_bus, m);
     gst_object_unref(test_bus);
     g_free(mp_chform);
+    pthread_cond_signal(&needProduct);
     return TRUE;
 }
 
@@ -475,6 +486,31 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
     for (int i = 0; i < VIDEO_PARAM_MAX; i++) {
         check_param(&param[i], obj, "set video config");
     }
+    
+    if(param[WIDTH].value_int == 1280 && param[HEIGHT].value_int == 720 )
+    {
+        ctx->video_element = "enc1";
+        ctx->stream_uri = "/test1";
+        ctx->videorate_capsfilter = "videorate1_caps";
+    }
+    else if(param[WIDTH].value_int == 1920 && param[HEIGHT].value_int == 1080)
+    {
+        ctx->video_element = "enc2";
+        ctx->stream_uri = "/test2";
+        ctx->videorate_capsfilter = "videorate2_caps";
+    }
+    else if(param[WIDTH].value_int == 3840 && param[HEIGHT].value_int == 2160)
+    {
+        ctx->video_element = "enc3";
+        ctx->stream_uri = "/test3";
+        ctx->videorate_capsfilter = "videorate3_caps";
+    }
+    else
+    {
+        LOG_ERROR("Resolution is not matched.");
+    }
+    ctx->width = param[WIDTH].value_int;
+    ctx->height = param[HEIGHT].value_int;
 
     //get video element
     GstElement *enc_element = NULL;
@@ -631,8 +667,13 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
                                   G_TYPE_STRING, param[ENCODER].value_str, "change_format_in_channel",
                                   G_TYPE_POINTER,
                                   change_format_in_channel, "mp_chform", G_TYPE_POINTER, mp_chform, NULL);
+                                  
             m = gst_message_new_application(NULL, s);
+            pthread_mutex_lock(&lock);
             gst_bus_post(test_bus, m);
+            pthread_cond_wait(&needProduct, &lock);
+            usleep(2000000);
+            pthread_mutex_unlock(&lock);
             gst_object_unref(test_bus);
         } else {
             *res_status = RET_FAILED;
@@ -767,7 +808,7 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     g_assert(data != NULL);
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
-    int  ret = 0;
+    int ret = 0;
 
     //get element
     GstElement *enc_element = NULL;
@@ -777,6 +818,7 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     } else {
         LOG_WARNING("get video config: video element name is NULL");
     }
+
     //get enc src and sink caps
     GstPad *sink_pad = NULL;
     GstPad *src_pad = NULL;
@@ -1347,7 +1389,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
 static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
                                      gpointer data)
 {
-
+    Context *ctx = (Context *)data;
     GIOChannel *client_channel;
     gint client_socket;
 
@@ -1375,17 +1417,17 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
 
     // GIOCondition cond = ((GIOCondition) G_IO_IN|G_IO_HUP);
     GIOCondition cond = G_IO_IN;
-    g_io_add_watch(client_channel, cond, (GIOFunc) gio_client_read_in_hanlder,
-                   data);
+    GSource * source= g_io_create_watch(client_channel, cond);
+    g_source_set_callback(source, (GSourceFunc)gio_client_read_in_hanlder, data, NULL);
+    g_assert(ctx->context != NULL);
+    g_source_attach(source, ctx->context);
     g_io_channel_unref(client_channel);
-
     return TRUE;
 }
 
 static Context *create_context(mediapipe_t *mp)
 {
     Context *ctx;
-
     ctx = g_new0(Context, 1);
     ctx->mp = mp;
     return ctx;
@@ -1394,7 +1436,6 @@ static Context *create_context(mediapipe_t *mp)
 static char *onvif_ctx_set(mediapipe_t *mp, mp_command_t *cmd)
 {
     onvif_ctx = create_context(mp);
-
     onvif_ctx->image_element = get_element_name_from_mp_config(mp, "image_element");
     onvif_ctx->video_element = get_element_name_from_mp_config(mp, "video_element");
     onvif_ctx->stream_uri = get_element_name_from_mp_config(mp, "stream_uri");
@@ -1409,7 +1450,7 @@ static void destroy_context(Context **ctx)
     g_free(*ctx);
 }
 
-static void onvif_server_start(mediapipe_t *mp)
+static void *onvif_server_thread_run(void *data)
 {
     GIOChannel *gio_socket_channel;
     gint server_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -1433,7 +1474,7 @@ static void onvif_server_start(mediapipe_t *mp)
     }
 #endif
 
-    if(bind(server_sockfd, (struct sockaddr *) &server_sockaddr,
+    if(bind(server_sockfd, (struct sockaddr *)&server_sockaddr,
             sizeof(server_sockaddr)) == -1) {
         perror("bind error");
         close(server_sockfd);
@@ -1456,9 +1497,28 @@ static void onvif_server_start(mediapipe_t *mp)
     if (NULL == client_table) {
         client_table = g_hash_table_new_full(g_int_hash, g_int_equal, g_free, g_free);
     }
+
     GIOCondition cond = G_IO_IN;
-    g_io_add_watch(gio_socket_channel, cond, (GIOFunc) gio_client_in_handle, onvif_ctx);
+    MainContext *context =  g_main_context_new();
+    g_main_context_push_thread_default(context);
+    GMainLoop *loop = g_main_loop_new(context, FALSE);
+    GSource *source = g_io_create_watch(gio_socket_channel, cond);
+    onvif_ctx->context = context;
+    onvif_ctx->loop = loop;
+    g_source_set_callback(source, (GSourceFunc)gio_client_in_handle, onvif_ctx, NULL);
+    g_source_attach(source, context);
     g_io_channel_unref(gio_socket_channel);
+    g_main_loop_run(loop);
+    g_source_destroy(source);
+    g_main_loop_unref(loop);
+    g_main_context_unref(context);
+
+}
+
+static void onvif_server_start(mediapipe_t *mp)
+{
+	GThread *p_thread;
+	p_thread = g_thread_new("Unused String", onvif_server_thread_run, mp);
 }
 
 
@@ -1473,6 +1533,7 @@ static void
 exit_master(void)
 {
     g_hash_table_unref(client_table);
+    g_main_loop_quit(onvif_ctx->loop);
     destroy_context(&onvif_ctx);
 }
 
