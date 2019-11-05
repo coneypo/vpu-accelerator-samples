@@ -36,7 +36,7 @@ int main(){
     std::cout<<"Finished"<<std::endl;
 
     using ms = std::chrono::milliseconds;
-    std::this_thread::sleep_for(ms(2000));
+    std::this_thread::sleep_for(ms(10000));
 
     std::cout<<"Going to stop pipeline."<<std::endl;
 

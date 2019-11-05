@@ -8,7 +8,7 @@
 GstPipeContainer::GstPipeContainer():pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
             m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr),
-            m_width(0), m_height(0){
+            capsfilter(nullptr), m_width(0), m_height(0){
 
 }
 
@@ -16,16 +16,24 @@ int GstPipeContainer::init(){
     file_source = gst_element_factory_make("filesrc", "file_source");
     parser = gst_element_factory_make("h264parse", "parser");
     dec = gst_element_factory_make("vaapih264dec", "dec");
+    app_queue = gst_element_factory_make("queue", "app_queue");
+    app_sink = gst_element_factory_make("appsink", "appsink");
+#ifdef ENABLE_DISPLAY
     tee = gst_element_factory_make("tee", "tee");
     vaapi_queue = gst_element_factory_make("queue", "vaapi_queue");
-    app_queue = gst_element_factory_make("queue", "app_queue");
     vaapi_sink = gst_element_factory_make("vaapisink", "vaapi_sink");
-    app_sink = gst_element_factory_make("appsink", "appsink");
-
+#else
+    capsfilter = gst_element_factory_make("capsfilter", "capsfilter");
+#endif
     pipeline = gst_pipeline_new("pipeline");
 
-    if(!file_source || !parser || !dec || !tee || !vaapi_sink ||
-            !app_sink || !vaapi_queue || !app_queue || !pipeline){
+    if(!file_source || !parser || !dec || !app_sink || !app_queue || !pipeline
+#ifdef ENBALE_DISPLAY
+            || !vaapi_queue || !vaapi_sink || !tee
+#else
+            || !capsfilter
+#endif
+            ){
         return -1;
     }
     // if(!cont.file_source || !cont.parser || !cont.dec || !cont.vaapi_sink ||
@@ -39,13 +47,28 @@ int GstPipeContainer::init(){
     // }
 
     // video/x-raw(memory:VASurface)
+
+/*
+#ifdef ENABLE_DISPLAY
     GstCaps *caps = gst_caps_new_simple("video/x-raw", 
             "format", G_TYPE_STRING, "NV12", NULL);
+#else
+    GstCaps *caps = gst_caps_new_simple("video/x-raw(memory:DMABuf)", 
+            "format", G_TYPE_STRING, "NV12", NULL);
+#endif
     g_object_set(app_sink, "caps", caps, NULL);
     gst_caps_unref(caps);
+*/
 
+    GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
+    if (!caps)
+        return -3;
+    g_object_set(capsfilter, "caps", caps, NULL);
+    gst_caps_unref (caps);
+    
     g_object_set(file_source, "location", "./barrier_1080x720.h264", NULL);
 
+#ifdef ENABLE_DISPLAY
     gst_bin_add_many(GST_BIN(pipeline), file_source, parser, dec,
             tee, vaapi_queue, app_queue, vaapi_sink, app_sink, NULL);
     if(!gst_element_link_many(file_source, parser, dec, tee, NULL)){
@@ -58,14 +81,16 @@ int GstPipeContainer::init(){
     if(!gst_element_link_many(app_queue, app_sink, NULL)){
         return -2;
     }
+#else
+    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, dec, capsfilter,
+            app_queue, app_sink, NULL);
 
-    // gst_bin_add_many(GST_BIN(cont.pipeline), cont.file_source, cont.parser, cont.dec,
-    //         cont.vaapi_sink, NULL);
+    if(!gst_element_link_many(file_source, parser, dec, capsfilter, app_queue, app_sink, NULL)){
+        return -2;
+    }
+#endif
 
-    // if(!gst_element_link_many(cont.file_source, cont.parser, cont.dec, cont.vaapi_sink, NULL)){
-    //     return -1;
-    // }
-
+#ifdef ENABLE_DISPLAY
     m_tee_vaapi_pad = gst_element_get_request_pad(tee, "src_%u");
     m_tee_app_pad = gst_element_get_request_pad(tee, "src_%u");
 
@@ -80,17 +105,20 @@ int GstPipeContainer::init(){
 
     gst_object_unref(vaapi_pad);
     gst_object_unref(app_pad);
+#endif
 
     return 0;
 }
 
 GstPipeContainer::~GstPipeContainer(){
+#ifdef ENABLE_DISPLAY
     gst_element_release_request_pad(tee, m_tee_vaapi_pad);
     gst_element_release_request_pad(tee, m_tee_app_pad);
     if(!m_tee_vaapi_pad)
         gst_object_unref(m_tee_vaapi_pad);
     if(!m_tee_app_pad)
         gst_object_unref(m_tee_app_pad);
+#endif
     gst_element_set_state (pipeline, GST_STATE_NULL);
     gst_object_unref(pipeline);
 }
@@ -100,6 +128,7 @@ int GstPipeContainer::start(){
     m_width = 0;
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
     m_bStart = true;
+    return 0;
 }
 
 bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){

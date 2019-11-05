@@ -25,6 +25,7 @@ public:
     GstElement* app_sink;
     GstElement* vaapi_queue;
     GstElement* app_queue;
+    GstElement* capsfilter;
 
 private:
     bool _gst_dmabuffer_import(GstBuffer *buffer, int& fd);
