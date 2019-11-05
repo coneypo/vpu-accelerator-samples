@@ -1,6 +1,6 @@
 namespace YoloV2Tiny {
-    std::vector<DetectedObject> run_nms(std::vector<DetectedObject> candidates, double threshold) {
-        std::vector<DetectedObject> nms_candidates;
+    std::vector<DetectedObject_t> run_nms(std::vector<DetectedObject_t> candidates, double threshold) {
+        std::vector<DetectedObject_t> nms_candidates;
         std::sort(candidates.begin(), candidates.end());
 
         while (candidates.size() > 0) {
@@ -126,7 +126,7 @@ namespace YoloV2Tiny {
     using rawNetOutExtractor =
         std::function<void(float const *, const int, const int, const float threshold, float *)>;
 
-    std::vector<DetectedObject> TensorToBBoxYoloV2TinyCommon(const InferenceEngine::Blob::Ptr &blob, int image_height, int image_width,
+    std::vector<DetectedObject_t> TensorToBBoxYoloV2TinyCommon(const InferenceEngine::Blob::Ptr &blob, int image_height, int image_width,
                                      double thresholdConf, rawNetOutExtractor extractor) {
         int kAnchorSN = 13;
         float kAnchorScales[] = {1.08f, 1.19f, 3.42f, 4.41f, 6.63f, 11.38f, 9.42f, 5.11f, 16.62f, 10.52f};
@@ -139,7 +139,7 @@ namespace YoloV2Tiny {
         const bool preprocess_keep_ratio = false;
 
         float raw_netout[idxCount];
-        std::vector<DetectedObject> objects;
+        std::vector<DetectedObject_t> objects;
         for (int k = 0; k < 5; k++) {
             float anchor_w = kAnchorScales[k * 2];
             float anchor_h = kAnchorScales[k * 2 + 1];
@@ -172,7 +172,7 @@ namespace YoloV2Tiny {
                         float y1 = cy + h * 0.5f;
                         scaleBack(preprocess_keep_ratio, x0, x1, y0, y1, image_width, image_height);
 
-                        DetectedObject object((x0 + x1) * 0.5, (y0 + y1) * 0.5, y1 - y0, x1 - x0, max_info.second);
+                        DetectedObject_t object((x0 + x1) * 0.5, (y0 + y1) * 0.5, y1 - y0, x1 - x0, max_info.second);
                         objects.push_back(object);
                     }
                 }
@@ -182,12 +182,12 @@ namespace YoloV2Tiny {
         double nms_threshold = 0.5;
         objects = run_nms(objects, nms_threshold);
 
-        // for (const DetectedObject &object : objects)
+        // for (const DetectedObject_t &object : objects)
         // {
         //     printf("*****yolotiny @(%d, %d), WxH=%dx%dx, prob=%.1f", (object.x >= 0) ? object.x : 0,
         //         (object.y >= 0) ? object.y : 0, object.width, object.height, object.confidence);
         // }
-        
+
         // TODO: add ROI meta params?
 
         return objects;

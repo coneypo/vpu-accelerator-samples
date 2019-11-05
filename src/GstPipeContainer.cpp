@@ -137,10 +137,13 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     if (!gst_buffer_map(buf, info, GST_MAP_READ))
         return false;
 
-    
+    int fd = -1;
+    if (!_gst_dmabuffer_import(buf, fd))
+        return false;
 
     blob->emplace<unsigned char, std::pair<unsigned, unsigned>>(info->data, m_width*m_height*3/2,
-            new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
+            new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead, fd](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
+                vpusmm_unimport_dmabuf(fd);
                 gst_buffer_unmap(buf, info);
                 gst_sample_unref(sampleRead);
                 delete info;
@@ -166,13 +169,13 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 */
 }
 
-bool GstPipeContainer::_gst_dmabuffer_import(GstBuffer *buffer){
+bool GstPipeContainer::_gst_dmabuffer_import(GstBuffer *buffer, int& fd){
     GstMemory *mem = gst_buffer_get_memory(buffer, 0);
     if (mem == nullptr || !gst_is_dmabuf_memory(mem)) {
         gst_memory_unref(mem);
         return false;
     } else {
-        int fd = gst_dmabuf_memory_get_fd(mem);
+        fd = gst_dmabuf_memory_get_fd(mem);
         if (fd <= 0) {
             gst_memory_unref(mem);
             return false;

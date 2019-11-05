@@ -16,6 +16,7 @@ int main(){
     paramsInfer.filenameModel = "yolov2_tiny_od_yolo_IR_fp32.xml";
     paramsInfer.format = INFER_FORMAT_NV12;
     paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2;
+    paramsInfer.preproc = InferNodeWorker::preprocessNV12;
     auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,0,1,paramsInfer), "DetectNode");
 
     pl.prepare();
