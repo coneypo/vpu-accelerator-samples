@@ -38,7 +38,7 @@ struct DetectedObject_t {
     int y;
     int width;
     int height;
-    float confidence;
+    int confidence;
     explicit DetectedObject_t(float x, float y, float h, float w, float confidence, float h_scale = 1.f,
                             float w_scale = 1.f)
         : x(static_cast<int>((x - w / 2) * w_scale)), y(static_cast<int>((y - h / 2) * h_scale)),
@@ -54,6 +54,7 @@ struct DetectedObject_t {
         return this->confidence > other.confidence; //TODO fix me
     }
 };
+
 struct InfoROI_t {
     int widthImage = 0;
     int heightImage = 0;

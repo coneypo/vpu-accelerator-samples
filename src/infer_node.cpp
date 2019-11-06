@@ -56,7 +56,7 @@ Blob::Ptr yoloLayer_yolov2tiny(const Blob::Ptr &lastBlob, int inputHeight, int i
         lastBlob->getTensorDesc().getLayout());
     Blob::Ptr outputBlob = make_shared_blob<float>(outTensor);
     outputBlob->allocate();
-
+    memset(outputBlob->buffer(), 0, outputBlob->byteSize());
     const float *inputRawData = lastBlob->cbuffer().as<const float *>();
     float *outputRawData = outputBlob->buffer().as<PrecisionTrait<Precision::FP32>::value_type *>();
 
@@ -256,7 +256,9 @@ void InferNodeWorker::init(){
 }
 
 void InferNodeWorker::process(std::size_t batchIdx){
+
     vecBlobInput = hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
+
     if(vecBlobInput.size()==0u)
         return;
     preproc(*this);
@@ -494,11 +496,14 @@ void InferNodeWorker::postprocessTinyYolov2(InferNodeWorker& inferWorker) {
     float* data = static_cast<float*>(output_blob->buffer());
     Blob::Ptr dequantOut = InferNodeWorker::deQuantize(output_blob, 0.33713474f, 221);
 
+    FILE* fp = fopen("dumpOutput.bin", "wb");
+    fwrite((unsigned char*)data, 1, output_blob->byteSize(), fp);
+    fclose(fp);
 
     // Region YOLO layer
-    const int imageWidth = 1080;
-    const int imageHeight = 720;
-    Blob::Ptr detectResult = yoloLayer_yolov2tiny(dequantOut, imageHeight, imageWidth);
+    // const int imageWidth = 1080;
+    // const int imageHeight = 720;
+    Blob::Ptr detectResult = yoloLayer_yolov2tiny(dequantOut, inferWorker.m_input_height, inferWorker.m_input_width);
 
     std::vector<DetectedObject_t> vecObjects;
 
@@ -511,12 +516,13 @@ void InferNodeWorker::postprocessTinyYolov2(InferNodeWorker& inferWorker) {
     
     // imageid,labelid,confidence,x0,y0,x1,y1
     for (size_t i = 0; i < N; i++) {
-        if (rawData[i*7 + 2] > 0.001) {
+        if (rawData[i*7 + 2] > 0.001) 
+        {
             DetectedObject_t object;
-            object.x = rawData[i*7 + 3];
-            object.y = rawData[i*7 + 4];
-            object.width = rawData[i*7 + 5] - rawData[i*7 + 3];
-            object.height = rawData[i*7 + 6] - rawData[i*7 + 4];
+            object.x = (rawData[i*7 + 3]) * inferWorker.m_input_width / 416;
+            object.y = (rawData[i*7 + 4]) * inferWorker.m_input_height / 416;
+            object.width = (rawData[i*7 + 5] - rawData[i*7 + 3]) * inferWorker.m_input_width / 416;
+            object.height = (rawData[i*7 + 6] - rawData[i*7 + 4]) * inferWorker.m_input_height / 416;
             object.confidence = rawData[i*7 + 2];
             vecObjects.push_back(object);
 
@@ -574,11 +580,10 @@ void InferNodeWorker::postprocessTinyYolov2WithClassify(InferNodeWorker& inferWo
     float* data = static_cast<float*>(output_blob->buffer());
     Blob::Ptr dequantOut = InferNodeWorker::deQuantize(output_blob, 0.33713474f, 221);
 
-
     // Region YOLO layer
-    const int imageWidth = 1080;
-    const int imageHeight = 720;
-    Blob::Ptr detectResult = yoloLayer_yolov2tiny(dequantOut, imageHeight, imageWidth);
+    // const int imageWidth = 1080;
+    // const int imageHeight = 720;
+    Blob::Ptr detectResult = yoloLayer_yolov2tiny(dequantOut, inferWorker.m_input_height, inferWorker.m_input_width);
 
     std::vector<DetectedObject_t> vecObjects;
 
@@ -593,10 +598,10 @@ void InferNodeWorker::postprocessTinyYolov2WithClassify(InferNodeWorker& inferWo
     for (size_t i = 0; i < N; i++) {
         if (rawData[i*7 + 2] > 0.001) {
             DetectedObject_t object;
-            object.x = rawData[i*7 + 3];
-            object.y = rawData[i*7 + 4];
-            object.width = rawData[i*7 + 5] - rawData[i*7 + 3];
-            object.height = rawData[i*7 + 6] - rawData[i*7 + 4];
+            object.x = (rawData[i*7 + 3]) * inferWorker.m_input_width / 416;
+            object.y = (rawData[i*7 + 4]) * inferWorker.m_input_height / 416;
+            object.width = (rawData[i*7 + 5] - rawData[i*7 + 3]) * inferWorker.m_input_width / 416;
+            object.height = (rawData[i*7 + 6] - rawData[i*7 + 4]) * inferWorker.m_input_height / 416;
             object.confidence = rawData[i*7 + 2];
             vecObjects.push_back(object);
 
@@ -681,10 +686,24 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     
     auto& vecBlobInput = inferWorker.vecBlobInput;
     auto pBuf = vecBlobInput[0]->get<unsigned char, std::pair<unsigned, unsigned>>(0);
+
     inferWorker.m_image_buf = pBuf->getPtr();
+
     std::pair<unsigned,unsigned>* meta = pBuf->getMeta();
     inferWorker.m_input_height = meta->second;
     inferWorker.m_input_width = meta->first;
+
+    inferWorker.m_input_width = ((inferWorker.m_input_width - 1) & (~15)) + 16;
+
+    std::cout << inferWorker.m_input_height << ", " << inferWorker.m_input_width << std::endl;
+
+    const size_t expectedSize = (inferWorker.m_input_height*inferWorker.m_input_width * 3 / 2);
+ 
+    // inferWorker.m_image_buf = reinterpret_cast<uint8_t *>(inferWorker.allocator.allocate(expectedSize));
+    FILE* fp = fopen("26.nv12", "rb");
+    // fread(inferWorker.m_image_buf, 1, inferWorker.m_input_height*inferWorker.m_input_width*3/2, fp);
+    fclose(fp);
+
     InferenceEngine::TensorDesc y_plane_desc(InferenceEngine::Precision::U8,
         {1, 1, inferWorker.m_input_height, inferWorker.m_input_width}, InferenceEngine::Layout::NHWC);
     InferenceEngine::TensorDesc uv_plane_desc(InferenceEngine::Precision::U8,
@@ -697,7 +716,7 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     // Create blob for Y plane from raw data
     InferenceEngine::Blob::Ptr y_blob = InferenceEngine::make_shared_blob<uint8_t>(y_plane_desc, inferWorker.m_image_buf);
     // Create blob for UV plane from raw data
-    InferenceEngine::Blob::Ptr uv_blob = InferenceEngine::make_shared_blob<uint8_t>(uv_plane_desc, inferWorker.m_image_buf + offset);
+    InferenceEngine::Blob::Ptr uv_blob = InferenceEngine::make_shared_blob<uint8_t>(uv_plane_desc, inferWorker.m_image_buf + offset + 48 * inferWorker.m_input_width);
     
     // Create NV12Blob from Y and UV blobs
     InferenceEngine::Blob::Ptr input = make_shared_blob<InferenceEngine::NV12Blob>(y_blob, uv_blob);
@@ -710,6 +729,10 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     // --------------------------- Set the input blob to the InferRequest ----------------------------------
     infer_request.SetBlob(input_name, input);
     // -----------------------------------------------------------------------------------------------------
+
+    fp = fopen("dumpInput.bin", "wb");
+    fwrite(inferWorker.m_image_buf, 1, inferWorker.m_input_height*inferWorker.m_input_width*3/2, fp);
+    fclose(fp);    
 }
 
 #if 0 //batching NV12 not supported
