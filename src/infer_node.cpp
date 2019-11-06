@@ -1,4 +1,4 @@
-// #define HVA_CV
+#define HVA_CV
 #define HVA_KMB
 
 #include <infer_node.hpp>
@@ -13,7 +13,7 @@
 
 #define HVA_NV12
 #ifdef HVA_CV
-#include "include/ocv_common.hpp"
+#include "ocv_common.hpp"
 #endif
 
 #include "classification_results.h"
@@ -550,8 +550,13 @@ void InferNodeWorker::postprocessTinyYolov2(InferNodeWorker& inferWorker) {
         cv::rectangle(picBGR, cv::Rect(object.x,object.y, object.width, object.height), cv::Scalar(0,255,0));
     }
 
-    cv::imshow("detection",picBGR);
-    cv::waitKey(10);
+    // cv::imshow("detection",picBGR);
+    // cv::waitKey(10);
+    if (!inferWorker.wrt.isOpened()) {
+        inferWorker.wrt.open("detection.mp4", cv::VideoWriter::fourcc('m','j','p','g'), 5, picBGR.size());
+    }
+    inferWorker.wrt.write(picBGR);
+
     // -----------------------------------------------------------------------------------------------------
 #endif 
 }

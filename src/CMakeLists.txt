@@ -15,6 +15,9 @@ target_include_directories(GstHvaSample PUBLIC "${InferenceEngine_INCLUDE_DIRS}"
 
 target_link_libraries(GstHvaSample hva)
 
+#add opencv dependency
+find_package(OpenCV REQUIRED)
+target_link_libraries(GstHvaSample "${OpenCV_LIBRARIES}" dl)
 # message("GstHvaSample linked libraries: ${GLIB_LIBRARIES} ${GSTREAMER_LIBRARIES} ${GSTREAMER_BASE_LIBRARIES}")
 
 # get_target_property(SAMPLE_LINK_FLAGS GstHvaSample LINK_FLAGS)

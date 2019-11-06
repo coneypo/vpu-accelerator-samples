@@ -1,7 +1,9 @@
 #include <hvaPipeline.hpp>
 
 #include <string>
-// #include "opencv2/opencv.hpp"
+#ifdef HVA_CV
+#include "opencv2/opencv.hpp"
+#endif
 #include <inference_engine.hpp>
 #include <ie_utils.hpp>
 // #include <pipeline_decode.h>
@@ -38,7 +40,7 @@ struct DetectedObject_t {
     int y;
     int width;
     int height;
-    int confidence;
+    float confidence;
     explicit DetectedObject_t(float x, float y, float h, float w, float confidence, float h_scale = 1.f,
                             float w_scale = 1.f)
         : x(static_cast<int>((x - w / 2) * w_scale)), y(static_cast<int>((y - h / 2) * h_scale)),
@@ -127,6 +129,8 @@ private:
     VPUAllocator allocator;
 #endif
 #ifdef HVA_CV
+
+    cv::VideoWriter wrt;
     cv::Mat picNV12; //temporary use for display
     cv::Mat picBGR; //temporary use for display
 #endif
