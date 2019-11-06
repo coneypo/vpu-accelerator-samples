@@ -352,9 +352,11 @@ void InferNodeWorker::preprocessNV12_ROI(InferNodeWorker& inferWorker) {
     auto pBufImage = blob.get<unsigned char, std::pair<unsigned, unsigned>>(1);
     unsigned char* image_buf = pBufImage->getPtr();
     std::pair<unsigned, unsigned>* metaImage = pBufImage->getMeta();
-    const size_t image_height = metaImage->second;
-    const size_t image_width = metaImage->first;
+    inferWorker.m_input_height = metaImage->second;
+    inferWorker.m_input_width = alignTo64(metaImage->first);
     
+    const size_t offset = inferWorker.m_input_width * alignTo64(inferWorker.m_input_height);
+
 #ifdef HVA_CV
     auto& picBGR = inferWorker.picBGR;
     picBGR = cv::Mat(roi_height, roi_width, CV_8UC3, roi_buf);
@@ -362,11 +364,10 @@ void InferNodeWorker::preprocessNV12_ROI(InferNodeWorker& inferWorker) {
 #endif
 
     InferenceEngine::TensorDesc planeY(InferenceEngine::Precision::U8,
-        {1, 1, image_height, image_width}, InferenceEngine::Layout::NHWC);
+        {1, 1, inferWorker.m_input_height, inferWorker.m_input_width}, InferenceEngine::Layout::NHWC);
     InferenceEngine::TensorDesc planeUV(InferenceEngine::Precision::U8,
-        {1, 2, image_height / 2, image_width / 2}, InferenceEngine::Layout::NHWC);
-    const size_t offset = image_height * image_width;
-
+        {1, 2, inferWorker.m_input_height / 2, inferWorker.m_input_width / 2}, InferenceEngine::Layout::NHWC);
+    
     Blob::Ptr blobY = make_shared_blob<uint8_t>(planeY, image_buf);
     Blob::Ptr blobUV = make_shared_blob<uint8_t>(planeUV, image_buf + offset);
 
@@ -465,9 +466,10 @@ void InferNodeWorker::postprocessClassification(InferNodeWorker& inferWorker) {
 
 #ifdef HVA_CV
     auto& picBGR = inferWorker.picBGR;
-
+#ifndef HVA_KMB
     cv::imshow("classify", picBGR);
     cv::waitKey(10);
+#endif
 #endif
 
     // -----------------------------------------------------------------------------------------------------
@@ -550,8 +552,10 @@ void InferNodeWorker::postprocessTinyYolov2(InferNodeWorker& inferWorker) {
         cv::rectangle(picBGR, cv::Rect(object.x,object.y, object.width, object.height), cv::Scalar(0,255,0));
     }
 
-    // cv::imshow("detection",picBGR);
-    // cv::waitKey(10);
+#ifndef HVA_KMB
+    cv::imshow("detection",picBGR);
+    cv::waitKey(10);
+#endif
     if (!inferWorker.wrt.isOpened()) {
         inferWorker.wrt.open("detection.mp4", cv::VideoWriter::fourcc('m','j','p','g'), 5, picBGR.size());
     }
@@ -672,9 +676,10 @@ void InferNodeWorker::postprocessTinyYolov2WithClassify(InferNodeWorker& inferWo
     {
         cv::rectangle(picBGR, cv::Rect(object.x,object.y, object.width, object.height), cv::Scalar(0,255,0));
     }
-
+#ifndef HVA_KMB
     cv::imshow("detection",picBGR);
     cv::waitKey(10);
+#endif
 #endif
     // -----------------------------------------------------------------------------------------------------
 }
@@ -698,8 +703,9 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     inferWorker.m_input_height = meta->second;
     inferWorker.m_input_width = meta->first;
 
-    inferWorker.m_input_width = ((inferWorker.m_input_width - 1) & (~15)) + 16;
-
+#ifdef HVA_KMB
+    inferWorker.m_input_width = alignTo64(inferWorker.m_input_width);
+#endif
     std::cout << inferWorker.m_input_height << ", " << inferWorker.m_input_width << std::endl;
 
     const size_t expectedSize = (inferWorker.m_input_height*inferWorker.m_input_width * 3 / 2);
@@ -713,7 +719,7 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
         {1, 1, inferWorker.m_input_height, inferWorker.m_input_width}, InferenceEngine::Layout::NHWC);
     InferenceEngine::TensorDesc uv_plane_desc(InferenceEngine::Precision::U8,
         {1, 2, inferWorker.m_input_height / 2, inferWorker.m_input_width / 2}, InferenceEngine::Layout::NHWC);
-    const size_t offset = inferWorker.m_input_width * inferWorker.m_input_height;
+    const size_t offset = inferWorker.m_input_width * alignTo64(inferWorker.m_input_height);
     const size_t sizeY = offset;
     const size_t sizeUV = sizeY / 2;
     const size_t sizeYUV = sizeY + sizeUV;
@@ -721,7 +727,7 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     // Create blob for Y plane from raw data
     InferenceEngine::Blob::Ptr y_blob = InferenceEngine::make_shared_blob<uint8_t>(y_plane_desc, inferWorker.m_image_buf);
     // Create blob for UV plane from raw data
-    InferenceEngine::Blob::Ptr uv_blob = InferenceEngine::make_shared_blob<uint8_t>(uv_plane_desc, inferWorker.m_image_buf + offset + 48 * inferWorker.m_input_width);
+    InferenceEngine::Blob::Ptr uv_blob = InferenceEngine::make_shared_blob<uint8_t>(uv_plane_desc, inferWorker.m_image_buf + offset);
     
     // Create NV12Blob from Y and UV blobs
     InferenceEngine::Blob::Ptr input = make_shared_blob<InferenceEngine::NV12Blob>(y_blob, uv_blob);

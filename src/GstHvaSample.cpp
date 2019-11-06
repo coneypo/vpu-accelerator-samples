@@ -16,9 +16,15 @@ int main(){
     // paramsInfer.filenameModel = "yolov2_tiny_od_yolo_IR_fp32.xml";
     paramsInfer.filenameModel = "/opt/yolotiny/yolotiny.blob";
     paramsInfer.format = INFER_FORMAT_NV12;
-    paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2;
+    paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2WithClassify;
     paramsInfer.preproc = InferNodeWorker::preprocessNV12;
-    auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,0,1,paramsInfer), "DetectNode");
+    auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,1,1,paramsInfer), "DetectNode");
+    paramsInfer.filenameModel = "/opt/resnet/resnet.blob";
+    paramsInfer.format = INFER_FORMAT_NV12;
+    paramsInfer.postproc = InferNodeWorker::postprocessClassification;
+    paramsInfer.preproc = InferNodeWorker::preprocessNV12_ROI;
+    auto& classifyNode = pl.setSource(std::make_shared<InferNode>(1,0,1,paramsInfer), "ClassifyNode");
+    pl.linkNode("DetectNode", 0, "ClassifyNode", 0);
 
     pl.prepare();
 

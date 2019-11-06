@@ -26,6 +26,11 @@ private:
     std::list< std::tuple<int, void*, size_t> > _memChunks;
     static int _pageSize;
 };
+
+size_t alignTo64(size_t s) {
+    return ((s - 1) & (~63)) + 64;
+}
+
 #endif
 
 struct InferInputParams_t {
