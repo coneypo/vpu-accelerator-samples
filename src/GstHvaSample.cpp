@@ -6,7 +6,7 @@
 #include <chrono>
 #include <thread>
 
-#define STREAMS 2
+#define STREAMS 4
 
 int main(){
 
@@ -50,6 +50,8 @@ int main(){
     std::vector<std::thread*> vTh;
     vTh.reserve(STREAMS);
 
+    using ms = std::chrono::milliseconds;
+
     for(unsigned i = 0; i < STREAMS; ++i){
         std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
@@ -58,7 +60,7 @@ int main(){
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(cont.read(blob)){
-                        pl.sendToPort(blob,"DetectNode",0);
+                        pl.sendToPort(blob,"DetectNode",0,ms(0));
                         blob.reset(new hva::hvaBlob_t());
                     }
                     std::cout<<"Finished"<<std::endl;
@@ -76,8 +78,7 @@ int main(){
         vTh[i]->join();
     }
 
-    using ms = std::chrono::milliseconds;
-    std::this_thread::sleep_for(ms(10000));
+    std::this_thread::sleep_for(ms(20000));
 
     std::cout<<"Going to stop pipeline."<<std::endl;
 
