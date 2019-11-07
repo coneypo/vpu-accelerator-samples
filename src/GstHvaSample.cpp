@@ -6,7 +6,7 @@
 #include <chrono>
 #include <thread>
 
-#define STREAMS 4
+#define STREAMS 2
 
 int main(){
 
@@ -37,7 +37,7 @@ int main(){
     config.threadNumPerBatch = 1;
 
     detectNode.configBatch(config);
-    classifyNode.configBatch(config);
+    // classifyNode.configBatch(config);
 
     pl.prepare();
 
@@ -78,7 +78,7 @@ int main(){
         vTh[i]->join();
     }
 
-    std::this_thread::sleep_for(ms(20000));
+    std::this_thread::sleep_for(ms(10000));
 
     std::cout<<"Going to stop pipeline."<<std::endl;
 
