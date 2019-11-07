@@ -257,6 +257,8 @@ void InferNodeWorker::init(){
 
 void InferNodeWorker::process(std::size_t batchIdx){
 
+    // std::cout<<"Infer node with batch idx "<<batchIdx<<" start processing"<<std::endl;
+
     vecBlobInput = hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
 
     if(vecBlobInput.size()==0u)
@@ -498,9 +500,9 @@ void InferNodeWorker::postprocessTinyYolov2(InferNodeWorker& inferWorker) {
     float* data = static_cast<float*>(output_blob->buffer());
     Blob::Ptr dequantOut = InferNodeWorker::deQuantize(output_blob, 0.33713474f, 221);
 
-    FILE* fp = fopen("dumpOutput.bin", "wb");
-    fwrite((unsigned char*)data, 1, output_blob->byteSize(), fp);
-    fclose(fp);
+    // FILE* fp = fopen("dumpOutput.bin", "wb");
+    // fwrite((unsigned char*)data, 1, output_blob->byteSize(), fp);
+    // fclose(fp);
 
     // Region YOLO layer
     // const int imageWidth = 1080;
@@ -667,6 +669,7 @@ void InferNodeWorker::postprocessTinyYolov2WithClassify(InferNodeWorker& inferWo
                 });
         blob->push(vecBlobInput[0]->get<unsigned char, std::pair<unsigned, unsigned>>(0));
         blob->frameId = vecBlobInput[0]->frameId;
+        blob->streamId = vecBlobInput[0]->streamId;
         inferWorker.sendOutput(blob,0);
     }
 
@@ -711,9 +714,9 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     const size_t expectedSize = (inferWorker.m_input_height*inferWorker.m_input_width * 3 / 2);
  
     // inferWorker.m_image_buf = reinterpret_cast<uint8_t *>(inferWorker.allocator.allocate(expectedSize));
-    FILE* fp = fopen("26.nv12", "rb");
+    // FILE* fp = fopen("26.nv12", "rb");
     // fread(inferWorker.m_image_buf, 1, inferWorker.m_input_height*inferWorker.m_input_width*3/2, fp);
-    fclose(fp);
+    // fclose(fp);
 
     InferenceEngine::TensorDesc y_plane_desc(InferenceEngine::Precision::U8,
         {1, 1, inferWorker.m_input_height, inferWorker.m_input_width}, InferenceEngine::Layout::NHWC);
@@ -741,9 +744,9 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     infer_request.SetBlob(input_name, input);
     // -----------------------------------------------------------------------------------------------------
 
-    fp = fopen("dumpInput.bin", "wb");
-    fwrite(inferWorker.m_image_buf, 1, inferWorker.m_input_height*inferWorker.m_input_width*3/2, fp);
-    fclose(fp);    
+    // FILE* fp = fopen("dumpInput.bin", "wb");
+    // fwrite(inferWorker.m_image_buf, 1, inferWorker.m_input_height*inferWorker.m_input_width*3/2, fp);
+    // fclose(fp);    
 }
 
 #if 0 //batching NV12 not supported

@@ -6,7 +6,7 @@
 
 class GstPipeContainer{
 public:
-    GstPipeContainer();
+    GstPipeContainer(unsigned idx);
 
     int init();
 
@@ -28,6 +28,15 @@ public:
     GstElement* capsfilter;
 
 private:
+
+    // class GstInitializer{
+    //     GstInitializer(){
+    //         gst_init(0, NULL);
+    //     };
+    // };
+
+    // static GstInitializer gstInit;
+
     bool _gst_dmabuffer_import(GstBuffer *buffer, int& fd);
 
     bool m_bStart;
@@ -39,6 +48,10 @@ private:
 
     int m_width;
     int m_height;
+
+    const unsigned m_idx;
+
+    unsigned m_frameIdx;
 };
 
 #endif //#ifndef GST_PIPE_CONTAINER_HPP

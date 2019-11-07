@@ -6,6 +6,8 @@
 #include <chrono>
 #include <thread>
 
+#define STREAMS 2
+
 int main(){
 
     gst_init(0, NULL);
@@ -18,28 +20,61 @@ int main(){
     paramsInfer.format = INFER_FORMAT_NV12;
     paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2WithClassify;
     paramsInfer.preproc = InferNodeWorker::preprocessNV12;
-    auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,1,1,paramsInfer), "DetectNode");
+    auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,1,STREAMS,paramsInfer), "DetectNode");
+
     paramsInfer.filenameModel = "/opt/resnet/resnet.blob";
     paramsInfer.format = INFER_FORMAT_NV12;
     paramsInfer.postproc = InferNodeWorker::postprocessClassification;
     paramsInfer.preproc = InferNodeWorker::preprocessNV12_ROI;
-    auto& classifyNode = pl.setSource(std::make_shared<InferNode>(1,0,1,paramsInfer), "ClassifyNode");
+    auto& classifyNode = pl.setSource(std::make_shared<InferNode>(1,0,STREAMS,paramsInfer), "ClassifyNode");
+
     pl.linkNode("DetectNode", 0, "ClassifyNode", 0);
+
+    hva::hvaBatchingConfig_t config;
+    config.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+    config.batchSize = 1;
+    config.streamNum = STREAMS;
+    config.threadNumPerBatch = 1;
+
+    detectNode.configBatch(config);
+    classifyNode.configBatch(config);
 
     pl.prepare();
 
     pl.start();
 
-    GstPipeContainer cont;
-    cont.init();
+    // GstPipeContainer cont;
+    // cont.init();
     // cont.start();
 
-    std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
-    while(cont.read(blob)){
-        pl.sendToPort(blob,"DetectNode",0);
-        blob.reset(new hva::hvaBlob_t());
+    std::vector<std::thread*> vTh;
+    vTh.reserve(STREAMS);
+
+    for(unsigned i = 0; i < STREAMS; ++i){
+        std::cout<<"starting thread "<<i<<std::endl;
+        vTh.push_back(new std::thread([&, i](){
+                    GstPipeContainer cont(i);
+                    cont.init();
+
+                    std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                    while(cont.read(blob)){
+                        pl.sendToPort(blob,"DetectNode",0);
+                        blob.reset(new hva::hvaBlob_t());
+                    }
+                    std::cout<<"Finished"<<std::endl;
+                }));
     }
-    std::cout<<"Finished"<<std::endl;
+
+    // std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+    // while(cont.read(blob)){
+    //     pl.sendToPort(blob,"DetectNode",0);
+    //     blob.reset(new hva::hvaBlob_t());
+    // }
+    // std::cout<<"Finished"<<std::endl;
+
+    for(unsigned i =0; i < STREAMS; ++i){
+        vTh[i]->join();
+    }
 
     using ms = std::chrono::milliseconds;
     std::this_thread::sleep_for(ms(10000));

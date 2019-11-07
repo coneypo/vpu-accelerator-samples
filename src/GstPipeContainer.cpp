@@ -5,11 +5,10 @@
 #include <iostream>
 #include <vpusmm/vpusmm.h>
 
-GstPipeContainer::GstPipeContainer():pipeline(nullptr), file_source(nullptr), tee(nullptr),
+GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
             m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr),
-            capsfilter(nullptr), m_width(0), m_height(0){
-
+            capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0){
 }
 
 int GstPipeContainer::init(){
@@ -132,24 +131,29 @@ int GstPipeContainer::start(){
 }
 
 bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
-    if (!pipeline || !GST_IS_ELEMENT(pipeline))
+    if (!pipeline || !GST_IS_ELEMENT(pipeline)){
+        std::cout<<"pipeline uninitialized! "<<std::endl;
         return false;
-
+    }
     // start the pipeline if it was not in playing state yet
     if (!m_bStart)
         start();
 
     // bail out if EOS
-    if (gst_app_sink_is_eos(GST_APP_SINK(app_sink)))
+    if (gst_app_sink_is_eos(GST_APP_SINK(app_sink))){
+        std::cout<<"EOS reached"<<std::endl;
         return false;
+    }
 
     // if(!m_sampleRead){
     //     gst_sample_unref(m_sampleRead);
     //     m_sampleRead = nullptr;
     // }
     GstSample* sampleRead = gst_app_sink_pull_sample(GST_APP_SINK(app_sink));
-    if(!sampleRead)
+    if(!sampleRead){
+        std::cout<<"Read sample failed!"<<std::endl;
         return false;
+    }
 
     if(m_width == 0 || m_height == 0){
         GstCaps * frame_caps = gst_sample_get_caps(sampleRead);
@@ -159,17 +163,28 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     }
 
     GstBuffer* buf = gst_sample_get_buffer(sampleRead);
-    if (!buf)
+    if (!buf){
+        std::cout<<"Retrieve buffer failed!"<<std::endl;
         return false;
+    }
 
     // GstMapInfo info = {};
     GstMapInfo* info = new GstMapInfo;
-    if (!gst_buffer_map(buf, info, GST_MAP_READ))
+    if (!gst_buffer_map(buf, info, GST_MAP_READ)){
+        std::cout<<"Buffer map failed!"<<std::endl;
         return false;
+    }
 
     int fd = -1;
-    if (!_gst_dmabuffer_import(buf, fd))
+    if (!_gst_dmabuffer_import(buf, fd)){
+        std::cout<<"DMA buffer import failed!"<<std::endl;
         return false;
+    }
+
+    blob->streamId = m_idx;
+    blob->frameId = m_frameIdx;
+
+    std::cout<<"Stream "<<blob->streamId<<" frame "<<blob->frameId<<" pushed"<<std::endl;
 
     blob->emplace<unsigned char, std::pair<unsigned, unsigned>>(info->data, m_width*m_height*3/2,
             new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead, fd](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
@@ -179,6 +194,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
                 delete info;
                 delete meta;
             });
+
+    ++m_frameIdx;
 
     return true;
 
