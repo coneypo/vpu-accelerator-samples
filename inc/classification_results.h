@@ -14,6 +14,8 @@
 #include <ie_blob.h>
 #include <iomanip>
 
+#include <fstream>
+
 /**
  * @class ClassificationResult
  * @brief A ClassificationResult creates an output table with results
@@ -91,3 +93,18 @@ public:
         }
     }
 };
+
+std::vector<std::string> readLabelsFromFile(const std::string& labelFileName) {
+    std::vector<std::string> labels;
+
+    std::ifstream inputFile;
+    inputFile.open(labelFileName, std::ios::in);
+    if (inputFile.is_open()) {
+        std::string strLine;
+        while (std::getline(inputFile, strLine)) {
+            // trim(strLine);
+            labels.push_back(strLine);
+        }
+    }
+    return labels;
+}

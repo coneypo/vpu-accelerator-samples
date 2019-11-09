@@ -117,7 +117,7 @@ Blob::Ptr InferNodeWorker::deQuantizeClassification(const Blob::Ptr &quantBlob, 
   const TensorDesc quantTensor = quantBlob->getTensorDesc();
   SizeVector dims = quantTensor.getDims();
   size_t batchSize = dims.at(0);
-  std::cout << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
+//   std::cout << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
   const size_t Count = quantBlob->size() / batchSize;
   const size_t ResultsCount = Count > 1000 ? 1000 : Count;
   dims[1] = ResultsCount;
@@ -125,7 +125,7 @@ Blob::Ptr InferNodeWorker::deQuantizeClassification(const Blob::Ptr &quantBlob, 
       InferenceEngine::Precision::FP32,
       dims,
       quantTensor.getLayout());
-  std::cout << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
+//   std::cout << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
   Blob::Ptr outputBlob = make_shared_blob<float>(outTensor);
   outputBlob->allocate();
   float *outRaw = outputBlob->buffer().as<PrecisionTrait<Precision::FP32>::value_type *>();
@@ -133,6 +133,36 @@ Blob::Ptr InferNodeWorker::deQuantizeClassification(const Blob::Ptr &quantBlob, 
 
   for (size_t pos = 0; pos < outputBlob->size(); pos++) {
     outRaw[pos] = (quantRaw[pos] - zeroPoint) * scale;
+  }
+  return outputBlob;
+}
+Blob::Ptr InferNodeWorker::softmax(const Blob::Ptr &fcBlob) {
+  const TensorDesc fcTensor = fcBlob->getTensorDesc();
+  SizeVector dims = fcTensor.getDims();
+  size_t batchSize = dims.at(0);
+//   std::cout << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
+  const size_t Count = fcBlob->size() / batchSize;
+  const size_t ResultsCount = Count > 1000 ? 1000 : Count;
+  dims[1] = ResultsCount;
+  const TensorDesc outTensor = TensorDesc(
+      InferenceEngine::Precision::FP32,
+      dims,
+      fcTensor.getLayout());
+//   std::cout << dims[0] << " " << dims[1] << " " << dims[2] << " " << dims[3] << std::endl;
+  Blob::Ptr outputBlob = make_shared_blob<float>(outTensor);
+  outputBlob->allocate();
+  float *outRaw = outputBlob->buffer().as<PrecisionTrait<Precision::FP32>::value_type *>();
+  const float *fcRaw = fcBlob->cbuffer().as<const float *>();
+  
+  for (int n = 0; n < batchSize; n++) {
+    double sum = 0.0;
+    for (size_t pos = 0; pos < ResultsCount; pos++) {
+        sum += exp(static_cast<double>(fcRaw[n * Count + pos]));
+    }
+    for (size_t pos = 0; pos < ResultsCount; pos++) {
+        outRaw[n * ResultsCount + pos] = exp(static_cast<double>(fcRaw[n * Count + pos])) / sum;
+        // printf("%f\n", outRaw[n * ResultsCount + pos]);
+    }
   }
   return outputBlob;
 }
@@ -389,7 +419,7 @@ void InferNodeWorker::preprocessNV12_ROI(InferNodeWorker& inferWorker) {
         .width = pInfoROI->width,
         .height = pInfoROI->height,
     });
-    std::cout << roi.x << ", " << roi.y << ", " << roi.width << ", " << roi.height << std::endl;
+    // std::cout << roi.x << ", " << roi.y << ", " << roi.width << ", " << roi.height << std::endl;
     InferenceEngine::ROI crop_roi_y(
     {0,
         (size_t) ((roi.x & 0x1) ? roi.x - 1 : roi.x),
@@ -439,7 +469,7 @@ void InferNodeWorker::preprocessBGR_ROI(InferNodeWorker& inferWorker) {
     // -----------------------------------------------------------------------------------------------------
 }
 #endif
-//need modification to fit input
+
 void InferNodeWorker::postprocessClassification(InferNodeWorker& inferWorker) {
     // --------------------------- 8. Process output ------------------------------------------------------
     auto& output_name = inferWorker.output_name;
@@ -453,7 +483,8 @@ void InferNodeWorker::postprocessClassification(InferNodeWorker& inferWorker) {
     auto dims = desc.getDims();
     float* data = static_cast<float*>(output->buffer());
 #ifdef HVA_KMB
-    output = InferNodeWorker::deQuantizeClassification(output, 1, 0);
+    output = InferNodeWorker::deQuantizeClassification(output, 0.10307630151510239, 82);
+    output = InferNodeWorker::softmax(output);
 #endif
     // Print classification results
     std::vector<std::string> filenames;
@@ -463,7 +494,8 @@ void InferNodeWorker::postprocessClassification(InferNodeWorker& inferWorker) {
         filenames.push_back(str);
     }
 
-    ClassificationResult classificationResult(output, filenames, batchSize);
+    std::vector<std::string> labels = readLabelsFromFile("resnet.labels");
+    ClassificationResult classificationResult(output, filenames, batchSize, 5, labels);
     classificationResult.print();
 
 #ifdef HVA_CV
@@ -538,11 +570,14 @@ void InferNodeWorker::postprocessTinyYolov2(InferNodeWorker& inferWorker) {
         }
     }        
 #endif
+
+#if 0
     for(auto& object : vecObjects)
     {
         std::cout<<"Object detected:\tx\ty\tw\th"<<std::endl;
         std::cout<<"\t\t\t"<<object.x <<"\t"<<object.y<<"\t"<<object.width<<"\t"<<object.height<<"\n"<<std::endl;
     }
+#endif
 
 #ifdef HVA_CV
     //display
@@ -709,7 +744,7 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
 #ifdef HVA_KMB
     inferWorker.m_input_width = alignTo64(inferWorker.m_input_width);
 #endif
-    std::cout << inferWorker.m_input_height << ", " << inferWorker.m_input_width << std::endl;
+    // std::cout << inferWorker.m_input_height << ", " << inferWorker.m_input_width << std::endl;
 
     const size_t expectedSize = (inferWorker.m_input_height*inferWorker.m_input_width * 3 / 2);
  

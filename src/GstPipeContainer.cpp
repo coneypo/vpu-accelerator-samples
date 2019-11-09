@@ -184,7 +184,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     blob->streamId = m_idx;
     blob->frameId = m_frameIdx;
 
-    std::cout<<"Stream "<<blob->streamId<<" frame "<<blob->frameId<<" pushed"<<std::endl;
+    //std::cout<<"Stream "<<blob->streamId<<" frame "<<blob->frameId<<" pushed"<<std::endl;
 
     blob->emplace<unsigned char, std::pair<unsigned, unsigned>>(info->data, m_width*m_height*3/2,
             new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead, fd](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
