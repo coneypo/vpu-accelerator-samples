@@ -1499,7 +1499,7 @@ static void *onvif_server_thread_run(void *data)
     }
 
     GIOCondition cond = G_IO_IN;
-    MainContext *context =  g_main_context_new();
+    GMainContext *context =  g_main_context_new();
     g_main_context_push_thread_default(context);
     GMainLoop *loop = g_main_loop_new(context, FALSE);
     GSource *source = g_io_create_watch(gio_socket_channel, cond);
