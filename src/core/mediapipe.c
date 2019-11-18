@@ -268,7 +268,11 @@ bus_callback(GstBus *bus, GstMessage *msg, gpointer data)
     case GST_MESSAGE_EOS:
         /* end-of-stream */
         LOG_DEBUG("EOS\n");
+#ifdef APP_IPC
+        //hddl-manager will call mediapipe_stop and quit loop,so only ipc need to quit loop from
+        //eos message
         mediapipe_stop(mp);
+#endif
         break;
 
     default:

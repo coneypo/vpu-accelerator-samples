@@ -3,6 +3,8 @@
 
 mediapipe_library_build(NAME mediapipe2_lib MODULES element rtsp changeformat onvif openvino mix2 encoder openvino_tracking mix3)
 
+add_definitions(-DAPP_IPC)
+
 #file(GLOB_RECURSE HDRS "*.h")
 #file(GLOB_RECURSE SRCS "*.c")
 
