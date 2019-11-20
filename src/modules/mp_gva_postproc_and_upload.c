@@ -415,7 +415,7 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         /* gst_element_set_state(src, GST_STATE_PLAYING); */
         gst_caps_unref(caps);
 
-        sprintf(caps_string, "%c%u%c%u%c%u%c%u%c", '"', xmin, ',', ymin, ',',crop_width, ',', crop_height, '"');
+        g_snprintf(caps_string, MAX_BUF_SIZE, "%u%c%u%c%u%c%u",  xmin, ',', ymin, ',',crop_width, ',', crop_height );
         g_print("###########crop-roi = [%s]#########\n", caps_string);
         guint set_ret;
         MEDIAPIPE_SET_PROPERTY(set_ret, branch_ctx, "enc", "crop-roi", caps_string, NULL);
