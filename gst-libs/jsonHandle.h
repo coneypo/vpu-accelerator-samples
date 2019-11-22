@@ -5,7 +5,7 @@
 #ifndef __JSON_HANDLE_H__
 #define __JSON_HANDLE_H__
 #include <gst/gst.h>
-#include <opencv2/gapi/render.hpp>
+#include <opencv2/gapi/render/render.hpp>
 #include <json.h>
 
 G_BEGIN_DECLS
