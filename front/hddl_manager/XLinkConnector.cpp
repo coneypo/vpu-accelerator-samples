@@ -4,6 +4,8 @@
  */
 
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include "PipelineManager.h"
 #include "XLinkConnector.h"
@@ -32,13 +34,15 @@ int XLinkConnector::init()
     m_handler.dev_path = (char*)"/tmp/xlink_mock";
     xlink_connect(&m_handler);
     xlink_opmode operationType = RXB_TXB;
-    printf("****open command channel %d\n", m_commChannel);
-    if (xlink_open_channel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
+    printf("XLinkConnector|Open command channel %d\n", m_commChannel);
+    while(xlink_open_channel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
     {
-        printf("****Fail to open command channel %d\n", m_commChannel);
-        exit(-1);
+        int time = 5;
+        printf("XLinkConnector|Fail to open command channel %d\n", m_commChannel);
+        printf("XLinkConnector|Retry openchannel %d in %d seconds\n", m_commChannel, time);
+        std::this_thread::sleep_for (std::chrono::seconds(time));
     }
-    printf("****Successfully to open command channel %d\n", m_commChannel);
+    printf("XLinkConnector|Successfully open command channel %d\n", m_commChannel);
 
     m_init = true;
     return 0;
