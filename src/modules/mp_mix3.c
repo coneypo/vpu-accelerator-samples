@@ -229,6 +229,7 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
     GstElement *enc_element = NULL;
     GstPad *src_pad = NULL;
     GstCaps *src_caps = NULL;
+    GstMemory *memoryBranch = NULL;
     //get element
     enc_element = gst_bin_get_by_name(GST_BIN((mp)->pipeline), element_name);
     if (enc_element != NULL) {
@@ -294,6 +295,9 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
             g_queue_pop_head(msg_ctx->message_queue);
             brunchBufferValue = gst_structure_get_value(root, msg_ctx->message_name);
             branchBuffer = (GstBuffer *)g_value_get_pointer(brunchBufferValue);
+            memoryBranch = gst_buffer_get_memory(branchBuffer, 0);
+            gst_memory_lock(memoryBranch, GST_LOCK_FLAG_EXCLUSIVE);
+            gst_memory_unref(memoryBranch);
             gst_buffer_unref(branchBuffer);
             gst_message_unref(walk);
             walk = (GstMessage *) g_queue_peek_head(msg_ctx->message_queue);
@@ -309,6 +313,9 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
         gst_structure_get_uint(root, "orign_width", &branchBufferWidth);
         gst_structure_get_uint(root, "orign_height", &branchBufferHeight);
         change_metainfo_by_width_height(buffer, _width, _height, branchBufferWidth, branchBufferHeight);
+        memoryBranch = gst_buffer_get_memory(branchBuffer, 0);
+        gst_memory_lock(memoryBranch, GST_LOCK_FLAG_EXCLUSIVE);
+        gst_memory_unref(memoryBranch);
         gst_buffer_unref(branchBuffer);
         g_queue_pop_head(msg_ctx->message_queue);
         gst_message_unref(walk);

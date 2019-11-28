@@ -70,6 +70,8 @@ push_buffer_to_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
 static GstPadProbeReturn
 detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
 
+static gboolean
+openvino_tracking_branch_push_buffer(mediapipe_branch_t *branch, GstBuffer *buffer);
 
 //get message and progress it end
 
@@ -120,6 +122,35 @@ mp_module_t  mp_openvino_tracking_module = {
 
 //module define end
 
+/* --------------------------------------------------------------------------*/
+/**
+ * @Synopsis push buffer to this branch
+ *
+ * @Param branch
+ * @Param buffer
+ *
+ * @Returns
+ */
+/* ----------------------------------------------------------------------------*/
+static gboolean
+openvino_tracking_branch_push_buffer(mediapipe_branch_t *branch, GstBuffer *buffer)
+{
+    if (!branch && !buffer) {
+        LOG_ERROR("branch or buffer is null when push buffer to branch!");
+        return FALSE;
+    }
+
+    GstBuffer *buffercopy = gst_buffer_copy(buffer);
+    GstMemory *memorysrc = gst_buffer_get_memory(buffercopy, 0);
+    gst_memory_unlock(memorysrc, GST_LOCK_FLAG_EXCLUSIVE);
+    gst_memory_unref(memorysrc);
+    if (branch && branch->source) {
+        gst_app_src_push_buffer(GST_APP_SRC(branch->source),
+                buffercopy);
+    }
+
+    return TRUE;
+}
 /* --------------------------------------------------------------------------*/
 /**
  * @Synopsis  prase config object from config.json
@@ -350,7 +381,7 @@ push_buffer_to_branch(mediapipe_t *mp, GstBuffer *buffer, guint8 *data,
                       gsize size, gpointer user_data)
 {
     branch_t *branch = (branch_t *) user_data;
-    return mediapipe_branch_push_buffer(&branch->mp_branch, buffer);
+    return openvino_tracking_branch_push_buffer(&branch->mp_branch, buffer);
 }
 
 /* --------------------------------------------------------------------------*/
