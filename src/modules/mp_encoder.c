@@ -2,10 +2,14 @@
  * Copyright (C) 2019 Intel Corporation
  * SPDX-License-Identifier: MIT
  */
-
 #include "mediapipe_com.h"
 
 static int mediapipe_set_key_frame(mediapipe_t *mp, const gchar *element_name);
+
+static char *json_setup_encoders(mediapipe_t *mp);
+
+static char *
+mp_encoder_block(mediapipe_t *mp, mp_command_t *cmd);
 
 static mp_int_t
 keyshot_process(mediapipe_t *mp, void *userdata);
@@ -14,7 +18,7 @@ static mp_command_t  mp_encoder_commands[] = {
     {
         mp_string("encoder"),
         MP_MAIN_CONF,
-        NULL,
+        mp_encoder_block,
         0,
         0,
         NULL
@@ -43,6 +47,8 @@ mp_module_t  mp_encoder_module = {
     NULL,                               /* exit master */
     MP_MODULE_V1_PADDING
 };
+
+static const char *element_name = "enc0";
 
 static mp_int_t
 keyshot_process(mediapipe_t *mp, void *userdata)
@@ -113,7 +119,7 @@ keyshot_process(mediapipe_t *mp, void *userdata)
     } else if (key[0] == 'b') {
         static int bps = 5120;
         bps = (bps <= 5120 ? 10240 : 5120);
-        MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "bitrate", bps, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "bitrate", bps, NULL);
     } else if (key[0] == 'f') {
         static unsigned int fps = 30;
 
@@ -126,20 +132,20 @@ keyshot_process(mediapipe_t *mp, void *userdata)
         }
 
         MEDIAPIPE_SET_PROPERTY(ret, mp, "videorate_caps", "caps", caps, NULL);
-        MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "fps", fps, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "fps", fps, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, "enc1", "fps", fps, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, "enc2", "fps", fps, NULL);
         gst_caps_unref(caps);
     } else if (key[0] == 'v') {
         int br_mode = 0;
-        MEDIAPIPE_GET_PROPERTY(ret, mp, "enc0", "rate-control", &br_mode, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, element_name, "rate-control", &br_mode, NULL);
 
         if (br_mode != 0) {
             if (4 == br_mode) {
-                MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "rate-control", 2, NULL);
+                MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "rate-control", 2, NULL);
                 printf("INFO:VBR switches to CBR !!\n");
             } else if (2 == br_mode) {
-                MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "rate-control", 4, NULL);
+                MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "rate-control", 4, NULL);
                 printf("INFO:CBR switches to VBR !!\n");
             } else {
                 printf("ERROR:Features only apply to CBR/VBR !!\n");
@@ -148,19 +154,19 @@ keyshot_process(mediapipe_t *mp, void *userdata)
     } else if (key[0] == 'p') {
         static unsigned int qp = 10;
         int br_mode = 0;
-        MEDIAPIPE_GET_PROPERTY(ret, mp, "enc0", "rate-control", &br_mode, NULL);
+        MEDIAPIPE_GET_PROPERTY(ret, mp, element_name, "rate-control", &br_mode, NULL);
 
         if (br_mode == 3) { //under CQP mode
             qp = (qp == 40) ? 10 : 40;
-            MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "quantizer", qp, NULL);
-            MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "qpi-offset", 0, NULL);
-            MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "qpp-offset", 0, NULL);
-            MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "qpb-offset", 0, NULL);
+            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "quantizer", qp, NULL);
+            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "qpi-offset", 0, NULL);
+            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "qpp-offset", 0, NULL);
+            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "qpb-offset", 0, NULL);
         }
     } else if (key[0] == 'o') {
         static unsigned int gop = 128;
         gop = (gop == 128) ? 90 : 128;
-        MEDIAPIPE_SET_PROPERTY(ret, mp, "enc0", "keyframe-period", gop, NULL);
+        MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "keyframe-period", gop, NULL);
     } else if (key[0] == 'h') {
         MEDIAPIPE_SET_PROPERTY(ret, mp, "src", "custom-aic-param",
                                "1,1,1,1,1,1,1,1,20,", NULL);
@@ -174,3 +180,24 @@ keyshot_process(mediapipe_t *mp, void *userdata)
     }
 }
 
+static char *
+json_setup_encoders(mediapipe_t *mp)
+{
+    struct json_object *enc;
+    struct json_object *root = mp->config;
+    if (!json_object_object_get_ex(root, "encoder", &enc)) {
+        LOG_WARNING("unset encoder config in config.son,use enc0 as element name default");
+        return MP_CONF_OK;
+    }
+    if(!json_get_string(enc, "encoder-name", &element_name)) {
+        LOG_WARNING("unset encoder name in config.son,use enc0 as element name default");
+    }
+
+    return MP_CONF_OK;
+}
+
+static char *
+mp_encoder_block(mediapipe_t *mp, mp_command_t *cmd)
+{
+    return json_setup_encoders(mp);
+}
