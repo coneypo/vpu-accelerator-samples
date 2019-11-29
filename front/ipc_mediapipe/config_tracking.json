@@ -154,7 +154,10 @@
         "image_element": "src",
         "video_element": "enc1",
         "stream_uri": "/test1",
-        "videorate_capsfilter": "videorate_caps"
+        "videorate_capsfilter": "videorate_caps",
+        "video_enc1": "720p",
+        "video_enc2": "1080p",
+        "video_enc3": "4k"
     }
 
 }

@@ -119,6 +119,9 @@ typedef struct {
     int height;
     GMainContext *context;
     GMainLoop *loop;
+    const char *video_enc1;
+    const char *video_enc2;
+    const char *video_enc3;
 } Context;
 
 static Context *onvif_ctx = NULL ;
@@ -489,21 +492,96 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
     
     if(param[WIDTH].value_int == 1280 && param[HEIGHT].value_int == 720 )
     {
-        ctx->video_element = "enc1";
-        ctx->stream_uri = "/test1";
-        ctx->videorate_capsfilter = "videorate1_caps";
+        if(g_strcmp0(onvif_ctx->video_enc1, "720p") == 0)
+        {
+            ctx->video_element = "enc1";
+            ctx->stream_uri = "/test1";
+            ctx->videorate_capsfilter = "videorate1_caps";
+            onvif_ctx->video_element = "enc1";
+            onvif_ctx->stream_uri = "/test1";
+        }
+        else if(g_strcmp0(onvif_ctx->video_enc2, "720p") == 0)
+        {
+            ctx->video_element = "enc2";
+            ctx->stream_uri = "/test2";
+            ctx->videorate_capsfilter = "videorate2_caps";
+            onvif_ctx->video_element = "enc2";
+            onvif_ctx->stream_uri = "/test2";
+        }
+        else if(g_strcmp0(onvif_ctx->video_enc3, "720p") == 0)
+        {
+            ctx->video_element = "enc3";
+            ctx->stream_uri = "/test3";
+            ctx->videorate_capsfilter = "videorate3_caps";
+            onvif_ctx->video_element = "enc3";
+            onvif_ctx->stream_uri = "/test3";
+        }
+        else
+        {
+            LOG_INFO("please set video_enc1 in config file.\n");
+        }
     }
     else if(param[WIDTH].value_int == 1920 && param[HEIGHT].value_int == 1080)
     {
-        ctx->video_element = "enc2";
-        ctx->stream_uri = "/test2";
-        ctx->videorate_capsfilter = "videorate2_caps";
+        if(g_strcmp0(onvif_ctx->video_enc1, "1080p") == 0)
+        {
+            ctx->video_element = "enc1";
+            ctx->stream_uri = "/test1";
+            ctx->videorate_capsfilter = "videorate1_caps";
+            onvif_ctx->video_element = "enc1";
+            onvif_ctx->stream_uri = "/test1";
+        }
+        else if(g_strcmp0(onvif_ctx->video_enc2, "1080p") == 0)
+        {
+            ctx->video_element = "enc2";
+            ctx->stream_uri = "/test2";
+            ctx->videorate_capsfilter = "videorate2_caps";
+            onvif_ctx->video_element = "enc2";
+            onvif_ctx->stream_uri = "/test2";
+        }
+        else if(g_strcmp0(onvif_ctx->video_enc3, "1080p") == 0)
+        {
+            ctx->video_element = "enc3";
+            ctx->stream_uri = "/test3";
+            ctx->videorate_capsfilter = "videorate3_caps";
+            onvif_ctx->video_element = "enc3";
+            onvif_ctx->stream_uri = "/test3";
+        }
+        else
+        {
+            LOG_INFO("please set video_enc1 in config file.\n");
+        }
     }
     else if(param[WIDTH].value_int == 3840 && param[HEIGHT].value_int == 2160)
     {
-        ctx->video_element = "enc3";
-        ctx->stream_uri = "/test3";
-        ctx->videorate_capsfilter = "videorate3_caps";
+        if(g_strcmp0(onvif_ctx->video_enc1, "4k") == 0)
+        {
+            ctx->video_element = "enc1";
+            ctx->stream_uri = "/test1";
+            ctx->videorate_capsfilter = "videorate1_caps";
+            onvif_ctx->video_element = "enc1";
+            onvif_ctx->stream_uri = "/test1";
+        }
+        else if(g_strcmp0(onvif_ctx->video_enc2, "4k") == 0)
+        {
+            ctx->video_element = "enc2";
+            ctx->stream_uri = "/test2";
+            ctx->videorate_capsfilter = "videorate2_caps";
+            onvif_ctx->video_element = "enc2";
+            onvif_ctx->stream_uri = "/test2";
+        }
+        else if(g_strcmp0(onvif_ctx->video_enc3, "4k") == 0)
+        {
+            ctx->video_element = "enc3";
+            ctx->stream_uri = "/test3";
+            ctx->videorate_capsfilter = "videorate3_caps";
+            onvif_ctx->video_element = "enc3";
+            onvif_ctx->stream_uri = "/test3";
+        }
+        else
+        {
+            LOG_INFO("please set video_enc1 in config file.\n");
+        }
     }
     else
     {
@@ -1441,7 +1519,9 @@ static char *onvif_ctx_set(mediapipe_t *mp, mp_command_t *cmd)
     onvif_ctx->stream_uri = get_element_name_from_mp_config(mp, "stream_uri");
     onvif_ctx->videorate_capsfilter = get_element_name_from_mp_config(mp,
             "videorate_capsfilter");
-
+    onvif_ctx->video_enc1 = get_element_name_from_mp_config(mp, "video_enc1");
+    onvif_ctx->video_enc2 = get_element_name_from_mp_config(mp, "video_enc2");
+    onvif_ctx->video_enc3 = get_element_name_from_mp_config(mp, "video_enc3");
     return MP_CONF_OK;
 }
 
