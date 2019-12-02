@@ -210,10 +210,22 @@ static gboolean Get_GstStructure_List(CTX *ctx)
                           "lt", G_TYPE_INT, 8,
                           "shift", G_TYPE_INT, 0,
                           NULL);
+    GstStructure *mosaic_s =
+        gst_structure_new("gapiosd_meta",
+                          "meta_id", G_TYPE_UINT, 4,
+                          "meta_type", G_TYPE_STRING, "mosaic",
+                          "x", G_TYPE_INT, 100,
+                          "y", G_TYPE_INT, 100,
+                          "width", G_TYPE_INT, 100,
+                          "height", G_TYPE_INT, 100,
+                          "cellSz", G_TYPE_INT, 5,
+                          "decim", G_TYPE_INT, 0,
+                          NULL);
     ctx->conf_List = g_list_append(ctx->conf_List, text_s);
     ctx->conf_List = g_list_append(ctx->conf_List, rect_s);
     ctx->conf_List = g_list_append(ctx->conf_List, circle_s);
     ctx->conf_List = g_list_append(ctx->conf_List, line_s);
+    ctx->conf_List = g_list_append(ctx->conf_List, mosaic_s);
     return TRUE;
 }
 
