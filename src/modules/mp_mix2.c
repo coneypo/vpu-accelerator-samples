@@ -385,11 +385,12 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
     struct json_object *message_obj = NULL;
     const char *message_name;
     const char *delay_queue_name;
-    const char *element_name;
+    const char *element_name = NULL;
     gboolean find = FALSE;
-    //judge if has specific element named element_name
+    //judge if element_name item in configure file
     if (!json_get_string(mix_root, "element_name", &element_name)) {
-        element_name = "proc_src";
+        LOG_WARNING("Can't find element_name item need by mix2 in configue file !");
+        return FALSE;
     }
     GstElement *element = gst_bin_get_by_name(GST_BIN(mp->pipeline), element_name);
     if (!element) {

@@ -46,6 +46,7 @@
 #define PARAM_STR_FAILD "FAILED"
 #define SERVERNAME "/tmp/onvif"
 
+static gint client_socket;
 static GHashTable *client_table = NULL;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t needProduct = PTHREAD_COND_INITIALIZER;
@@ -182,6 +183,10 @@ mp_module_t  mp_onvif_module = {
 
 
 
+void close_fd_pointer (gpointer fd_pointer){
+    int fd = GPOINTER_TO_INT(fd_pointer);
+    close(fd);
+}
 
 
 static const char *get_element_name_from_mp_config(mediapipe_t *mp, const char *key_name)
@@ -1381,15 +1386,13 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
 
     //find client fd in hashtable
     ClientData *pClientData = (ClientData *)g_hash_table_lookup(client_table,
-                          &client_socket_fd);
+                          GINT_TO_POINTER(client_socket_fd));
 
     //not find
     if (NULL == pClientData) {
-       gint *pClient_socket_fd = g_new0(gint, 1);
-       *pClient_socket_fd = client_socket_fd;
        pClientData = g_new0(ClientData, 1);
        pClientData->dataLenNeedHandle = 0;
-       g_hash_table_insert(client_table, pClient_socket_fd, pClientData);
+       g_hash_table_insert(client_table, GINT_TO_POINTER(client_socket_fd), pClientData);
        LOG_DEBUG("A new client:%d", client_socket_fd);
    }
 
@@ -1406,8 +1409,7 @@ static gboolean gio_client_read_in_hanlder(GIOChannel *gio, GIOCondition conditi
        if (ret == G_IO_STATUS_ERROR || ret == G_IO_STATUS_EOF) {
            //close and remove client_socket_fd from hash table
            g_io_channel_shutdown(gio, TRUE, &err);
-           close(client_socket_fd);
-           g_hash_table_remove(client_table, &client_socket_fd);
+           g_hash_table_remove(client_table, GINT_TO_POINTER(client_socket_fd));
            LOG_DEBUG("Client %d: receive EOF or IO_STATUS_ERROR!", client_socket_fd);
            return FALSE;
        } else {
@@ -1469,7 +1471,6 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
 {
     Context *ctx = (Context *)data;
     GIOChannel *client_channel;
-    gint client_socket;
 
     gint socket_fd = g_io_channel_unix_get_fd(gio);
     if (socket_fd < 0) {
@@ -1486,6 +1487,18 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
         LOG_ERROR("ERROR CLIENT_SOCKET VALUE !");
         return FALSE;
     }
+
+    //find client fd in hashtable
+    ClientData *pClientData = (ClientData *)g_hash_table_lookup(client_table,
+                          GINT_TO_POINTER(client_socket));
+
+    //not find
+    if (NULL == pClientData) {
+       pClientData = g_new0(ClientData, 1);
+       pClientData->dataLenNeedHandle = 0;
+       g_hash_table_insert(client_table, GINT_TO_POINTER(client_socket), pClientData);
+       LOG_DEBUG("A new client:%d", client_socket_fd);
+   }
 
     client_channel = g_io_channel_unix_new(client_socket);
 
@@ -1575,7 +1588,7 @@ static void *onvif_server_thread_run(void *data)
     }
     //new client hash table use to contain client info
     if (NULL == client_table) {
-        client_table = g_hash_table_new_full(g_int_hash, g_int_equal, g_free, g_free);
+        client_table = g_hash_table_new_full(g_direct_hash, g_direct_equal, close_fd_pointer, g_free);
     }
 
     GIOCondition cond = G_IO_IN;
@@ -1592,7 +1605,8 @@ static void *onvif_server_thread_run(void *data)
     g_source_destroy(source);
     g_main_loop_unref(loop);
     g_main_context_unref(context);
-
+    close(server_sockfd);
+    g_hash_table_unref(client_table);
 }
 
 static void onvif_server_start(mediapipe_t *mp)
@@ -1612,7 +1626,6 @@ init_module(mediapipe_t *mp)
 static void
 exit_master(void)
 {
-    g_hash_table_unref(client_table);
     g_main_loop_quit(onvif_ctx->loop);
     destroy_context(&onvif_ctx);
 }
