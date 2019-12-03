@@ -23,8 +23,9 @@ INSTALL STEPS
 **NOTE:**
 
     1.You can also use the --with-opencv-path option of ./configure to input opencv path,
+    use --with-inference-path to input InferenceEngine lib path,
     such as:
-    $ ./configure --with-opencv-path=/opt/opencv/lib
+    $ ./configure --with-opencv-path=/opt/opencv/ --with-inference-path=/opt/InferenceEngine/
 
 **Install Result Test:**
 
