@@ -59,7 +59,7 @@ int GstPipeContainer::init(){
     gst_caps_unref(caps);
 */
 
-    GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
+    GstCaps* caps = gst_caps_from_string("video/x-raw, format=(string)NV12");
     if (!caps)
         return -3;
     g_object_set(capsfilter, "caps", caps, NULL);
@@ -175,45 +175,38 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         return false;
     }
 
-    int fd = -1;
-    if (!_gst_dmabuffer_import(buf, fd)){
-        std::cout<<"DMA buffer import failed!"<<std::endl;
-        return false;
-    }
+    // int fd = -1;
+    // if (!_gst_dmabuffer_import(buf, fd)){
+    //     std::cout<<"DMA buffer import failed!"<<std::endl;
+    //     return false;
+    // }
 
     blob->streamId = m_idx;
-    blob->frameId = m_frameIdx;
+    blob->frameId = buf->pts;
 
     //std::cout<<"Stream "<<blob->streamId<<" frame "<<blob->frameId<<" pushed"<<std::endl;
 
+    // blob->emplace<unsigned char, std::pair<unsigned, unsigned>>(info->data, m_width*m_height*3/2,
+    //         new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead, fd](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
+    //             vpusmm_unimport_dmabuf(fd);
+    //             gst_buffer_unmap(buf, info);
+    //             gst_sample_unref(sampleRead);
+    //             delete info;
+    //             delete meta;
+    //         });
+
     blob->emplace<unsigned char, std::pair<unsigned, unsigned>>(info->data, m_width*m_height*3/2,
-            new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead, fd](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
-                vpusmm_unimport_dmabuf(fd);
+            new std::pair<unsigned, unsigned>(m_width,m_height),[buf, info, sampleRead](unsigned char* psuf, std::pair<unsigned, unsigned>* meta){
                 gst_buffer_unmap(buf, info);
                 gst_sample_unref(sampleRead);
                 delete info;
                 delete meta;
             });
 
-    ++m_frameIdx;
+    // ++m_frameIdx;
 
     return true;
 
-/*
-    uint8_t* cur = info.data;
-    std::cout<<"\nFrame Received: "<<std::endl;
-    for(unsigned row = 0; row < m_height; ++row){
-        for(unsigned col = 0; col < m_width; ++col){
-            std::cout<< std::hex << (unsigned)*cur << " ";
-            ++cur;
-        }
-        std::cout<< std::dec <<std::endl;
-    }
-
-    gst_buffer_unmap(buf, &info);
-    gst_sample_unref(m_sampleRead);
-    m_sampleRead = nullptr;
-*/
 }
 
 bool GstPipeContainer::_gst_dmabuffer_import(GstBuffer *buffer, int& fd){

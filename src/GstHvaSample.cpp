@@ -6,7 +6,7 @@
 #include <chrono>
 #include <thread>
 
-#define STREAMS 2
+#define STREAMS 1
 
 int main(){
 
