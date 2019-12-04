@@ -1,5 +1,5 @@
 #define HVA_CV
-#define HVA_KMB
+//#define HVA_KMB
 
 #include <infer_node.hpp>
 #include <timeMeasure.hpp>
@@ -21,7 +21,7 @@
 #include <ie_iextension.h>
 
 #ifdef HVA_KMB
-#include "vpusmm/vpusmm.h"
+//#include "vpusmm/vpusmm.h"
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -69,7 +69,7 @@ Blob::Ptr yoloLayer_yolov2tiny(const Blob::Ptr &lastBlob, int inputHeight, int i
 }
 
 // int VPUAllocator::_pageSize = getpagesize();
-int VPUAllocator::_pageSize = 4 * 1024 * 1024;
+//int VPUAllocator::_pageSize = 4 * 1024 * 1024;
 
 static uint32_t calculateRequiredSize(uint32_t blobSize, int pageSize) {
     uint32_t blobSizeRem = blobSize % pageSize;
@@ -79,7 +79,7 @@ static uint32_t calculateRequiredSize(uint32_t blobSize, int pageSize) {
     }
     return requiredSize;
 }
-
+/*
 void* VPUAllocator::allocate(size_t requestedSize) {
     const uint32_t requiredBlobSize = calculateRequiredSize(requestedSize, _pageSize);
     int fileDesc = vpusmm_alloc_dmabuf(requiredBlobSize, VPUSMMTYPE_COHERENT);
@@ -112,6 +112,7 @@ VPUAllocator::~VPUAllocator() {
         close(fileDesc);
     }
 }
+*/
 
 Blob::Ptr InferNodeWorker::deQuantizeClassification(const Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint) {
   const TensorDesc quantTensor = quantBlob->getTensorDesc();
@@ -293,19 +294,24 @@ void InferNodeWorker::process(std::size_t batchIdx){
 
     if(vecBlobInput.size()==0u)
         return;
+    printf("start to preproc\n");
     preproc(*this);
 
     // --------------------------- 7. Do inference --------------------------------------------------------
     /* Running the request synchronously */
+
+    printf("start to inference\n");
     infer_request.Infer();
     // -----------------------------------------------------------------------------------------------------
     
+    printf("start to postproc\n");
     if (nullptr != postproc) {
         postproc(*this);
     }
     else {
         printf("no post proc\n");
     }
+    printf("end to postproc\n");
 }
 
 #if 0
@@ -741,8 +747,10 @@ void InferNodeWorker::preprocessNV12(InferNodeWorker& inferWorker) {
     inferWorker.m_input_height = meta->second;
     inferWorker.m_input_width = meta->first;
 
-#ifdef HVA_KMB
+
     inferWorker.m_input_width = alignTo64(inferWorker.m_input_width);
+#ifdef HVA_KMB
+    
 #endif
     // std::cout << inferWorker.m_input_height << ", " << inferWorker.m_input_width << std::endl;
 

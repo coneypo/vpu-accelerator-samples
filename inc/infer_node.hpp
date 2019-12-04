@@ -17,6 +17,7 @@ using InferPreprocFunc_t = std::function<void (InferNodeWorker& inferWorker)>;
 using InferPostprocFunc_t = std::function<void (InferNodeWorker& inferWorker)>;
 
 #ifdef HVA_KMB
+/*
 class VPUAllocator {
 public:
     VPUAllocator() {}
@@ -26,12 +27,15 @@ private:
     std::list< std::tuple<int, void*, size_t> > _memChunks;
     static int _pageSize;
 };
-
-size_t alignTo64(size_t s) {
-    return ((s - 1) & (~63)) + 64;
-}
+*/
 
 #endif
+
+inline size_t alignTo64(size_t s) {
+
+    return ((s + 16 - 1) & (~15));
+}
+
 
 struct InferInputParams_t {
     std::string filenameModel;
@@ -132,7 +136,7 @@ private:
     InferPreprocFunc_t preproc = nullptr;
     InferPostprocFunc_t postproc = nullptr;
 #ifdef HVA_KMB
-    VPUAllocator allocator;
+    //VPUAllocator allocator;
 #endif
 #ifdef HVA_CV
 

@@ -3,7 +3,7 @@
 #include <gst/app/gstappsink.h>
 #include <gst/allocators/allocators.h>
 #include <iostream>
-#include <vpusmm/vpusmm.h>
+//#include <vpusmm/vpusmm.h>
 
 GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
@@ -182,7 +182,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     // }
 
     blob->streamId = m_idx;
-    blob->frameId = buf->pts;
+    blob->frameId = m_frameIdx;
+    std::cout<<"!!!!!!Decoder set frame id to "<<blob->frameId<<std::endl;
 
     //std::cout<<"Stream "<<blob->streamId<<" frame "<<blob->frameId<<" pushed"<<std::endl;
 
@@ -203,12 +204,12 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
                 delete meta;
             });
 
-    // ++m_frameIdx;
+    ++m_frameIdx;
 
     return true;
 
 }
-
+/**
 bool GstPipeContainer::_gst_dmabuffer_import(GstBuffer *buffer, int& fd){
     GstMemory *mem = gst_buffer_get_memory(buffer, 0);
     if (mem == nullptr || !gst_is_dmabuf_memory(mem)) {
@@ -231,3 +232,4 @@ bool GstPipeContainer::_gst_dmabuffer_import(GstBuffer *buffer, int& fd){
     return true;
 
 }
+**/

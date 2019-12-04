@@ -15,14 +15,15 @@ int main(){
     hva::hvaPipeline_t pl;
 
     InferInputParams_t paramsInfer;  // input param for infer
-    // paramsInfer.filenameModel = "yolov2_tiny_od_yolo_IR_fp32.xml";
-    paramsInfer.filenameModel = "/opt/yolotiny/yolotiny.blob";
+    paramsInfer.filenameModel = "yolov2_tiny_od_yolo_IR_fp32.xml";
+    //paramsInfer.filenameModel = "/opt/yolotiny/yolotiny.blob";
     paramsInfer.format = INFER_FORMAT_NV12;
     paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2WithClassify;
     paramsInfer.preproc = InferNodeWorker::preprocessNV12;
     auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,1,STREAMS,paramsInfer), "DetectNode");
 
-    paramsInfer.filenameModel = "/opt/resnet/resnet.blob";
+    paramsInfer.filenameModel = "ResNet-50_fp32.xml";
+    //paramsInfer.filenameModel = "/opt/resnet/resnet.blob";
     paramsInfer.format = INFER_FORMAT_NV12;
     paramsInfer.postproc = InferNodeWorker::postprocessClassification;
     paramsInfer.preproc = InferNodeWorker::preprocessNV12_ROI;
@@ -59,7 +60,9 @@ int main(){
                     cont.init();
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                    int temp_i = 0;
                     while(cont.read(blob)){
+                        std::cout<<"!!!!!!!!!Successfully read "<<temp_i++<<" frame"<<std::endl;
                         pl.sendToPort(blob,"DetectNode",0,ms(0));
                         blob.reset(new hva::hvaBlob_t());
                     }
