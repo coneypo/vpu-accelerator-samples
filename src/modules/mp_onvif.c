@@ -1607,6 +1607,7 @@ static void *onvif_server_thread_run(void *data)
     g_main_context_unref(context);
     close(server_sockfd);
     g_hash_table_unref(client_table);
+    return NULL;
 }
 
 static void onvif_server_start(mediapipe_t *mp)
