@@ -2,13 +2,14 @@
 #define GST_PIPE_CONTAINER_HPP
 
 #include <gst/gst.h>
+#include <string>
 #include <hvaPipeline.hpp>
 
 class GstPipeContainer{
 public:
     GstPipeContainer(unsigned idx);
 
-    int init();
+    int init(std::string filename);
 
     int start();
 

@@ -1,0 +1,11 @@
+{
+    "Detection":{
+        "Model":"yolov2_tiny_od_yolo_IR_fp32.xml"
+    },
+    "Classification":{
+        "Model":"ResNet-50_fp32.xml"
+    },
+    "Decode":{
+        "Video":"./barrier_1080x720.h264"
+    }
+}

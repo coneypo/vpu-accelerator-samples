@@ -11,7 +11,7 @@ GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(
             capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0){
 }
 
-int GstPipeContainer::init(){
+int GstPipeContainer::init(std::string filename){
     file_source = gst_element_factory_make("filesrc", "file_source");
     parser = gst_element_factory_make("h264parse", "parser");
     dec = gst_element_factory_make("vaapih264dec", "dec");
@@ -35,17 +35,6 @@ int GstPipeContainer::init(){
             ){
         return -1;
     }
-    // if(!cont.file_source || !cont.parser || !cont.dec || !cont.vaapi_sink ||
-    //         !cont.pipeline){
-    //     std::cout<<"Element init failed!"<<std::endl;
-    //     std::cout<<"Element cont.file_source"<< cont.file_source<<std::endl;
-    //     std::cout<<"Element cont.parser"<< cont.parser<<std::endl;
-    //     std::cout<<"Element cont.dec"<< cont.dec<<std::endl;
-    //     std::cout<<"Element cont.vaapi_sink"<< cont.vaapi_sink<<std::endl;
-    //     return -1;
-    // }
-
-    // video/x-raw(memory:VASurface)
 
 /*
 #ifdef ENABLE_DISPLAY
@@ -65,7 +54,8 @@ int GstPipeContainer::init(){
     g_object_set(capsfilter, "caps", caps, NULL);
     gst_caps_unref (caps);
     
-    g_object_set(file_source, "location", "./barrier_1080x720.h264", NULL);
+    // g_object_set(file_source, "location", "./barrier_1080x720.h264", NULL);
+    g_object_set(file_source, "location", filename.c_str(), NULL);
 
 #ifdef ENABLE_DISPLAY
     gst_bin_add_many(GST_BIN(pipeline), file_source, parser, dec,
