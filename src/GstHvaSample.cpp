@@ -8,6 +8,7 @@
 #include <util/jsonParser.hpp>
 #include <string>
 #include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
 
 #define STREAMS 1
 

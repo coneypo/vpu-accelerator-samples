@@ -173,7 +173,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 
     blob->streamId = m_idx;
     blob->frameId = m_frameIdx;
-    std::cout<<"!!!!!!Decoder set frame id to "<<blob->frameId<<std::endl;
+    //std::cout<<"!!!!!!Decoder set frame id to "<<blob->frameId<<std::endl;
 
     //std::cout<<"Stream "<<blob->streamId<<" frame "<<blob->frameId<<" pushed"<<std::endl;
 

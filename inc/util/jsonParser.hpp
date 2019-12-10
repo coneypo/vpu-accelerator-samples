@@ -4,6 +4,7 @@
 #include <string>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/exception/diagnostic_information.hpp>
+#include <iostream>
 
 class JsonParser {
 public:
@@ -40,7 +41,7 @@ bool JsonParser::parse(const std::string& path, T& result){
         std::cout<<"Warn: parse failed, "<<e.what()<<std::endl;
         return false;
     } catch (boost::exception& e) {
-        std::cout<<"Error: unclassified error, "<<oost::diagnostic_information(e))<<std::endl;
+        std::cout<<"Error: unclassified error, "<<boost::diagnostic_information(e)<<std::endl;
         return false;
     }
     return true;

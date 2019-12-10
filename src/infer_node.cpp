@@ -1,4 +1,4 @@
-#define HVA_CV
+//#define HVA_CV
 //#define HVA_KMB
 
 #include <infer_node.hpp>
@@ -294,24 +294,24 @@ void InferNodeWorker::process(std::size_t batchIdx){
 
     if(vecBlobInput.size()==0u)
         return;
-    printf("start to preproc\n");
+    //printf("start to preproc\n");
     preproc(*this);
 
     // --------------------------- 7. Do inference --------------------------------------------------------
     /* Running the request synchronously */
 
-    printf("start to inference\n");
+    //printf("start to inference\n");
     infer_request.Infer();
     // -----------------------------------------------------------------------------------------------------
     
-    printf("start to postproc\n");
+    //printf("start to postproc\n");
     if (nullptr != postproc) {
         postproc(*this);
     }
     else {
         printf("no post proc\n");
     }
-    printf("end to postproc\n");
+    //printf("end to postproc\n");
 }
 
 #if 0
