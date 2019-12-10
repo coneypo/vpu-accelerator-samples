@@ -23,6 +23,7 @@
 #include <gst/base/base.h>
 #include <gst/controller/controller.h>
 #include <string>
+#include <unistd.h>
 #include "gstgapiosd.h"
 
 GST_DEBUG_CATEGORY_STATIC(gst_gapi_osd_debug);
@@ -336,8 +337,11 @@ static gboolean parse_from_json_file(GstGapiosd *filter)
     if (filter->config_path == NULL) {
         GST_WARNING_OBJECT(filter, "json file path is null");
         return FALSE ;
-    } else{
-        GST_WARNING_OBJECT(filter, "json file path is %s", filter->config_path);
+    } else if(access(filter->config_path, F_OK)) {
+        GST_ERROR_OBJECT(filter, "json file %s not exist", filter->config_path);
+        return FALSE ;
+    } else {
+        GST_INFO_OBJECT(filter, "json file path is %s", filter->config_path);
     }
     if (filter->json_root != NULL) {
         return FALSE;
