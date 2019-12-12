@@ -32,6 +32,7 @@ struct probe_context_s {
     gint                fps;
     GstElement          *src;
     GstClockTime        timestamp;
+    GstClockTime        frameBeforeTime;
 };
 
 typedef void(*message_callback_t)(mediapipe_t* mp, GstMessage *msg);

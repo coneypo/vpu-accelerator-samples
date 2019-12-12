@@ -528,12 +528,17 @@ rtsp_probe_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
     probe_context_t *ctx = (probe_context_t *)user_data;
     GstBuffer *buffer = gst_buffer_copy_deep(GST_PAD_PROBE_INFO_BUFFER(info));
-    if(ctx->fps > 0) {
+    //do timestamp by real time
+    GstClockTime currentFrameTime = g_get_real_time();
+    if (ctx->timestamp == 0) {
         GST_BUFFER_PTS(buffer) = ctx->timestamp;
-        GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND,
-                ctx->fps);
-        ctx->timestamp += GST_BUFFER_DURATION(buffer);
+        ctx->timestamp = 1;
+    } else {
+        GST_BUFFER_PTS(buffer) = ctx->timestamp + ((currentFrameTime  -
+                    ctx->frameBeforeTime) * 1000) ;
+        ctx->timestamp = GST_BUFFER_PTS(buffer);
     }
+    ctx->frameBeforeTime = currentFrameTime;
     GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
     GstFlowReturn status;
     g_signal_emit_by_name(ctx->src, "push-buffer", buffer, &status);
