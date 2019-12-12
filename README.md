@@ -1,4 +1,22 @@
 # KMB sample (gstream decoding + HVA detection/classifcation on ARM)
+### Update on 2019 Dec 11th
+A sample Bypass Pipeline 
+
+This sample runs on IA host, with decoding offloaded to KMB and IE (detection + classification) on CPU. Due to the fact that VAAPI Shim only supports single thread, single process and single pipeline at the moment. The number of Streams can only be configured to 1 (refer to the hash define in main). 
+
+#### External dependencies
+Gstreamer (for decoding)
+Boost
+VAAPI Shim
+OpenVino
+
+#### Configuration
+Configure model path, video file in config.json, which will be found by applicaiton on ${pwd}
+
+#### Run
+```shell
+./build/src/GstHvaSample
+```
 
 ------
 
