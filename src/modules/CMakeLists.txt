@@ -9,7 +9,7 @@ file(GLOB HDRS "*.h")
 set(SRCS mp_element.c mp_gva_postproc_and_upload.c mp_mbqp.c mp_mix2.c
     mp_onvif.c mp_roi.c mp_slice.c mp_changeformat.c mp_cvsdk.c mp_encoder.c mp_idr.c
     mp_openvino.c mp_rtsp.c  mp_snapshot.c mp_channel.c  mp_dump_buffer.c mp_feeder.c
-    mp_longterm.c mp_metaparser.c mp_sei.c)
+    mp_longterm.c mp_metaparser.c mp_sei.c mp_openssl_hw.c)
 
 if(NOT HDDL_PLUGIN_LIBRARY)
     message(STATUS "Disable gsthddl related modules, since libgsthddl.so not found")
