@@ -1,51 +1,29 @@
-videotestsrc is-live=true  name=src !
-capsfilter                 name=src_caps !
-vaapipostproc !
+kmbcamsrc name=kmbsrc transform-hub=full stride-align=64 scanline-align=64 kmbsrc. !
 queue !
-videorate                  name=videorate !
-capsfilter                 name=videorate_caps !
-tee name=t
-t. !
-    queue !
-    vaapih264enc             name=enc0 !
-    capsfilter             name=enc0_caps !
-    fakesink               name=sink0
-t. !
-    vaapisink
+capsfilter             name=src1_caps !
+vaapih264enc name=enc1 resend-pps=1 resend-sps=1 !
+capsfilter             name=enc1_caps !
+fakesink
+kmbsrc. !
+capsfilter             name=src2_caps !
+vaapih264enc name=enc2 resend-pps=1 resend-sps=1 !
+capsfilter             name=enc2_caps !
+fakesink
+kmbsrc. !
+capsfilter             name=src3_caps !
+gvadetect model=/opt/yolotiny/yolotiny.blob device=KMB nireq=1 inference-id=1 pre-proc=ie model-proc=/usr/share/gst-video-analytics/samples/model_proc/tiny_yolov2_tflite.json !
+gvaclassify model=/opt/resnet/resnet.blob device=KMB model-proc=/usr/share/gst-video-analytics/samples/model_proc/resnet50_tflite.json nireq=1 inference-id=2 pre-proc=ie !
+gvametaconvert converter=json method=all !
+gvametapublish method=file filepath=./result_file/ie_gva_detect_classify.json outputformat=batch !
+vaapih264enc name=enc3 resend-pps=1 resend-sps=1 !
+capsfilter             name=enc3_caps !
+fakesink
 
-audiotestsrc is-live=true !
-audioconvert !
-audioresample !
-tee name=audio_tt
-audio_tt. !
-queue !
-alawenc name = enc5 !
-capsfilter name=enc5_caps !
-fakesink
-audio_tt. !
-queue !
-mulawenc name = enc6 !
-capsfilter name=enc6_caps !
-fakesink
-audio_tt. !
-queue !
-avenc_g726 name=enc7 !
-capsfilter name=enc7_caps !
-fakesink
-audio_tt. !
-queue !
-audioresample !
-queue !
-avenc_g722 name=enc8 !
-capsfilter name=enc8_caps !
-fakesink
-audio_tt. !
+alsasrc device=hw:0,1 !
 queue !
 audioconvert !
-queue !
 audioresample !
-audio/x-raw,format=F32LE,rate=16000,layout=interleaved !
 queue !
-avenc_aac  name=enc9 !
-capsfilter name=enc9_caps !
+alawenc name=enc4 !
+capsfilter             name=enc4_caps !
 fakesink
