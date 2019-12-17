@@ -1497,7 +1497,7 @@ static gboolean gio_client_in_handle(GIOChannel *gio, GIOCondition condition,
        pClientData = g_new0(ClientData, 1);
        pClientData->dataLenNeedHandle = 0;
        g_hash_table_insert(client_table, GINT_TO_POINTER(client_socket), pClientData);
-       LOG_DEBUG("A new client:%d", client_socket_fd);
+       LOG_DEBUG("A new client:%d", client_socket);
    }
 
     client_channel = g_io_channel_unix_new(client_socket);
