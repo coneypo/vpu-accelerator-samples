@@ -1,0 +1,1 @@
+filesrc location=/home/1600x1200.mp4 ! qtdemux ! h264parse ! mfxh264dec ! inference socketname=%1 ! osdparser !  mfxsink name=mysink force-aspect-ratio=false 

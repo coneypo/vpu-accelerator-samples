@@ -1,0 +1,30 @@
+if (NOT TARGET msdkmfx)
+  pkg_check_modules(MFX  QUIET  mfx)
+  set(MFX_LIBS "")
+  if(MFX_FOUND)
+     message(STATUS "MFX_LIBRARY_DIRS: ${MFX_LIBDIR}")
+     set(MFX_INCLUDES ${MFX_INCLUDE_DIRS})
+     set(MFX_LIBRARY  "${MFX_LIBDIR}/libmfx.so")
+  else()
+    if(DEFINED ENV{MFX_HOME})
+      message(STATUS "MediaSDK distribution found in $ENV{MFX_HOME}")
+      set(MFX_HOME $ENV{MFX_HOME})
+    elseif (EXISTS "/opt/intel/mediasdk")
+      message(STATUS "MediaSDK distribution found in /opt/intel/mediasdk")
+      set(MFX_HOME "/opt/intel/mediasdk")
+    else()
+      message(FATAL_ERROR "No MediaSDK distribution is found.")
+    endif()
+    set(MFX_INCLUDES "${MFX_HOME}/include")
+    set(MFX_LIBRARY  "${MFX_HOME}/lib64/libmfx.so")
+    message(STATUS "MediaSDK include directory: ${MFX_INCLUDES}")
+    message( STATUS "MediaSDK library directory: ${MFX_LIBRARY}")
+  endif()
+
+  add_library(msdkmfx SHARED IMPORTED)
+
+  set_target_properties(msdkmfx PROPERTIES
+      IMPORTED_LOCATION ${MFX_LIBRARY}
+      INTERFACE_INCLUDE_DIRECTORIES "${MFX_INCLUDES}")
+
+endif()
