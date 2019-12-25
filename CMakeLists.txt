@@ -36,3 +36,4 @@ add_subdirectory(gstreamer_plugin)
 add_subdirectory(utils)
 add_subdirectory(tests)
 
+install(FILES "${MSDK_GST_BINARY}/lib/release/libgstmfx.so" DESTINATION lib)

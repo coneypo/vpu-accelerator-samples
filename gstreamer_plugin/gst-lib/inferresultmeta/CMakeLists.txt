@@ -11,3 +11,4 @@ target_link_libraries(${libname}
     ${GLIB2_LIBRARIES}
     )
 
+install(TARGETS ${libname} DESTINATION lib)

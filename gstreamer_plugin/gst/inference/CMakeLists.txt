@@ -21,3 +21,4 @@ target_link_libraries(${pluginname}
     utils_static
     )
 
+install(TARGETS ${pluginname} DESTINATION lib)

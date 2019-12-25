@@ -25,3 +25,6 @@ target_link_libraries(${PROJECT_NAME}
     ${GSTREAMER_LIBRARIES}
     ${Qt5Widgets_LIBRARIES}
     ${Qt5Network_LIBRARIES})
+
+install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+install(FILES "config.txt" DESTINATION "./")

@@ -41,3 +41,5 @@ message(STATUS "Copy OpenCL kernel to: ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 
 file(COPY ../../gst-lib/ocl/kernels
      DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+install(TARGETS ${pluginname} DESTINATION lib)

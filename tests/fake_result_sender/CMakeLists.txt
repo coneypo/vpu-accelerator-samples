@@ -6,3 +6,5 @@ add_executable(${TARGET_NAME} ${SRCS} ${HDRS})
 
 target_link_libraries(${TARGET_NAME} PRIVATE utils_static)
 target_link_libraries(${TARGET_NAME} PRIVATE ${Boost_LIBRARIES})
+
+install(TARGETS ${TARGET_NAME} DESTINATION bin)

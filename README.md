@@ -35,10 +35,21 @@ where the *.so in the corresponding path.
 gst-launch-1.0 filesrc location=<video path>/video.mp4 ! qtdemux  ! h264parse ! mfxh264dec ! inference ! osdparser ! mfxsink
 `
 
-## Run App
+## Run App in build dir
 
 
 ``` 
 cd build/output
 ./hddldemo -l ../../app/config.txt -r 1 -c 1
+```
+
+## Run App in install dir
+
+```
+vim <install path>/config.txt to spcify video source
+export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libxcb-dri3.so
+export LD_LIBRARY_PATH='<install path>/lib'
+export GST_PLUGIN_PATH='<install path>/lib'
+cd <install path>/bin
+./hddldemo -l ../config.txt -r 1 -c 1
 ```

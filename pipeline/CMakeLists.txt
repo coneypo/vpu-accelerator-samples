@@ -16,9 +16,10 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 aux_source_directory(. DIR_SRCS)
 aux_source_directory(../common UTILS_SRCS)
 
-add_executable(hddlpipeline ${DIR_SRCS} ${UTILS_SRCS})
-add_dependencies(hddlpipeline msdk-gst inferresultmeta)
-target_include_directories(hddlpipeline PRIVATE ${GSTREAMER_INCLUDE_DIRS}
+set(TARGET_NAME hddlpipeline)
+add_executable(${TARGET_NAME} ${DIR_SRCS} ${UTILS_SRCS})
+add_dependencies(${TARGET_NAME} msdk-gst inferresultmeta)
+target_include_directories(${TARGET_NAME} PRIVATE ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
     ${GSTAPP_INCLUDE_DIRS}
     ${Qt5Network_INCLUDE_DIR}
@@ -34,11 +35,11 @@ target_include_directories(hddlpipeline PRIVATE ${GSTREAMER_INCLUDE_DIRS}
     ${MSDK_GST_BINARY}
     )
 
-target_link_directories(hddlpipeline PRIVATE
+target_link_directories(${TARGET_NAME} PRIVATE
     ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/gstreamer-1.0
     ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
-target_link_libraries(hddlpipeline
+target_link_libraries(${TARGET_NAME}
     gstmfx
     inferresultmeta
     gstinference
@@ -50,3 +51,5 @@ target_link_libraries(hddlpipeline
     ${XcbDri_LIBRARIES}
     ${Qt5Network_LIBRARIES}
     ${Qt5Widgets_LIBRARIES})
+
+install(TARGETS ${TARGET_NAME} DESTINATION bin)

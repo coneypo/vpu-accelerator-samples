@@ -40,6 +40,3 @@ link_directories(/usr/lib)
 
 add_subdirectory(gst-lib)
 add_subdirectory(gst)
-
-
-#install(TARGETS gstmyfilter DESTINATION gstreamer-1.0 COMPONENT libraries)
