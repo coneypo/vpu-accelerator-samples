@@ -17,7 +17,7 @@ add_library (${pluginname} SHARED ${DIR_SRCS})
 target_include_directories(${pluginname} PRIVATE .
                            ${MFX_INCLUDES}
                            ${CMAKE_BINARY_DIR}/ocl
-                           ${CMAKE_SOURCE_DIR}/utils_app/
+                           ${CMAKE_SOURCE_DIR}/utils/
                            ${PLUGIN_ROOT_DIR}/gst-lib/
                            ${PLUGIN_ROOT_DIR}/gst-lib/inferresultmeta
                            ${PLUGIN_ROOT_DIR}/gst-lib/ocl
