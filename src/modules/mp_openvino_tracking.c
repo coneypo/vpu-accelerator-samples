@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <unistd.h>
 
 //about subscriber_message start
 typedef int (*message_process_fun)(const char *message_name,
@@ -30,6 +31,8 @@ unsubscribe_message(const char *message_name, const char *subscriber_name,
 
 #define MAX_BUF_SIZE 10240
 #define QUEUE_CAPACITY 10
+#define MAX_QUEUE_BUFFFER 1
+static gint queueBufferNum = 0;
 
 // about branch start
 typedef struct {
@@ -139,14 +142,33 @@ openvino_tracking_branch_push_buffer(mediapipe_branch_t *branch, GstBuffer *buff
         LOG_ERROR("branch or buffer is null when push buffer to branch!");
         return FALSE;
     }
-
-    GstBuffer *buffercopy = gst_buffer_copy(buffer);
-    GstMemory *memorysrc = gst_buffer_get_memory(buffercopy, 0);
-    gst_memory_unlock(memorysrc, GST_LOCK_FLAG_EXCLUSIVE);
+    //Don't push current buffer to branch when branch's buffer bigger or equal to MAX_QUEUE_BUFFFER
+    if (queueBufferNum >= MAX_QUEUE_BUFFFER) {
+        return TRUE;
+    }
+    //dup fd and copy buffer but do not copy memory
+    //dup fd
+    GstMemory *memorysrc = gst_buffer_get_memory(buffer, 0);
+    int oldFd = gst_dmabuf_memory_get_fd(memorysrc);
+    int newFd = dup(oldFd);
     gst_memory_unref(memorysrc);
+
+    //copy buffer
+    GstAllocator *newAllocator =  gst_dmabuf_allocator_new();
+    GstMemory *newMemory =  gst_dmabuf_allocator_alloc(newAllocator, newFd,
+            gst_buffer_get_size(buffer));
+    GstBuffer *buffercopy = gst_buffer_new();
+    gst_buffer_copy_into(buffercopy, buffer,
+            GstBufferCopyFlags(GST_BUFFER_COPY_NONE | GST_BUFFER_COPY_META |
+                GST_BUFFER_COPY_FLAGS), 0, 0);
+    gst_buffer_insert_memory(buffercopy, 0, newMemory);
+    gst_buffer_add_parent_buffer_meta(buffercopy, buffer);
+
+    //push buffer to appsrc and update queueBufferNum
     if (branch && branch->source) {
         gst_app_src_push_buffer(GST_APP_SRC(branch->source),
                 buffercopy);
+        g_atomic_int_inc(&queueBufferNum);
     }
 
     return TRUE;
@@ -608,6 +630,10 @@ detect_src_callback(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     branch_t *branch = (branch_t *) user_data;
     openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)
                                  mp_modules_find_module_ctx(branch->mp_branch.mp, "openvino_tracking");
+    //update branch buffer number when handle buffer finished.
+    if(queueBufferNum > 0) {
+        g_atomic_int_dec_and_test (&queueBufferNum);
+    }
     if (NULL == ctx->msg_hst) {
         LOG_DEBUG("%s:%d : hash table in NULL", __FILE__, __LINE__);
         return GST_PAD_PROBE_REMOVE;

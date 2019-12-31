@@ -95,12 +95,19 @@
     "openvino_detection":
     [
         {
-            "enable":0,
+            "enable":1,
             "name":"openvino_tracking",
             "message_name":"tracking",
             "src_name":"src",
             "src_format":"NV12",
-            "pipe_string":"appsrc name=source ! roitest name=detect ! fakesink ",
+            "pipe_string":"appsrc name=source ! gvadetect model=${MODEL} device=KMB inference-id=1 nireq=1
+            pre-proc=ie model-proc=/usr/share/gst-video-analytics/samples/model_proc/tiny_yolov2_tflite.json
+            infer-config=VPU_KMB_PREPROCESSING_SHAVES=2,VPU_KMB_PREPROCESSING_LPI=4 !
+            vasobjecttracker tracking-type=ZERO_TERM device=VPU !  vasobjectselector !
+            gvaclassify model=${MODEL1} device=KMB model-proc=/usr/share/gst-video-analytics/samples/model_proc/resnet50_tflite.json nireq=1
+            inference-id=2 pre-proc=ie infer-config=VPU_KMB_PREPROCESSING_SHAVES=2,VPU_KMB_PREPROCESSING_LPI=4 !
+            vasobjectoutput property-config=object.classification ! gvametaconvert converter=json method=all !
+            gvametapublish method=file filepath=ie_all.json outputformat=batch name=detect ! fakesink",
             "pipe_params":
             {
                 "MODEL":"/opt/yolotiny/yolotiny.blob",

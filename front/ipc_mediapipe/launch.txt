@@ -1,22 +1,8 @@
-kmbcamsrc name=kmbsrc transform-hub=full stride-align=64 scanline-align=64 kmbsrc. !
-queue !
+kmbcamsrc transform-hub=none stride-align=64 scanline-align=64 !
+queue name=src !
 capsfilter             name=src1_caps !
 vaapih264enc name=enc1 resend-pps=1 resend-sps=1 !
 capsfilter             name=enc1_caps !
-fakesink
-kmbsrc. !
-capsfilter             name=src2_caps !
-vaapih264enc name=enc2 resend-pps=1 resend-sps=1 !
-capsfilter             name=enc2_caps !
-fakesink
-kmbsrc. !
-capsfilter             name=src3_caps !
-gvadetect model=/opt/yolotiny/yolotiny.blob device=KMB nireq=1 inference-id=1 pre-proc=ie model-proc=/usr/share/gst-video-analytics/samples/model_proc/tiny_yolov2_tflite.json !
-gvaclassify model=/opt/resnet/resnet.blob device=KMB model-proc=/usr/share/gst-video-analytics/samples/model_proc/resnet50_tflite.json nireq=1 inference-id=2 pre-proc=ie !
-gvametaconvert converter=json method=all !
-gvametapublish method=file filepath=./result_file/ie_gva_detect_classify.json outputformat=batch !
-vaapih264enc name=enc3 resend-pps=1 resend-sps=1 !
-capsfilter             name=enc3_caps !
 fakesink
 
 alsasrc device=hw:0,1 !
