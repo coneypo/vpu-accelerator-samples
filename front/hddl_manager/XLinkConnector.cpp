@@ -12,7 +12,7 @@
 
 /* Not really used in xlink simulator, place holder for now */
 const uint32_t DATA_FRAGMENT_SIZE = 1024*1024*4;
-const uint32_t TIMEOUT = 0;
+const uint32_t TIMEOUT = 100000;
 
 namespace hddl {
 
@@ -34,15 +34,19 @@ int XLinkConnector::init()
     m_handler.dev_path = (char*)"/tmp/xlink_mock";
     xlink_connect(&m_handler);
     xlink_opmode operationType = RXB_TXB;
-    printf("XLinkConnector|Open command channel %d\n", m_commChannel);
+
+	int ret = xlink_close_channel(&m_handler, m_commChannel);
+	fprintf(stderr, "hddl_manager|XLinkConnector|Clean command channel %d rc %d\n", m_commChannel, ret);
+
+    fprintf(stderr, "hddl_manager|XLinkConnector|Open command channel %d\n", m_commChannel);
     while(xlink_open_channel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
     {
         int time = 5;
-        printf("XLinkConnector|Fail to open command channel %d\n", m_commChannel);
-        printf("XLinkConnector|Retry openchannel %d in %d seconds\n", m_commChannel, time);
+        fprintf(stderr, "hddl_manager|XLinkConnector|Fail to open command channel %d\n", m_commChannel);
+        fprintf(stderr, "hddl_manager|XLinkConnector|Retry openchannel %d in %d seconds\n", m_commChannel, time);
         std::this_thread::sleep_for (std::chrono::seconds(time));
     }
-    printf("XLinkConnector|Successfully open command channel %d\n", m_commChannel);
+    fprintf(stderr, "hddl_manager|XLinkConnector|Successfully open command channel %d\n", m_commChannel);
 
     m_init = true;
     return 0;
@@ -68,14 +72,14 @@ void XLinkConnector::run()
         auto status = xlink_read_data(&m_handler, m_commChannel, &message, &size);
         if (status != X_LINK_SUCCESS)
         {
-            printf("YITEST|xlink_read failed rc %d\n", status);
+            printf("hddl_manager|XLinkConnector|xlink_read_data timeout continue to wait %d\n", status);
             continue;
         }
         std::string response = generateResponse(message, size);
         status = xlink_release_data(&m_handler, m_commChannel, NULL);
         if (status != X_LINK_SUCCESS)
         {
-            printf("YITEST|xlink_release failed rc %d\n", status);
+            printf("hddl_manager|XLinkConnector|xlink_release failed rc %d\n", status);
             continue;
         }
         memset((void*)message, 0, 1024*1024*4);
@@ -86,7 +90,7 @@ void XLinkConnector::run()
             std::lock_guard<std::mutex> lock(m_commChannelMutex);
             status = xlink_write_data(&m_handler, m_commChannel, (const uint8_t*)response.c_str(), response.length());
             if (status != X_LINK_SUCCESS) {
-                printf("YITEST|xlink_release failed rc %d\n", status);
+                printf("hddl_manager|XLinkConnector|xlink_release failed rc %d\n", status);
                 continue;
             }
         }
