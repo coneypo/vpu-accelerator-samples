@@ -41,7 +41,7 @@ bool VaapiSurfaceAllocator::alloc(const VaapiSurfaceAllocatorConfig& config, VAS
 }
 
 void VaapiSurfaceAllocator::free(){
-    for(std::vector<VASurfaceID>::iterator it = m_surfaces.begin(); it != m_surfaces.end(); ++i){
+    for(std::vector<VASurfaceID>::iterator it = m_surfaces.begin(); it != m_surfaces.end(); ++it){
         vaDestroySurfaces(*m_dpy,&(*it),1);
     }
     std::vector<VASurfaceID>().swap(m_surfaces);
@@ -90,14 +90,14 @@ bool SurfacePool::init(VaapiSurfaceAllocator::Config& config){
     }
 }
 
-bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface*& surface){
-    surface = m_freeSurfaces;
-    m_freeSurfaces = surface->next;
-    surface->next = nullptr;
+bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface){
+    *surface = m_freeSurfaces;
+    m_freeSurfaces = (*surface)->next;
+    (*surface)->next = nullptr;
     return true;
 }
 
-bool SurfacePool::getFreeSurface(SurfacePool::Surface*& surface){
+bool SurfacePool::getFreeSurface(SurfacePool::Surface** surface){
     std::unique_lock<std::mutex> lk(m_mutex);
     m_cv.wait(lk, [&]{return m_freeSurfaces!=nullptr;});
     getFreeSurfaceUnsafe(surface);
@@ -105,7 +105,7 @@ bool SurfacePool::getFreeSurface(SurfacePool::Surface*& surface){
     return true;
 }
 
-bool SurfacePool::tryGetFreeSurface(SurfacePool::Surface*& surface){
+bool SurfacePool::tryGetFreeSurface(SurfacePool::Surface** surface){
     std::lock_guard<std::mutex> lg(m_mutex);
     if(m_freeSurfaces){
         return getFreeSurfaceUnsafe(surface);
@@ -114,31 +114,34 @@ bool SurfacePool::tryGetFreeSurface(SurfacePool::Surface*& surface){
         return false;
 }
 
-bool SurfacePool::moveToUsed(SurfacePool::Surface*& surface){
+bool SurfacePool::moveToUsed(SurfacePool::Surface** surface){
+    if(!*surface){
+        return false;
+    }
     std::lock_guard<std::mutex> lg(m_usedListMutex);
     return moveToUsedUnsafe(surface);
 }
 
-bool SurfacePool::moveToUsedUnsafe(SurfacePool::Surface*& surface){
-    surface->next = m_usedSurfaces;
-    m_usedSurfaces = surface;
+bool SurfacePool::moveToUsedUnsafe(SurfacePool::Surface** surface){
+    (*surface)->next = m_usedSurfaces;
+    m_usedSurfaces = *surface;
     return true;
 }
 
-bool SurfacePool::getUsedSurface(SurfacePool::Surface*& surface){
+bool SurfacePool::getUsedSurface(SurfacePool::Surface** surface){
     std::lock_guard<std::mutex> lg(m_usedListMutex);
     return getUsedSurfaceUnsafe(surface);
 }
 
-bool SurfacePool::getUsedSurfaceUnsafe(SurfacePool::Surface*& surface){
+bool SurfacePool::getUsedSurfaceUnsafe(SurfacePool::Surface** surface){
     if(!m_usedSurfaces){
         surface = nullptr;
         return true;
     }
     else{
-        surface = m_usedSurfaces;
-        m_usedSurfaces = surface->next;
-        surface->next = nullptr;
+        *surface = m_usedSurfaces;
+        m_usedSurfaces = (*surface)->next;
+        (*surface)->next = nullptr;
         return true;
     }
 }
@@ -314,7 +317,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
     }
 
     SurfacePool::Surface* surface = nullptr;
-    if(((JpegEncNode*)m_parentNode)->m_pool->tryGetFreeSurface(surface)){
+    if(((JpegEncNode*)m_parentNode)->m_pool->tryGetFreeSurface(&surface)){
         VASurfaceID vaSurf = surface->surfaceId;
         if(!vaSurf){
             std::cout<<"Surface got is invalid!"<<std::endl;
@@ -350,19 +353,294 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
 
         //Quantization matrix
         va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, ((JpegEncNode*)m_parentNode)->m_jpegCtxId,
-                VAQMatrixBufferType, sizeof(VAQMatrixBufferJPEG), 1, Defaults::getDefaults().qMatrix, &(picPool[index].qMatrixBufId));
+                VAQMatrixBufferType, sizeof(VAQMatrixBufferJPEG), 1, Defaults::getDefaults().qMatrix(), &(picPool[index].qMatrixBufId));
         if(va_status != VA_STATUS_SUCCESS){
             std::cout<<"Create quantization matrix failed!"<<std::endl;
             return;
         }
 
+        //Huffman table
+        va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, ((JpegEncNode*)m_parentNode)->m_jpegCtxId, VAHuffmanTableBufferType, 
+                               sizeof(VAHuffmanTableBufferJPEGBaseline), 1, Defaults::getDefaults().huffmanTbl(), &(picPool[index].huffmanTblBufId));
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Create huffman table failed!"<<std::endl;
+            return;
+        }
+
+        //Slice parameter
+        va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, ((JpegEncNode*)m_parentNode)->m_jpegCtxId, VAEncSliceParameterBufferType, 
+                            sizeof(VAEncSliceParameterBufferJPEG), 1, Defaults::getDefaults().sliceParam(), &(picPool[index].sliceParamBufId));
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Create slice parameter failed!"<<std::endl;
+            return;
+        }
+
+        // packed headers
+        VAEncPackedHeaderParameterBuffer packed_header_param_buffer;
+        unsigned int length_in_bits;
+        unsigned char *packed_header_buffer = NULL;
+
+        //to-do: currently set quality to 50
+        length_in_bits = build_packed_jpeg_header_buffer(&packed_header_buffer, picWidth, picHeight, Defaults::getDefaults().sliceParam()->restart_interval, 50);
+        packed_header_param_buffer.type = VAEncPackedHeaderRawData;
+        packed_header_param_buffer.bit_length = length_in_bits;
+        packed_header_param_buffer.has_emulation_bytes = 0;
+        
+        /* 11. Create raw buffer for header */
+        va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy,
+                                ((JpegEncNode*)m_parentNode)->m_jpegCtxId,
+                                VAEncPackedHeaderParameterBufferType,
+                                sizeof(packed_header_param_buffer), 1, &packed_header_param_buffer,
+                                &(picPool[index].headerParamBufId));
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Create header parameter buffer failed!"<<std::endl;
+            return;
+        }
+
+        va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy,
+                                ((JpegEncNode*)m_parentNode)->m_jpegCtxId,
+                                VAEncPackedHeaderDataBufferType,
+                                (length_in_bits + 7) / 8, 1, packed_header_buffer,
+                                &(picPool[index].headerDataBufId));
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Create header buffer failed!"<<std::endl;
+            return;
+        }
+
+        // begine encoding
+        va_status = vaBeginPicture(((JpegEncNode*)m_parentNode)->m_vaDpy, ((JpegEncNode*)m_parentNode)->m_jpegCtxId, vaSurf);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Begin picture failed!"<<std::endl;
+            return;
+        }
+
+        va_status = vaRenderPicture(((JpegEncNode*)m_parentNode)->m_vaDpy,((JpegEncNode*)m_parentNode)->m_jpegCtxId, &(picPool[index].picParamBufId), 1);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Render picture failed!"<<std::endl;
+            return;
+        }
+    
+        va_status = vaRenderPicture(((JpegEncNode*)m_parentNode)->m_vaDpy,((JpegEncNode*)m_parentNode)->m_jpegCtxId, &(picPool[index].qMatrixBufId), 1);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Render picture failed!"<<std::endl;
+            return;
+        }
+
+        va_status = vaRenderPicture(((JpegEncNode*)m_parentNode)->m_vaDpy,((JpegEncNode*)m_parentNode)->m_jpegCtxId, &(picPool[index].huffmanTblBufId), 1);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Render picture failed!"<<std::endl;
+            return;
+        }
+    
+        va_status = vaRenderPicture(((JpegEncNode*)m_parentNode)->m_vaDpy,((JpegEncNode*)m_parentNode)->m_jpegCtxId, &(picPool[index].sliceParamBufId), 1);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Render picture failed!"<<std::endl;
+            return;
+        }
+        
+        va_status = vaRenderPicture(((JpegEncNode*)m_parentNode)->m_vaDpy,((JpegEncNode*)m_parentNode)->m_jpegCtxId, &(picPool[index].headerParamBufId), 1);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Render picture failed!"<<std::endl;
+            return;
+        }
+        
+        va_status = vaRenderPicture(((JpegEncNode*)m_parentNode)->m_vaDpy,((JpegEncNode*)m_parentNode)->m_jpegCtxId, &(picPool[index].headerDataBufId), 1);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Render picture failed!"<<std::endl;
+            return;
+        }
+        
+        va_status = vaEndPicture(((JpegEncNode*)m_parentNode)->m_vaDpy,((JpegEncNode*)m_parentNode)->m_jpegCtxId);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"End picture failed!"<<std::endl;
+            return;
+        }
+
+        ((JpegEncNode*)m_parentNode)->m_pool->moveToUsed(&surface);
+        surface = nullptr;
 
     }
     else{
+        SurfacePool::Surface* usedSurface = nullptr;
+        ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
+        if(!usedSurface){
+            std::cout<<"ERROR! No free surfaces and no used surfaces!" <<std::endl;
+            return;
+        }
+
         // to-do: sync on usedsurfaces
     }
 
 }
+
+int JpegEncNodeWorker::build_packed_jpeg_header_buffer(unsigned char **header_buffer, int picture_width, int picture_height, uint16_t restart_interval, int quality)
+{
+    const unsigned num_components = 3;
+
+    bitstream bs;
+    int i=0, j=0;
+    uint32_t temp=0;
+    
+    bitstream_start(&bs);
+    
+    //Add SOI
+    bitstream_put_ui(&bs, SOI, 16);
+    
+    //Add AppData
+    bitstream_put_ui(&bs, APP0, 16);  //APP0 marker
+    bitstream_put_ui(&bs, 16, 16);    //Length excluding the marker
+    bitstream_put_ui(&bs, 0x4A, 8);   //J
+    bitstream_put_ui(&bs, 0x46, 8);   //F
+    bitstream_put_ui(&bs, 0x49, 8);   //I
+    bitstream_put_ui(&bs, 0x46, 8);   //F
+    bitstream_put_ui(&bs, 0x00, 8);   //0
+    bitstream_put_ui(&bs, 1, 8);      //Major Version
+    bitstream_put_ui(&bs, 1, 8);      //Minor Version
+    bitstream_put_ui(&bs, 1, 8);      //Density units 0:no units, 1:pixels per inch, 2: pixels per cm
+    bitstream_put_ui(&bs, 72, 16);    //X density
+    bitstream_put_ui(&bs, 72, 16);    //Y density
+    bitstream_put_ui(&bs, 0, 8);      //Thumbnail width
+    bitstream_put_ui(&bs, 0, 8);      //Thumbnail height
+
+    // Regarding Quantization matrices: As per JPEG Spec ISO/IEC 10918-1:1993(E), Pg-19:
+    // "applications may specify values which customize picture quality for their particular
+    // image characteristics, display devices, and viewing conditions"
+
+
+    //Normalization of quality factor
+    quality = (quality < 50) ? (5000/quality) : (200 - (quality*2));
+    
+    //Add QTable - Y
+    JPEGQuantSection quantLuma;
+    Defaults::getDefaults().populate_quantdata(&quantLuma, 0);
+
+    bitstream_put_ui(&bs, quantLuma.DQT, 16);
+    bitstream_put_ui(&bs, quantLuma.Lq, 16);
+    bitstream_put_ui(&bs, quantLuma.Pq, 4);
+    bitstream_put_ui(&bs, quantLuma.Tq, 4);
+    for(i=0; i<NUM_QUANT_ELEMENTS; i++) {
+        //scale the quantization table with quality factor
+        temp = (quantLuma.Qk[i] * quality)/100;
+        //clamp to range [1,255]
+        temp = (temp > 255) ? 255 : temp;
+        temp = (temp < 1) ? 1 : temp;
+        quantLuma.Qk[i] = (unsigned char)temp;
+        bitstream_put_ui(&bs, quantLuma.Qk[i], 8);
+    }
+
+    //Add QTable - U/V
+    if(1){//if(yuvComp.fourcc_val != VA_FOURCC_Y800) {
+        JPEGQuantSection quantChroma;
+        Defaults::getDefaults().populate_quantdata(&quantChroma, 1);
+        
+        bitstream_put_ui(&bs, quantChroma.DQT, 16);
+        bitstream_put_ui(&bs, quantChroma.Lq, 16);
+        bitstream_put_ui(&bs, quantChroma.Pq, 4);
+        bitstream_put_ui(&bs, quantChroma.Tq, 4);
+        for(i=0; i<NUM_QUANT_ELEMENTS; i++) {
+            //scale the quantization table with quality factor
+            temp = (quantChroma.Qk[i] * quality)/100;
+            //clamp to range [1,255]
+            temp = (temp > 255) ? 255 : temp;
+            temp = (temp < 1) ? 1 : temp;
+            quantChroma.Qk[i] = (unsigned char)temp;
+            bitstream_put_ui(&bs, quantChroma.Qk[i], 8);
+        }
+    }
+    
+    //Add FrameHeader
+    JPEGFrameHeader frameHdr;
+    memset(&frameHdr,0,sizeof(JPEGFrameHeader));
+    Defaults::getDefaults().populate_frame_header(&frameHdr, picture_width, picture_height);
+
+    bitstream_put_ui(&bs, frameHdr.SOF, 16);
+    bitstream_put_ui(&bs, frameHdr.Lf, 16);
+    bitstream_put_ui(&bs, frameHdr.P, 8);
+    bitstream_put_ui(&bs, frameHdr.Y, 16);
+    bitstream_put_ui(&bs, frameHdr.X, 16);
+    bitstream_put_ui(&bs, frameHdr.Nf, 8);
+    for(i=0; i<frameHdr.Nf;i++) {
+        bitstream_put_ui(&bs, frameHdr.JPEGComponent[i].Ci, 8);
+        bitstream_put_ui(&bs, frameHdr.JPEGComponent[i].Hi, 4);
+        bitstream_put_ui(&bs, frameHdr.JPEGComponent[i].Vi, 4);
+        bitstream_put_ui(&bs, frameHdr.JPEGComponent[i].Tqi, 8);
+    }
+
+    //Add HuffTable AC and DC for Y,U/V components
+    JPEGHuffSection acHuffSectionHdr, dcHuffSectionHdr;
+        
+    for(i=0; (i<num_components && (i<=1)); i++) {
+        //Add DC component (Tc = 0)
+        Defaults::getDefaults().populate_huff_section_header(&dcHuffSectionHdr, i, 0); 
+        
+        bitstream_put_ui(&bs, dcHuffSectionHdr.DHT, 16);
+        bitstream_put_ui(&bs, dcHuffSectionHdr.Lh, 16);
+        bitstream_put_ui(&bs, dcHuffSectionHdr.Tc, 4);
+        bitstream_put_ui(&bs, dcHuffSectionHdr.Th, 4);
+        for(j=0; j<NUM_DC_RUN_SIZE_BITS; j++) {
+            bitstream_put_ui(&bs, dcHuffSectionHdr.Li[j], 8);
+        }
+        
+        for(j=0; j<NUM_DC_CODE_WORDS_HUFFVAL; j++) {
+            bitstream_put_ui(&bs, dcHuffSectionHdr.Vij[j], 8);
+        }
+
+        //Add AC component (Tc = 1)
+        Defaults::getDefaults().populate_huff_section_header(&acHuffSectionHdr, i, 1);
+        
+        bitstream_put_ui(&bs, acHuffSectionHdr.DHT, 16);
+        bitstream_put_ui(&bs, acHuffSectionHdr.Lh, 16);
+        bitstream_put_ui(&bs, acHuffSectionHdr.Tc, 4);
+        bitstream_put_ui(&bs, acHuffSectionHdr.Th, 4);
+        for(j=0; j<NUM_AC_RUN_SIZE_BITS; j++) {
+            bitstream_put_ui(&bs, acHuffSectionHdr.Li[j], 8);
+        }
+
+        for(j=0; j<NUM_AC_CODE_WORDS_HUFFVAL; j++) {
+            bitstream_put_ui(&bs, acHuffSectionHdr.Vij[j], 8);
+        }
+
+        // if(yuvComp.fourcc_val == VA_FOURCC_Y800)
+        //     break;
+    }
+    
+    //Add Restart Interval if restart_interval is not 0
+    if(restart_interval != 0) {
+        JPEGRestartSection restartHdr;
+        restartHdr.DRI = DRI;
+        restartHdr.Lr = 4;
+        restartHdr.Ri = restart_interval;
+
+        bitstream_put_ui(&bs, restartHdr.DRI, 16); 
+        bitstream_put_ui(&bs, restartHdr.Lr, 16);
+        bitstream_put_ui(&bs, restartHdr.Ri, 16); 
+    }
+    
+    //Add ScanHeader
+    JPEGScanHeader scanHdr;
+    Defaults::getDefaults().populate_scan_header(&scanHdr);
+ 
+    bitstream_put_ui(&bs, scanHdr.SOS, 16);
+    bitstream_put_ui(&bs, scanHdr.Ls, 16);
+    bitstream_put_ui(&bs, scanHdr.Ns, 8);
+    
+    for(i=0; i<scanHdr.Ns; i++) {
+        bitstream_put_ui(&bs, scanHdr.ScanComponent[i].Csj, 8);
+        bitstream_put_ui(&bs, scanHdr.ScanComponent[i].Tdj, 4);
+        bitstream_put_ui(&bs, scanHdr.ScanComponent[i].Taj, 4);
+    }
+
+    bitstream_put_ui(&bs, scanHdr.Ss, 8);
+    bitstream_put_ui(&bs, scanHdr.Se, 8);
+    bitstream_put_ui(&bs, scanHdr.Ah, 4);
+    bitstream_put_ui(&bs, scanHdr.Al, 4);
+
+    bitstream_end(&bs);
+    *header_buffer = (unsigned char *)bs.buffer;
+    
+    return bs.bit_offset;
+}
+
 
 void JpegEncNodeWorker::jpegenc_pic_param_init(VAEncPictureParameterBufferJPEG *pic_param,int width,int height,int quality){
     pic_param->picture_width = width;
