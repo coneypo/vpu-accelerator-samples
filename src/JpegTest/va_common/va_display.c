@@ -30,7 +30,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <va/va.h>
-#include "va_display.h"
+#include "va_common/va_display.h"
 
 extern const VADisplayHooks va_display_hooks_wayland;
 extern const VADisplayHooks va_display_hooks_x11;

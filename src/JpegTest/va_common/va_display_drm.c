@@ -31,7 +31,7 @@
 #else
 # include <va/va_drm.h>
 #endif
-#include "va_display.h"
+#include "va_common/va_display.h"
 
 static int drm_fd = -1;
 extern const char *g_drm_device_name;
