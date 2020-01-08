@@ -1,5 +1,6 @@
 #include <jpeg_enc_node.hpp>
 #include <va_common/va_display.h>
+#include <cstdio>
 
 VaapiSurfaceAllocator::VaapiSurfaceAllocator(VADisplay* dpy):m_dpy(dpy){ }
 
@@ -146,6 +147,20 @@ bool SurfacePool::getUsedSurfaceUnsafe(SurfacePool::Surface** surface){
     }
 }
 
+bool SurfacePool::moveToFree(Surface** surface){
+    if(!*surface){
+        return false;
+    }
+    std::lock_guard<std::mutex> lg(m_mutex);
+    return moveToFreeUnsafe(surface);
+}
+
+bool SurfacePool::moveToFreeUnsafe(Surface** surface){
+    (*surface)->next = m_freeSurfaces;
+    m_freeSurfaces = *surface;
+    return true;
+}
+
 
 JpegEncNode::JpegEncNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum):
         hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_ready(false), m_picHeight(0u), m_picWidth(0u){
@@ -268,7 +283,7 @@ bool JpegEncNode::initVaJpegCtx(){
 
 JpegEncNodeWorker::JpegEncNodeWorker(hva::hvaNode_t* parentNode):
         hva::hvaNodeWorker_t(parentNode){
-
+    m_jpegCtr.store(0);
 }
 
 void JpegEncNodeWorker::init(){
@@ -290,7 +305,24 @@ struct InfoROI_t {
 void JpegEncNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     if(vInput.size()==0u){
-        //to-do: do usedsufaces sync here
+        // last time before stop fetches nothing
+        SurfacePool::Surface* usedSurface = nullptr;
+        ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
+        if(!usedSurface){
+            std::cout<<"ERROR! No free surfaces and no used surfaces!" <<std::endl;
+            return;
+        }
+
+        do{
+            if(!saveToFile(usedSurface)){
+                std::cout<<"Failed to save jpeg tagged "<<m_jpegCtr.load()<<std::endl;
+            }
+
+            ((JpegEncNode*)m_parentNode)->m_pool->moveToFree(&usedSurface);
+
+            ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
+        }while(usedSurface);
+
         return;
     }
     if(!((JpegEncNode*)m_parentNode)->m_ready){
@@ -468,9 +500,66 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             return;
         }
 
-        // to-do: sync on usedsurfaces
+        do{
+            if(!saveToFile(usedSurface)){
+                std::cout<<"Failed to save jpeg tagged "<<m_jpegCtr.load()<<std::endl;
+            }
+
+            ((JpegEncNode*)m_parentNode)->m_pool->moveToFree(&usedSurface);
+
+            ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
+        }while(usedSurface);
     }
 
+}
+
+bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
+    VASurfaceStatus surface_status = (VASurfaceStatus) 0;
+    VACodedBufferSegment *coded_buffer_segment;
+    std::size_t index = surface->index;
+    JpegEncPicture* picPool = ((JpegEncNode*)m_parentNode)->m_picPool;
+
+    VAStatus va_status = vaSyncSurface(((JpegEncNode*)m_parentNode)->m_vaDpy, surface->surfaceId);
+    if(va_status != VA_STATUS_SUCCESS){
+        std::cout<<"Sync surface failed!"<<std::endl;
+        return false;
+    }
+
+    va_status = vaQuerySurfaceStatus(((JpegEncNode*)m_parentNode)->m_vaDpy, surface->surfaceId, &surface_status);
+    if(va_status != VA_STATUS_SUCCESS){
+        std::cout<<"Query surface status failed!"<<std::endl;
+        return false;
+    }
+
+    va_status = vaMapBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, picPool[index].codedBufId, (void **)(&coded_buffer_segment));
+    if(va_status != VA_STATUS_SUCCESS){
+        std::cout<<"Map coded buffer failed!"<<std::endl;
+        return false;
+    }
+
+    if (coded_buffer_segment->status & VA_CODED_BUF_STATUS_SLICE_OVERFLOW_MASK) {
+        vaUnmapBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, picPool[index].codedBufId);
+        std::cout<<"ERROR......Coded buffer too small"<<std::endl;
+        return false;
+    }
+
+    int slice_data_length = coded_buffer_segment->size;
+    std::size_t w_items = 0;
+    std::stringstream ss;
+    ss << "jpegenc"<< m_jpegCtr.fetch_add(1);
+    FILE* jpeg_fp = fopen(ss.str().c_str(), "wb");  
+    do {
+        w_items = fwrite(coded_buffer_segment->buf, slice_data_length, 1, jpeg_fp);
+    } while (w_items != 1);
+
+    fclose(jpeg_fp);
+
+    va_status = vaUnmapBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, picPool[index].codedBufId);
+    if(va_status != VA_STATUS_SUCCESS){
+        std::cout<<"Unmap coded buffer failed!"<<std::endl;
+        return false;
+    }
+    return true;
 }
 
 int JpegEncNodeWorker::build_packed_jpeg_header_buffer(unsigned char **header_buffer, int picture_width, int picture_height, uint16_t restart_interval, int quality)

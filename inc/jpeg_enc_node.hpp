@@ -7,6 +7,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
 enum JpegEncNodeStatus_t{
     JpegEnc_NoError = 0,
@@ -56,10 +57,12 @@ public:
     bool tryGetFreeSurface(Surface** surface);
     bool moveToUsed(Surface** surface);
     bool getUsedSurface(Surface** surface);
+    bool moveToFree(Surface** surface);
 private:
     bool getFreeSurfaceUnsafe(Surface** surface);
     bool moveToUsedUnsafe(Surface** surface);
     bool getUsedSurfaceUnsafe(Surface** surface);
+    bool moveToFreeUnsafe(Surface** surface);
 
     Surface* m_freeSurfaces;
     Surface* m_usedSurfaces;
@@ -107,6 +110,18 @@ inline std::size_t alignTo(std::size_t s) { //to-do: adjust alignment here
     return ((s + 16 - 1) & (~15));
 };
 
+
+#define NUM_QUANT_ELEMENTS 64
+#define NUM_MAX_HUFFTABLE 2
+#define NUM_AC_RUN_SIZE_BITS 16
+#define NUM_AC_CODE_WORDS_HUFFVAL 162
+#define NUM_DC_RUN_SIZE_BITS 16
+#define NUM_DC_CODE_WORDS_HUFFVAL 12
+
+#define BITSTREAM_ALLOCATE_STEPPING     4096
+#define MAX_JPEG_COMPONENTS 3 
+
+
 struct __bitstream {
     unsigned int *buffer;
     int bit_offset;
@@ -130,7 +145,7 @@ static void
 bitstream_start(bitstream *bs)
 {
     bs->max_size_in_dword = BITSTREAM_ALLOCATE_STEPPING;
-    bs->buffer = calloc(bs->max_size_in_dword * sizeof(int), 1);
+    bs->buffer = (unsigned int*) calloc(bs->max_size_in_dword * sizeof(int), 1);
     assert(bs->buffer);
     bs->bit_offset = 0;
 };
@@ -171,7 +186,7 @@ bitstream_put_ui(bitstream *bs, unsigned int val, int size_in_bits)
 
         if (pos + 1 == bs->max_size_in_dword) {
             bs->max_size_in_dword += BITSTREAM_ALLOCATE_STEPPING;
-            bs->buffer = realloc(bs->buffer, bs->max_size_in_dword * sizeof(unsigned int));
+            bs->buffer = (unsigned int*) realloc(bs->buffer, bs->max_size_in_dword * sizeof(unsigned int));
             assert(bs->buffer);
         }
 
@@ -288,7 +303,6 @@ private:
 
     // for quantization matrix
     void jpegenc_qmatrix_init();
-    const int NUM_QUANT_ELEMENTS;
     const uint8_t* jpeg_luma_quant;
     const uint8_t* jpeg_zigzag;
     const uint8_t* jpeg_chroma_quant;
@@ -307,7 +321,7 @@ private:
     VAEncSliceParameterBufferJPEG* m_sliceParam;
 };
 
-Defaults::Defaults(): NUM_QUANT_ELEMENTS(64){
+Defaults::Defaults(){
     jpeg_luma_quant = new uint8_t[NUM_QUANT_ELEMENTS]{
         16, 11, 10, 16, 24,  40,  51,  61,
         12, 12, 14, 19, 26,  58,  60,  55,
@@ -529,20 +543,16 @@ public:
 private:
     bool prepareSurface(VASurfaceID surface, const unsigned char* img);
     void jpegenc_pic_param_init(VAEncPictureParameterBufferJPEG *pic_param,int width,int height,int quality);
+    bool saveToFile(SurfacePool::Surface* surface);
 
     int JpegEncNodeWorker::build_packed_jpeg_header_buffer(unsigned char **header_buffer, 
             int picture_width, int picture_height, uint16_t restart_interval, int quality);
+    std::atomic<int> m_jpegCtr;
 
 };
 
-#define NUM_QUANT_ELEMENTS 64
-#define NUM_MAX_HUFFTABLE 2
-#define NUM_AC_RUN_SIZE_BITS 16
-#define NUM_AC_CODE_WORDS_HUFFVAL 162
-#define NUM_DC_RUN_SIZE_BITS 16
-#define NUM_DC_CODE_WORDS_HUFFVAL 12
 
-void Defaults::populate_quantdata(JPEGQuantSection *quantVal, int type)
+void Defaults::populate_quantdata(JPEGQuantSection *quantVal, int type) const
 {
     uint8_t zigzag_qm[NUM_QUANT_ELEMENTS];
     int i;
@@ -565,7 +575,7 @@ void Defaults::populate_quantdata(JPEGQuantSection *quantVal, int type)
     quantVal->Lq = 3 + NUM_QUANT_ELEMENTS;
 };
 
-void Defaults::populate_frame_header(JPEGFrameHeader *frameHdr, int picture_width, int picture_height)
+void Defaults::populate_frame_header(JPEGFrameHeader *frameHdr, int picture_width, int picture_height) const
 {
     // to-do: the case below does not consider all circumstances
     const unsigned num_components = 3;
@@ -603,7 +613,7 @@ void Defaults::populate_frame_header(JPEGFrameHeader *frameHdr, int picture_widt
     }
 };
 
-void Defaults::populate_huff_section_header(JPEGHuffSection *huffSectionHdr, int th, int tc)
+void Defaults::populate_huff_section_header(JPEGHuffSection *huffSectionHdr, int th, int tc) const
 {
     int i=0, totalCodeWords=0;
     
@@ -647,7 +657,7 @@ void Defaults::populate_huff_section_header(JPEGHuffSection *huffSectionHdr, int
     }
 };
 
-void Defaults::populate_scan_header(JPEGScanHeader *scanHdr)
+void Defaults::populate_scan_header(JPEGScanHeader *scanHdr) const
 {
     // to-do: the case below does not consider all circumstances
     const unsigned num_components = 3;
