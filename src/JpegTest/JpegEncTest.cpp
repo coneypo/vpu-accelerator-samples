@@ -7,24 +7,7 @@
 
 using ms = std::chrono::milliseconds;
 
-class TestFeeder : public hva::hvaNode_t{
-public:
-    TestFeeder(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum)
-            :hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum){
 
-    };
-
-    ~TestFeeder(){
-
-    };
-
-    virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override{
-        return std::shared_ptr<hva::hvaNodeWorker_t>(new TestFeederWorker((TestFeeder*)this) );
-    };
-
-private:
-
-};
 struct InfoROI_t {
     int widthImage = 0;
     int heightImage = 0;
@@ -74,7 +57,7 @@ public:
     };
 
     virtual void init() override{
-        m_in.open("/Workspace/out.yuv", std::ios::in|std::ios::binary|std::ios::ate);
+        m_in.open("/home/kezhen/Workspace/out.yuv", std::ios::in|std::ios::binary|std::ios::ate);
         if(m_in.is_open()){
             m_size = m_in.tellg();
             m_buf = new char[m_size];
@@ -96,6 +79,25 @@ private:
     std::ifstream m_in;
     unsigned m_size;
     char* m_buf;
+};
+
+class TestFeeder : public hva::hvaNode_t{
+public:
+    TestFeeder(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum)
+            :hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum){
+
+    };
+
+    ~TestFeeder(){
+
+    };
+
+    virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override{
+        return std::shared_ptr<hva::hvaNodeWorker_t>(new TestFeederWorker((hva::hvaNode_t*)this));
+    };
+
+private:
+
 };
 
 int main(){
