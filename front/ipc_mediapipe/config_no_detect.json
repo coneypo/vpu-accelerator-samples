@@ -1,0 +1,196 @@
+{
+    "module_list": [ "rtsp","openvino_tracking","mix3","encoder","changeformat","onvif" ],
+    "rtsp":
+    {
+        "rtsp_server":
+        [
+            {
+                "enable":1,
+                "element":"enc1",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "mount_path":"/test1"
+            },
+            {
+                "enable":1,
+                "element":"enc2",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "mount_path":"/test2"
+            },
+            {
+                "enable":1,
+                "element":"enc3",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "fps":30,
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "mount_path":"/test3"
+            },
+            {
+                "enable":1,
+                "element":"enc4",
+                "caps":"audio/x-alaw,rate=8000,channels=1",
+                "srtp_enable":0,
+                "key":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc":1356955625,
+                "mount_path":"/test4"
+            },
+            {
+                "enable":1,
+                "merge_av":1,
+                "element":"enc1",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "element1":"enc4",
+                "caps1":"audio/x-alaw,rate=8000,channels=1",
+                "srtp_enable1":0,
+                "key1":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc1":1356955625,
+                "mount_path":"/test5"
+            },
+            {
+                "enable":1,
+                "merge_av":1,
+                "element":"enc2",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "element1":"enc4",
+                "caps1":"audio/x-alaw,rate=8000,channels=1",
+                "srtp_enable1":0,
+                "key1":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc1":1356955625,
+                "mount_path":"/test6"
+            },
+            {
+                "enable":1,
+                "merge_av":1,
+                "element":"enc3",
+                "caps":"video/x-h264,stream-format=byte-stream,alignment=au",
+                "srtp_enable":0,
+                "key":"01234567890123456789012345678901234567890123456abcdefABCDEF8",
+                "ssrc":1356955624,
+                "element1":"enc4",
+                "caps1":"audio/x-alaw,rate=8000,channels=1",
+                "srtp_enable1":0,
+                "key1":"987654321098765432109876543210987654321098765432109876543210",
+                "ssrc1":1356955625,
+                "mount_path":"/test7"
+            }
+        ],
+        "rtsp_server_port": 8554 //1-65535
+    },
+
+    "openvino_detection":
+    [
+        {
+            "enable":0,
+            "name":"openvino_tracking",
+            "message_name":"tracking",
+            "src_name":"src",
+            "src_format":"NV12",
+            "pipe_string":"appsrc name=source ! gvadetect model=${MODEL} device=KMB inference-id=1 nireq=1
+            pre-proc=ie model-proc=/usr/share/gst-video-analytics/samples/model_proc/tiny_yolov2_tflite.json
+            infer-config=VPU_KMB_PREPROCESSING_SHAVES=2,VPU_KMB_PREPROCESSING_LPI=4 !
+            vasobjecttracker tracking-type=ZERO_TERM device=VPU !  vasobjectselector !
+            gvaclassify model=${MODEL1} device=KMB model-proc=/usr/share/gst-video-analytics/samples/model_proc/resnet50_tflite.json nireq=1
+            inference-id=2 pre-proc=ie infer-config=VPU_KMB_PREPROCESSING_SHAVES=2,VPU_KMB_PREPROCESSING_LPI=4 !
+            vasobjectoutput property-config=object.classification ! gvametaconvert converter=json method=all !
+            gvametapublish method=file filepath=ie_all.json outputformat=batch name=detect ! fakesink",
+            "pipe_params":
+            {
+                "MODEL":"/opt/yolotiny/yolotiny.blob",
+                "MODEL1":"/opt/resnet/resnet.blob"
+            }
+        }
+    ],
+
+    "mix3":
+    [
+		{
+			"subscribe_message" : ["tracking" ],
+			"draw_color" : [[255,0,0]],
+			"delay_queue": "mix1_queue",
+			"element_name": "mix1_src"
+		},
+		{
+			"subscribe_message" : ["tracking" ],
+			"draw_color" : [[0,0,255]],
+			"delay_queue": "mix2_queue",
+			"element_name": "mix2_src"
+		},
+		{
+			"subscribe_message" : ["tracking" ],
+			"draw_color" : [[0,255,0]],
+			"delay_queue": "mix3_queue",
+			"element_name": "mix3_src"
+		}
+
+    ],
+
+    "element":
+    [
+        //-------------channel: 1---------------
+        {
+            "name":"src1_caps",
+            "caps":"video/x-raw(memory:DMABuf),format=NV12,width=3840,height=2160"
+        },
+        {
+            "name":"enc1_caps",
+            "caps":"video/x-h264,stream-format=byte-stream,profile=main"
+        },
+        //------------channel: 2-------------
+        {
+            "name":"src2_caps",
+            "caps":"video/x-raw(memory:DMABuf),format=NV12,width=1920,height=1080"
+        },
+        {
+            "name":"enc2_caps",
+            "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+        },
+
+        //------------channel: 3-------------
+        {
+            "name":"src3_caps",
+            "caps":"video/x-raw(memory:DMABuf),format=NV12,width=1280,height=720"
+        },
+        {
+            "name":"enc3_caps",
+            "caps":"video/x-h264,stream-format=byte-stream,profile=high"
+        },
+        //------------channel: 4-------------
+        {
+            "name":"enc4_caps",
+            "caps":"audio/x-alaw,rate=8000,channels=1"
+        }
+    ],
+
+    "encoder":{
+        "encoder-name":"enc1"
+    },
+
+    "changeformat":{
+        "plugin_264_class_name" : "vaapih264enc",
+        "plugin_265_class_name" : "vaapih265enc",
+        "plugin_jpeg_class_name" : "vaapijpegenc"
+    },
+
+    "onvif":{
+        "image_element": "kmbsrc",
+        "video_element": "enc1",
+        "stream_uri": "/test1",
+        "videorate_capsfilter": "videorate_caps"
+    }
+
+}

@@ -21,8 +21,8 @@ set_property(TARGET mediapipe2 PROPERTY FOLDER "executables")
 install(TARGETS mediapipe2 DESTINATION /usr/bin)
 install(FILES ./config.json DESTINATION /etc/mediapipe2)
 install(FILES ./launch.txt DESTINATION /etc/mediapipe2)
-install(FILES ./config_onvif.json DESTINATION /etc/mediapipe2)
-install(FILES ./launch_onvif.txt DESTINATION /etc/mediapipe2)
+install(FILES ./config_no_detect.json DESTINATION /etc/mediapipe2)
+install(FILES ./launch_no_audio.txt DESTINATION /etc/mediapipe2)
 
 #copy config.json and launch.txt into make dir
 configure_file(./config.json  ${CMAKE_CURRENT_BINARY_DIR}/config.json COPYONLY)

@@ -1,0 +1,6 @@
+kmbcamsrc transform-hub=none stride-align=64 scanline-align=64 !
+queue name=src !
+capsfilter             name=src1_caps !
+vaapih264enc name=enc1 resend-pps=1 resend-sps=1 !
+capsfilter             name=enc1_caps !
+fakesink
