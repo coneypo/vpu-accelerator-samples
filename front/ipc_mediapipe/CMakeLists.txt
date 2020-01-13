@@ -27,6 +27,8 @@ install(FILES ./launch_no_audio.txt DESTINATION /etc/mediapipe2)
 #copy config.json and launch.txt into make dir
 configure_file(./config.json  ${CMAKE_CURRENT_BINARY_DIR}/config.json COPYONLY)
 configure_file(./launch.txt  ${CMAKE_CURRENT_BINARY_DIR}/launch.txt COPYONLY)
+configure_file(./config_no_detect.json  ${CMAKE_CURRENT_BINARY_DIR}/config_no_detect.json COPYONLY)
+configure_file(./launch_no_audio.txt  ${CMAKE_CURRENT_BINARY_DIR}/launch_no_audio.txt COPYONLY)
 configure_file(./config_onvif.json  ${CMAKE_CURRENT_BINARY_DIR}/config_onvif.json COPYONLY)
 configure_file(./launch_onvif.txt  ${CMAKE_CURRENT_BINARY_DIR}/launch_onvif.txt COPYONLY)
 configure_file(./multi_mix_cvsdk_config.json  ${CMAKE_CURRENT_BINARY_DIR}/multi_mix_cvsdk_config.json COPYONLY)
