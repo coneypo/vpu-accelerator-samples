@@ -1,0 +1,9 @@
+kmbcamsrc name=kmbsrc transform-hub=none stride-align=64 scanline-align=64 !
+video/x-raw(memory:DMABuf),format=NV12,width=3840,height=2160 !
+gvadetect model=/opt/yolotiny/yolotiny.blob device=KMB nireq=1 inference-id=1 pre-proc=ie model-proc=/usr/share/gst-video-analytics/samples/model_proc/tiny_yolov2_tflite.json infer-config=VPU_KMB_PREPROCESSING_SHAVES=2,VPU_KMB_PREPROCESSING_LPI=4 !
+vasobjecttracker tracking-type=ZERO_TERM device=VPU !
+gvaclassify model=/opt/resnet/resnet.blob device=KMB model-proc=/usr/share/gst-video-analytics/samples/model_proc/resnet50_tflite.json nireq=1 inference-id=2 pre-proc=ie infer-config=VPU_KMB_PREPROCESSING_SHAVES=2,VPU_KMB_PREPROCESSING_LPI=4 !
+gvametaconvert converter=json method=all !
+gvametapublish method=file filepath=ie_all.json outputformat=batch !
+vaapih264enc name=enc1 resend-pps=1 resend-sps=1 !
+fakesink
