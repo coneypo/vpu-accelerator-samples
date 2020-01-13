@@ -22,6 +22,7 @@ HddlPipeline::HddlPipeline(QString pipeline, QString displaySinkName, QWidget *p
     : QMainWindow(parent),
       m_config(pipeline),
       m_probPad(nullptr),
+      m_roiQueue(),
       m_stop(false)
 {
     m_client = new SocketClient("hddldemo", this);
@@ -38,6 +39,10 @@ HddlPipeline::HddlPipeline(QString pipeline, QString displaySinkName, QWidget *p
     m_pipeline = gst_parse_launch_full(m_config.toStdString().c_str(),  NULL, GST_PARSE_FLAG_FATAL_ERRORS, NULL);
     GstElement* dspSink = gst_bin_get_by_name(GST_BIN(m_pipeline), displaySinkName.toStdString().c_str());
     Q_ASSERT(dspSink!=nullptr);
+
+    GstElement* osdparser = gst_bin_get_by_name(GST_BIN(m_pipeline), "osdparser0");
+    Q_ASSERT(osdparser!=nullptr);
+    g_object_set(osdparser, "roi_queue", &m_roiQueue, NULL);
 
     //get gstreamer displaysink video overlay
     m_overlay = GST_VIDEO_OVERLAY (gst_bin_get_by_name(GST_BIN (dspSink),OVERLAY_NAME));
@@ -101,7 +106,7 @@ void HddlPipeline::sendFps(){
 
 void HddlPipeline::fetchRoiData(){
     while(!m_stop){
-        auto src =  BlockingQueue<std::shared_ptr<cv::UMat>>::instance().take();
+        auto src =  m_roiQueue.take();
         cv::Mat image;
         cv::resize(*src,image,cv::Size(CROP_IMAGE_WIDTH,CROP_IMAGE_HEIGHT));
         QByteArray*  ba = new QByteArray((char*)image.data, image.total()*image.elemSize());

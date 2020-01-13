@@ -8,6 +8,9 @@
 #include <chrono>
 #include <gst/gst.h>
 #include <gst/video/videooverlay.h>
+#include<opencv2/opencv.hpp>
+
+#include "blockingqueue.h"
 
 using namespace std::chrono;
 
@@ -42,6 +45,7 @@ private:
     SocketClient *m_client;
     FpsStat* m_probPad;
     QTimer* m_fpstimer;
+    BlockingQueue<std::shared_ptr<cv::UMat>> m_roiQueue;
 
     std::thread m_roiThread;
     std::atomic<bool> m_stop;

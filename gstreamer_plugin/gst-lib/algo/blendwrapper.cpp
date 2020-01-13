@@ -199,10 +199,11 @@ void cvdlhandler_process_osd(FrameHandler handle, GstBuffer* buffer, GstBuffer* 
 }
 
 
-void cvdlhandler_crop_frame( FrameHandler handle, GstBuffer* buffer, BoundingBox* box, guint32 num){
+void cvdlhandler_crop_frame( FrameHandler handle, GstBuffer* buffer, BoundingBox* box, guint32 num, gpointer roi_queue){
     static std::chrono::system_clock::time_point lastTimeStamp = std::chrono::system_clock::now();
     std::chrono::system_clock::time_point now =  std::chrono::system_clock::now();
     if (INTERVAL_IN_MS < std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeStamp).count()) {
+        BlockingQueue<std::shared_ptr<cv::UMat>>* block_queue = reinterpret_cast<BlockingQueue<std::shared_ptr<cv::UMat>>*>(roi_queue);
         lastTimeStamp = now;
         CvdlHandler *cvdl_blender  = (CvdlHandler *) handle;
         for(guint32 i = 0 ; i< num ; i++){
@@ -211,10 +212,10 @@ void cvdlhandler_crop_frame( FrameHandler handle, GstBuffer* buffer, BoundingBox
             ImageProcessor *img_processor = static_cast<ImageProcessor *>(cvdl_blender->mImgProcessor);
             img_processor->process_image(buffer, croppedFrame, &rect);
 
-            if( BlockingQueue<std::shared_ptr<cv::UMat>>::instance().size()> 3 ){
-                BlockingQueue<std::shared_ptr<cv::UMat>>::instance().take();
+            if( block_queue->size()> 3 ){
+                block_queue->take();
             }
-            BlockingQueue<std::shared_ptr<cv::UMat>>::instance().put(croppedFrame);
+            block_queue->put(croppedFrame);
         }
     }
 }

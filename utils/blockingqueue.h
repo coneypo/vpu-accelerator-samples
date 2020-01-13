@@ -9,11 +9,7 @@ template <typename T>
 class BlockingQueue {
 
 public:
-  static BlockingQueue<T>& instance(){
-      static BlockingQueue<T> obj;
-      return obj;
-  }
-
+  BlockingQueue(): _mutex(), _nonEmpty(), _queue() {}
 
   T take() {
     std::unique_lock<std::mutex> lock(_mutex);
@@ -39,7 +35,6 @@ public:
   BlockingQueue& operator=(const BlockingQueue&) = delete;
 
 private:
-  BlockingQueue(): _mutex(), _nonEmpty(), _queue() {}
   std::mutex _mutex;
   std::condition_variable _nonEmpty;
   std::queue<T> _queue;

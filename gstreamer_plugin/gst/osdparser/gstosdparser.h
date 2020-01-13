@@ -76,6 +76,8 @@ struct _GstOsdParser
   //frame handler
   FrameHandler blend_handle;
   FrameHandler crop_handle;
+
+  gpointer roi_queue;
 };
 
 struct _GstOsdParserClass 

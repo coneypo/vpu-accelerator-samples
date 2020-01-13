@@ -75,7 +75,8 @@ enum
 
 enum
 {
-  PROP_0
+  PROP_0,
+  PROP_ROI_QUEUE
 };
 
 /* the capabilities of the inputs and outputs.
@@ -114,6 +115,9 @@ G_DEFINE_TYPE (GstOsdParser, gst_osd_parser, GST_TYPE_ELEMENT)
 static gboolean gst_osd_parser_sink_event (GstPad * pad, GstObject * parent, GstEvent * event);
 static GstFlowReturn gst_osd_parser_chain (GstPad * pad, GstObject * parent, GstBuffer * buf);
 static void gst_osd_parser_finalize (GstOsdParser* parser);
+static void gst_osd_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec);
+static void gst_osd_get_property(GObject* object, guint prop_id, GValue* value, GParamSpec* pspec);
+
 
 /* GObject vmethod implementations */
 
@@ -127,6 +131,15 @@ gst_osd_parser_class_init (GstOsdParserClass * klass)
   gobject_class = (GObjectClass *) klass;
   gstelement_class = (GstElementClass *) klass;
   gobject_class->finalize = (GObjectFinalizeFunc) gst_osd_parser_finalize;
+
+  gobject_class->set_property = gst_osd_set_property;
+  gobject_class->get_property = gst_osd_get_property;
+
+  g_object_class_install_property(gobject_class, PROP_ROI_QUEUE,
+                                  g_param_spec_pointer("roi_queue", "RoiQueque", "roi queue",
+                                                       G_PARAM_READWRITE));
+
+
 
   gst_element_class_set_details_simple(gstelement_class,
     "OsdParser",
@@ -163,9 +176,43 @@ gst_osd_parser_init (GstOsdParser * filter)
 
   filter->blend_handle= cvdlhandler_create();
   filter->crop_handle= cvdlhandler_create();
-
-
+  filter->roi_queue = NULL;
 }
+
+static void
+gst_osd_set_property(GObject* object, guint prop_id,
+                     const GValue* value, GParamSpec* pspec)
+{
+    GstOsdParser* filter = GST_OSDPARSER(object);
+
+    switch (prop_id) {
+    case PROP_ROI_QUEUE:
+        filter->roi_queue = g_value_get_pointer(value);
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
+    }
+}
+
+static void
+gst_osd_get_property(GObject* object, guint prop_id,
+                     GValue* value, GParamSpec* pspec)
+{
+    GstOsdParser* filter = GST_OSDPARSER(object);
+
+    switch (prop_id) {
+    case PROP_ROI_QUEUE:
+        g_value_set_pointer(value, filter->roi_queue);
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
+    }
+}
+
+
+
 
 /* GstElement vmethod implementations */
 
@@ -212,6 +259,7 @@ static void gst_osd_parser_clean(GstOsdParser* parser){
     }
     parser->blend_handle = NULL;
     parser->crop_handle= NULL;
+    parser->roi_queue = NULL;
 
 }
 
@@ -236,7 +284,7 @@ gst_osd_parser_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
 
   InferResultMeta *meta = gst_buffer_get_infer_result_meta(buf);
   if (meta) {
-      cvdlhandler_crop_frame( filter->crop_handle, buf, meta->boundingBox,meta->size);
+      cvdlhandler_crop_frame( filter->crop_handle, buf, meta->boundingBox,meta->size, filter->roi_queue);
 #if 1
       cvdlhandler_generate_osd(filter->blend_handle, meta->boundingBox, meta->size, &osd_buf);
       cvdlhandler_process_osd(filter->blend_handle, buf, osd_buf);
