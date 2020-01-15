@@ -24,7 +24,7 @@ target_include_directories(${pluginname} PRIVATE .
                            ${PLUGIN_ROOT_DIR}/gst-lib/algo
                            ${PLUGIN_ROOT_DIR}/gst-lib/interface)
 
-target_link_directories(${pluginname} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/gstreamer-1.0)
+target_link_directories(${pluginname} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
 target_link_libraries(${pluginname} PRIVATE
     ${OpenCV_LIBRARIES}

@@ -9,6 +9,8 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 set(PLUGIN_ROOT_DIR ${CMAKE_SOURCE_DIR}/gstreamer_plugin)
 
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output/gstreamer-1.0/)
+
 include_directories(
     /opt/intel/mediasdk/include/
     ${MSDK_GST_SOURCE}
