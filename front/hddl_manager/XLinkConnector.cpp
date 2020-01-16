@@ -34,10 +34,8 @@ int XLinkConnector::init()
     m_handler.dev_path = (char*)"/tmp/xlink_mock";
     xlink_connect(&m_handler);
     xlink_opmode operationType = RXB_TXB;
-
-	int ret = xlink_close_channel(&m_handler, m_commChannel);
-	fprintf(stderr, "hddl_manager|XLinkConnector|Clean command channel %d rc %d\n", m_commChannel, ret);
-
+    int ret = xlink_close_channel(&m_handler, m_commChannel);
+    fprintf(stderr, "hddl_manager|XLinkConnector|Clean command channel %d rc %d\n", m_commChannel, ret);
     fprintf(stderr, "hddl_manager|XLinkConnector|Open command channel %d\n", m_commChannel);
     while(xlink_open_channel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
     {
@@ -72,14 +70,14 @@ void XLinkConnector::run()
         auto status = xlink_read_data(&m_handler, m_commChannel, &message, &size);
         if (status != X_LINK_SUCCESS)
         {
-            printf("hddl_manager|XLinkConnector|xlink_read_data timeout continue to wait %d\n", status);
+            fprintf(stderr, "hddl_manager|XLinkConnector|xlink_read_data timeout continue to wait %d\n", status);
             continue;
         }
         std::string response = generateResponse(message, size);
         status = xlink_release_data(&m_handler, m_commChannel, NULL);
         if (status != X_LINK_SUCCESS)
         {
-            printf("hddl_manager|XLinkConnector|xlink_release failed rc %d\n", status);
+            fprintf(stderr, "hddl_manager|XLinkConnector|xlink_release failed rc %d\n", status);
             continue;
         }
         memset((void*)message, 0, 1024*1024*4);
@@ -90,7 +88,7 @@ void XLinkConnector::run()
             std::lock_guard<std::mutex> lock(m_commChannelMutex);
             status = xlink_write_data(&m_handler, m_commChannel, (const uint8_t*)response.c_str(), response.length());
             if (status != X_LINK_SUCCESS) {
-                printf("hddl_manager|XLinkConnector|xlink_release failed rc %d\n", status);
+                fprintf(stderr, "hddl_manager|XLinkConnector|xlink_release failed rc %d\n", status);
                 continue;
             }
         }

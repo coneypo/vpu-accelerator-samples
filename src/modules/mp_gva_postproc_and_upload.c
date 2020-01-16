@@ -964,7 +964,7 @@ static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
         context->hddl_xlink->xlink_handler->dev_type = XLINK_DEVICE_TYPE;
         context->hddl_xlink->xlink_handler->link_id = 0;
         context->hddl_xlink->channelId = channelId;
-		int ret = xlink_close_channel(context->hddl_xlink->xlink_handler, channelId);
+        int ret = xlink_close_channel(context->hddl_xlink->xlink_handler, channelId);
         g_object_set(sink, "selected-target-context", context, NULL);
         gst_hddl_context_free(context);
         LOG_INFO("set \"selected-target-context\" with channelId(%d) on element named \"sink\".", channelId);
