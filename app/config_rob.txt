@@ -1,0 +1,2 @@
+filesrc location=/home/xiao/1600x1200.mp4 ! qtdemux ! h264parse ! tee name=t ! queue name=q0 ! remoteoffloadbin.( vaapih264dec ! vaapisink )  t. ! queue !  mfxh264dec ! inference socketname=%1 ! osdparser ! mfxsink name=mysink force-aspect-ratio=false
+
