@@ -7,13 +7,13 @@ int main(int argc, char *argv[])
 
     QApplication a(argc, argv);
     QString pipeline;
-    for(int i =1 ; i<argc; i++){
+    for(int i =1 ; i<argc-1; i++){
         pipeline += " ";
         pipeline += argv[i];
     }
-    pipeline += argv[argc];
+    int launchIndex = std::stoi(argv[argc-1]);
 
-    HddlPipeline w(pipeline, "mysink");
+    HddlPipeline w(pipeline, "mysink", launchIndex);
     w.show();
     w.run();
     return a.exec();

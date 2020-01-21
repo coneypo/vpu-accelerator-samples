@@ -161,14 +161,10 @@ void HDDLDemo::runPipeline(){
         gstreamer_process->setProcessChannelMode(QProcess::ForwardedChannels);
         QString gstreamer_cmd = QString("./hddlpipeline");
         QString ipc_name = "/var/tmp/gstreamer_ipc_" + QString::number(m_launchedNum);
-        gstreamer_process->start(gstreamer_cmd, m_pipeline.arg(ipc_name).split(" "));
+        auto arguments = m_pipeline.arg(ipc_name).split(" ");
+        arguments.append(QString::number(m_launchedNum));
+        gstreamer_process->start(gstreamer_cmd, arguments);
 
-        connect(gstreamer_process, &QProcess::started, [=] { QTimer::singleShot(200, [=] {
-                                                                 QProcess* hva_process = new QProcess(this);
-                                                                 hva_process->setProcessChannelMode(QProcess::ForwardedChannels);
-                                                                 QString hva_cmd = QString("./fake_result_sender");
-                                                                 hva_process->start(hva_cmd, QStringList(ipc_name));
-                                                             }); });
         m_launchedNum++;
     }else{
         m_pipelineTimer->stop();

@@ -1,2 +1,1 @@
-filesrc location=/home/xiao/1600x1200.mp4 ! qtdemux ! h264parse ! tee name=t ! queue name=q0 ! remoteoffloadbin.( vaapih264dec ! vaapisink )  t. ! queue !  mfxh264dec ! inference socketname=%1 ! osdparser ! mfxsink name=mysink force-aspect-ratio=false
-
+filesrc location=/home/xiao/1600x1200.mp4 ! qtdemux ! h264parse ! tee name=t0 ! queue ! remoteoffloadbin.( vaapih264dec !  videoconvert ! gvadetect model=/home/xiao/gva/data/models/intel/intel/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml ! queue ! gvawatermark ! videoconvert ! videoroimetadetach  ) ! appsink name=myappsink t0. ! queue ! mfxh264dec ! inference socketname=%1 ! osdparser  ! mfxsink name=mysink

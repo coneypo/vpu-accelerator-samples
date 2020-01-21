@@ -13,18 +13,20 @@
 
 #include <opencv2/opencv.hpp>
 #include <memory>
+#include <gst/video/gstvideometa.h>
 
 
 #define OVERLAY_NAME "mfxsink0"
 
-
-HddlPipeline::HddlPipeline(QString pipeline, QString displaySinkName, QWidget *parent)
+HddlPipeline::HddlPipeline(QString pipeline, QString displaySinkName, int launchIndex, QWidget *parent)
     : QMainWindow(parent),
       m_config(pipeline),
       m_probPad(nullptr),
       m_roiQueue(),
+      m_launchIndex(launchIndex),
       m_stop(false)
 {
+
     m_client = new SocketClient("hddldemo", this);
     bool connectFlag = m_client->connectServer();
 
@@ -47,6 +49,10 @@ HddlPipeline::HddlPipeline(QString pipeline, QString displaySinkName, QWidget *p
     //get gstreamer displaysink video overlay
     m_overlay = GST_VIDEO_OVERLAY (gst_bin_get_by_name(GST_BIN (dspSink),OVERLAY_NAME));
     Q_ASSERT(m_overlay!=nullptr);
+
+    GstElement* appSink= gst_bin_get_by_name(GST_BIN(m_pipeline),"myappsink");
+    g_object_set (appSink, "emit-signals", TRUE, NULL);
+    g_signal_connect(appSink, "new-sample", G_CALLBACK(HddlPipeline::new_sample),this);
 
     GstBus* bus = gst_element_get_bus(m_pipeline);
     gst_bus_add_watch(bus, HddlPipeline::busCallBack, this);
@@ -84,13 +90,33 @@ HddlPipeline::~HddlPipeline()
 }
 
 void  HddlPipeline::run(){
-    WId xwinid = this->centralWidget()->winId();
+
+  QString ipc_name = "/var/tmp/gstreamer_ipc_" + QString::number(m_launchIndex);
+#ifndef USE_FAKE_RESULT_SENDER
+  QTimer::singleShot(200,[this, &ipc_name](){
+    if(!m_sender.connectServer(ipc_name.toStdString())){
+      qDebug()<<"connect server error";
+    }
+  } );
+#else
+  QTimer::singleShot(200, [this, &ipc_name] {
+      QProcess* hva_process = new QProcess(this);
+      hva_process->setProcessChannelMode(QProcess::ForwardedChannels);
+      QString hva_cmd = QString("./fake_result_sender");
+      hva_process->start(hva_cmd, QStringList(ipc_name));
+      });
+#endif
+
+
+  WId xwinid = this->centralWidget()->winId();
     gst_video_overlay_set_window_handle (m_overlay, xwinid);
 
     GstStateChangeReturn sret = gst_element_set_state (m_pipeline, GST_STATE_PLAYING);
     if (sret == GST_STATE_CHANGE_FAILURE) {
         QTimer::singleShot(0, QApplication::activeWindow(), SLOT(quit()));
     }
+
+
 }
 
 void HddlPipeline::resizeEvent(QResizeEvent* event){
@@ -147,4 +173,41 @@ gboolean HddlPipeline::busCallBack(GstBus *bus, GstMessage *msg, gpointer data){
     }
 
     return true;
+}
+
+GstFlowReturn HddlPipeline::new_sample (GstElement *sink, gpointer data) {
+  HddlPipeline* obj = (HddlPipeline*) data;
+  GstSample *sample;
+
+  /* Retrieve the buffer */
+  g_signal_emit_by_name (sink, "pull-sample", &sample);
+  if (sample) {
+    /* The only thing we do in this example is print a * to indicate a received buffer */
+    GstBuffer* metaBuffer = gst_sample_get_buffer(sample);
+    if(metaBuffer){
+      GstClockTime pts = GST_BUFFER_PTS(metaBuffer);
+
+      GstVideoRegionOfInterestMeta *meta_orig = NULL;
+      gpointer state = NULL;
+      gboolean needSend= FALSE;
+      while( (meta_orig = (GstVideoRegionOfInterestMeta *)
+          gst_buffer_iterate_meta_filtered(metaBuffer,
+                                           &state,
+                                           gst_video_region_of_interest_meta_api_get_type())) )
+      {
+        std::string label = "null";
+        if (g_quark_to_string(meta_orig->roi_type)){
+          label =  g_quark_to_string(meta_orig->roi_type);
+        }
+        obj->m_sender.serializeSave(meta_orig->x, meta_orig->y, meta_orig->w, meta_orig->h,label,GST_BUFFER_PTS(metaBuffer),1.0);
+        needSend = TRUE;
+      }
+      if(needSend){
+        obj->m_sender.send();
+      }
+    }
+    gst_sample_unref (sample);
+    return GST_FLOW_OK;
+  }
+  return GST_FLOW_ERROR;
 }
