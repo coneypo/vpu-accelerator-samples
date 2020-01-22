@@ -434,7 +434,7 @@ GstFlowReturn ImageProcessor::process_image(GstBuffer* inbuf,std::shared_ptr<cv:
         return GST_FLOW_ERROR;
     }
 
-    mDstFrame->fourcc = OCL_FOURCC_BGRA;
+    mDstFrame->fourcc = OCL_FOURCC_RGB3;
     mDstFrame->mem    =  (cl_mem)outMat->handle(cv::ACCESS_RW);
     mDstFrame->width  = crop->width;
     mDstFrame->height = crop->height;
