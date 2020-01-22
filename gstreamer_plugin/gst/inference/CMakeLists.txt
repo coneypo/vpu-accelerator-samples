@@ -4,7 +4,6 @@ set(pluginname gst${pluginname})
 aux_source_directory(. DIR_SRCS)
 
 find_package(Boost REQUIRED system filesystem)
-message(STATUS "boost library: " ${Boost_LIBRARIES})
 
 add_library (${pluginname} SHARED ${DIR_SRCS})
 target_include_directories (${pluginname} PRIVATE .
