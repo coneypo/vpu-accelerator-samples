@@ -26,15 +26,21 @@ XLinkConnector::XLinkConnector()
 int XLinkConnector::init()
 {
     m_pipeManager = &(PipelineManager::getInstance());
-    auto status = xlink_initialize(NULL);
+    auto status = xlink_initialize();
     if (status != X_LINK_SUCCESS)
         return -1;
 
     m_handler.dev_type = PCIE_DEVICE;
-    m_handler.dev_path = (char*)"/tmp/xlink_mock";
+    uint32_t sw_device_id_list[10];
+    uint32_t num_devices;
+    //TODO: fix hard-coded pid 0x6420
+    int ret = xlink_get_device_list(sw_device_id_list, &num_devices, 0x6420);
+    assert(ret == 0);
+    assert(num_devices == 1);
+    m_handler.sw_device_id = sw_device_id_list[0];
     xlink_connect(&m_handler);
     xlink_opmode operationType = RXB_TXB;
-    int ret = xlink_close_channel(&m_handler, m_commChannel);
+    ret = xlink_close_channel(&m_handler, m_commChannel);
     fprintf(stderr, "hddl_manager|XLinkConnector|Clean command channel %d rc %d\n", m_commChannel, ret);
     fprintf(stderr, "hddl_manager|XLinkConnector|Open command channel %d\n", m_commChannel);
     while(xlink_open_channel(&m_handler, m_commChannel, operationType, DATA_FRAGMENT_SIZE, TIMEOUT) != X_LINK_SUCCESS)
