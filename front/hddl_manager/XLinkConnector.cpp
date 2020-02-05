@@ -33,8 +33,8 @@ int XLinkConnector::init()
     m_handler.dev_type = PCIE_DEVICE;
     uint32_t sw_device_id_list[10];
     uint32_t num_devices;
-    //TODO: fix hard-coded pid 0x6420
-    int ret = xlink_get_device_list(sw_device_id_list, &num_devices, 0x6420);
+    //TODO: fix hard-coded pid 0x6240
+    int ret = xlink_get_device_list(sw_device_id_list, &num_devices, 0x6240);
     assert(ret == 0);
     assert(num_devices == 1);
     m_handler.sw_device_id = sw_device_id_list[0];
