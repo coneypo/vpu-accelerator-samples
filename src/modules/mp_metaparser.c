@@ -286,7 +286,6 @@ static char* load_config(mediapipe_t* mp, mp_command_t* cmd)
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(src), "selected-target-context")) {
         GstHddlContext *context = gst_hddl_context_new (CONNECT_XLINK);
         context->hddl_xlink->xlink_handler->dev_type = XLINK_DEVICE_TYPE;
-        context->hddl_xlink->xlink_handler->link_id = 0;
         uint32_t sw_device_id_list[10];
         uint32_t num_devices;
         //TODO: fix hard-coded pid 0x6240
@@ -295,6 +294,8 @@ static char* load_config(mediapipe_t* mp, mp_command_t* cmd)
         assert(num_devices == 1);
         context->hddl_xlink->xlink_handler->sw_device_id = sw_device_id_list[0];
         context->hddl_xlink->channelId = channelId;
+        //use xlink_connect to get correct link_id
+        xlink_connect(context->hddl_xlink->xlink_handler);
         ret = xlink_close_channel(context->hddl_xlink->xlink_handler, channelId);
         g_object_set(src, "selected-target-context", context, NULL);
         gst_hddl_context_free(context);
