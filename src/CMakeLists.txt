@@ -8,6 +8,7 @@ find_package(Json-c REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Gstreamer REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system filesystem)
+find_package(OpenSSL REQUIRED)
 
 add_subdirectory(utils)
 add_subdirectory(config)
