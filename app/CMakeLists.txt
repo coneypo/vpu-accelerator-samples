@@ -11,14 +11,7 @@ aux_source_directory(${CMAKE_SOURCE_DIR}/common UTILS_SRCS)
 qt5_wrap_ui(UI_SRC hddldemo.ui)
 
 add_executable(${PROJECT_NAME} ${DIR_SRCS} ${UI_SRC} ${UTILS_SRCS})
-target_include_directories(${PROJECT_NAME} PRIVATE
-                           ${Qt5Widgets_INCLUDE_DIR}
-                           ${Qt5Network_INCLUDE_DIR}
-                           ${CMAKE_SOURCE_DIR}/common)
-
-target_link_libraries(${PROJECT_NAME}
-    ${Qt5Widgets_LIBRARIES}
-    ${Qt5Network_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PRIVATE common_static)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 install(FILES "config.txt" DESTINATION "./")

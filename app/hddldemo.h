@@ -2,8 +2,8 @@
 #define HDDLDEMO_H
 
 #include <QMainWindow>
-#include <QWindow>
 #include <QMap>
+#include <QWindow>
 
 class SocketServer;
 class QLabel;
@@ -12,12 +12,11 @@ namespace Ui {
 class HDDLDemo;
 }
 
-class HDDLDemo : public QMainWindow
-{
+class HDDLDemo : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit HDDLDemo(QString pipeline, int rows, int cols, QWidget *parent = 0);
+    explicit HDDLDemo(QWidget* parent = 0);
     ~HDDLDemo();
 
 public Q_SLOTS:
@@ -28,21 +27,25 @@ public Q_SLOTS:
 
 private:
     void runPipeline();
+    void initConfig();
 
-    int m_rows;   			// channel rows
-    int m_cols;  			// channel cols
-    int m_launchedNum;		// nums of launched hddlpipelines
-    int m_embededNum;		// nums of launched hddlpipelines which are embeded in GUI
-    QString m_pipeline;		// channel gstreamer pipeline
+    int m_rows { 0 }; // channel rows
+    int m_cols { 0 }; // channel cols
+    int m_launchedNum { 0 }; // nums of launched hddlpipelines
+    int m_embededNum { 0 }; // nums of launched hddlpipelines which are embeded in GUI
+    std::vector<std::string> m_pipeline {}; // channel gstreamer pipeline
+    std::vector<std::string> m_mediaFiles {}; // channel media input files
+    QString m_classificationModelPath;
+    QString m_detectionModelPath;
 
-    QTimer *m_pipelineTimer;   // channel launch timer
-    QTimer *m_totalFpsTimer;   // total fps update timer
+    QTimer* m_pipelineTimer; // channel launch timer
+    QTimer* m_totalFpsTimer; // total fps update timer
 
     QMap<qintptr, qint32> m_socketToIndex;
     QMap<qint32, int> m_channelToRoiNum;
 
     SocketServer* m_server;
-    Ui::HDDLDemo *ui;
+    Ui::HDDLDemo* ui;
 };
 
 #endif // HDDLDEMO_H

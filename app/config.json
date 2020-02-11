@@ -1,0 +1,20 @@
+{
+  "decode": [
+    {
+      "suffix": "mp4",
+      "pipe": "filesrc location=%1 ! qtdemux ! h264parse ! tee name=t0 ! queue ! remoteoffloadbin.( vaapih264dec !  videoconvert ! gvadetect model=%2 ! queue ! gvawatermark ! videoconvert ! videoroimetadetach  ) ! appsink name=myappsink t0. ! queue ! mfxh264dec ! inference socketname=%3 ! osdparser  ! fakesink name=mysink"
+    }
+  ],
+  "app": {
+    "timeout": 0,
+    "mode": "replay",
+    "detection": "/home/xiao/gva/data/models/intel/intel/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml",
+    "classification": "IR ABS path",
+    "src": [
+      {
+        "path": "/home/xiao/1600x1200.mp4"
+      }
+    ]
+  }
+}
+
