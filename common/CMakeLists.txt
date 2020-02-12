@@ -3,6 +3,7 @@
 #
 #SPDX-License-Identifier: MIT
 #
+set(CMAKE_AUTOMOC ON)
 file(GLOB HDRS "*.h")
 file(GLOB SRCS "*.cpp")
 
