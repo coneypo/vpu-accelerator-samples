@@ -5,7 +5,7 @@ aux_source_directory(../common UTILS_SRCS)
 
 set(TARGET_NAME pipeline_test)
 add_executable(${TARGET_NAME} ${DIR_SRCS} ${UTILS_SRCS})
-add_dependencies(${TARGET_NAME} msdk-gst inferresultmeta)
+add_dependencies(${TARGET_NAME} msdk-gst)
 target_include_directories(${TARGET_NAME} PRIVATE ${GSTREAMER_INCLUDE_DIRS}
     ${GSTVIDEO_INCLUDE_DIRS}
     ${GSTAPP_INCLUDE_DIRS}

@@ -9,8 +9,6 @@ configure_file("${PLUGIN_ROOT_DIR}/gst-lib/ocl/oclcommon.h.in"
 
 include(${CMAKE_SOURCE_DIR}/cmake/FindMediaSDK.cmake)
 
-#include_directories(${OpenCV_INCLUDE_DIRS})
-
 aux_source_directory(${PLUGIN_ROOT_DIR}/gst-lib/ocl DIR_SRCS)
 aux_source_directory(${PLUGIN_ROOT_DIR}/gst-lib/algo DIR_SRCS)
 aux_source_directory(. DIR_SRCS)
@@ -30,7 +28,6 @@ target_include_directories(${pluginname} PRIVATE .
         ${OpenCV_INCLUDE_DIRS}
         ${CMAKE_BINARY_DIR}/ocl
         ${PLUGIN_ROOT_DIR}/gst-lib/
-        ${PLUGIN_ROOT_DIR}/gst-lib/inferresultmeta
         ${PLUGIN_ROOT_DIR}/gst-lib/ocl
         ${PLUGIN_ROOT_DIR}/gst-lib/algo
         ${PLUGIN_ROOT_DIR}/gst-lib/interface)
@@ -42,7 +39,7 @@ target_link_libraries(${pluginname} PRIVATE
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${GLIB2_LIBRARIES}
-        inferresultmeta
+        gstinference
         OpenCL
         utils_static
         gstmfx msdkmfx)

@@ -10,6 +10,4 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g -ggdb -O0")
 set(PLUGIN_ROOT_DIR ${CMAKE_SOURCE_DIR}/gstreamer_plugin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output/gstreamer-1.0/)
 
-
-add_subdirectory(gst-lib)
 add_subdirectory(gst)
