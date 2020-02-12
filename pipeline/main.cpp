@@ -1,4 +1,4 @@
-#include "hddlpipeline.h"
+#include "hddlchannel.h"
 #include <QApplication>
 
 
@@ -11,9 +11,11 @@ int main(int argc, char *argv[])
         pipeline += " ";
         pipeline += argv[i];
     }
-    int launchIndex = std::stoi(argv[argc-1]);
+    int channelId= std::stoi(argv[argc-1]);
 
-    HddlPipeline w(pipeline, "mysink", launchIndex);
+    HddlChannel w(channelId);
+    w.initConnection();
+    w.setupPipeline(pipeline, "mysink");
     w.show();
     w.run();
     return a.exec();

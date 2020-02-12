@@ -1,4 +1,4 @@
-#include "hddlpipeline.h"
+#include "hddlchannel.h"
 #include "blockingqueue.h"
 #include "cropdefs.h"
 #include "fpsstat.h"
@@ -17,27 +17,41 @@
 
 #define OVERLAY_NAME "mfxsink0"
 
-HddlPipeline::HddlPipeline(QString pipeline, QString displaySinkName, int launchIndex, QWidget* parent)
+HddlChannel::HddlChannel(int channelId, QWidget* parent)
     : QMainWindow(parent)
-    , m_config(pipeline)
+    , m_client(nullptr)
     , m_probPad(nullptr)
-    , m_roiQueue()
-    , m_launchIndex(launchIndex)
+    , m_id(channelId)
     , m_stop(false)
 {
-
-    m_client = new SocketClient("hddldemo", this);
-    bool connectFlag = m_client->connectServer();
-
     QWidget* container = new QWidget(this);
     setCentralWidget(container);
     container->setStyleSheet("background-color: rgb(50, 50, 78);");
     this->resize(QApplication::primaryScreen()->size());
+
+    m_roiThread = std::thread(&HddlChannel::fetchRoiData, this);
+}
+
+HddlChannel::~HddlChannel()
+{
+    if (m_probPad) {
+        delete m_probPad;
+    }
+
+    gst_element_set_state(m_pipeline, GST_STATE_NULL);
+    gst_object_unref(m_pipeline);
+
+    m_stop.store(true);
+    m_roiThread.join();
+}
+
+bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySinkName)
+{
     // init gstreamer
     gst_init(NULL, NULL);
 
     //parse gstreamer pipeline
-    m_pipeline = gst_parse_launch_full(m_config.toStdString().c_str(), NULL, GST_PARSE_FLAG_FATAL_ERRORS, NULL);
+    m_pipeline = gst_parse_launch_full(pipelineDescription.toStdString().c_str(), NULL, GST_PARSE_FLAG_FATAL_ERRORS, NULL);
     GstElement* dspSink = gst_bin_get_by_name(GST_BIN(m_pipeline), displaySinkName.toStdString().c_str());
     Q_ASSERT(dspSink != nullptr);
 
@@ -51,47 +65,39 @@ HddlPipeline::HddlPipeline(QString pipeline, QString displaySinkName, int launch
 
     GstElement* appSink = gst_bin_get_by_name(GST_BIN(m_pipeline), "myappsink");
     g_object_set(appSink, "emit-signals", TRUE, NULL);
-    g_signal_connect(appSink, "new-sample", G_CALLBACK(HddlPipeline::new_sample), this);
+    g_signal_connect(appSink, "new-sample", G_CALLBACK(HddlChannel::new_sample), this);
 
     GstBus* bus = gst_element_get_bus(m_pipeline);
-    gst_bus_add_watch(bus, HddlPipeline::busCallBack, this);
+    gst_bus_add_watch(bus, HddlChannel::busCallBack, this);
     gst_object_unref(bus);
 
-    if (connectFlag) {
-        m_client->sendWinId(this->winId());
 
-        //probe sinkpad for calculate fps
-        GstPad* sinkPad = gst_element_get_static_pad(dspSink, "sink");
-        Q_ASSERT(sinkPad != nullptr);
-        m_probPad = new FpsStat(sinkPad);
+    //probe sinkpad for calculate fps
+    GstPad* sinkPad = gst_element_get_static_pad(dspSink, "sink");
+    Q_ASSERT(sinkPad != nullptr);
+    m_probPad = new FpsStat(sinkPad);
 
-        m_fpstimer = new QTimer(this);
-        m_fpstimer->setInterval(1000);
-        connect(m_fpstimer, &QTimer::timeout, this, &HddlPipeline::sendFps);
-        m_fpstimer->start();
+    m_fpstimer = new QTimer(this);
+    m_fpstimer->setInterval(1000);
+    connect(m_fpstimer, &QTimer::timeout, this, &HddlChannel::sendFps);
+    connect(this, &HddlChannel::roiReady, this, &HddlChannel::sendRoiData);
 
-        connect(this, &HddlPipeline::roiReady, this, &HddlPipeline::sendRoiData);
-    }
-    m_roiThread = std::thread(&HddlPipeline::fetchRoiData, this);
+    m_fpstimer->start();
 }
 
-HddlPipeline::~HddlPipeline()
+bool HddlChannel::initConnection(QString serverPath)
 {
-    if (m_probPad) {
-        delete m_probPad;
-    }
-
-    gst_element_set_state(m_pipeline, GST_STATE_NULL);
-    gst_object_unref(m_pipeline);
-
-    m_stop.store(true);
-    m_roiThread.join();
+    m_client = new SocketClient(serverPath, this);
+    if(!m_client->connectServer()){
+        return false;
+    };
+    m_client->sendWinId(this->winId());
+    return true;
 }
 
-void HddlPipeline::run()
+void HddlChannel::run()
 {
-
-    QString ipc_name = "/var/tmp/gstreamer_ipc_" + QString::number(m_launchIndex);
+    QString ipc_name = "/var/tmp/gstreamer_ipc_" + QString::number(m_id);
 #ifndef USE_FAKE_RESULT_SENDER
     QTimer::singleShot(200, [this, &ipc_name]() {
         if (!m_sender.connectServer(ipc_name.toStdString())) {
@@ -118,7 +124,7 @@ void HddlPipeline::run()
     }
 }
 
-void HddlPipeline::resizeEvent(QResizeEvent* event)
+void HddlChannel::resizeEvent(QResizeEvent* event)
 {
     if(m_overlay) {
         gst_video_overlay_expose(m_overlay);
@@ -126,13 +132,13 @@ void HddlPipeline::resizeEvent(QResizeEvent* event)
     QMainWindow::resizeEvent(event);
 }
 
-void HddlPipeline::sendFps()
+void HddlChannel::sendFps()
 {
     auto fps = m_probPad->getRenderFps();
     m_client->sendString(QString::number(fps, 'f', 2));
 }
 
-void HddlPipeline::fetchRoiData()
+void HddlChannel::fetchRoiData()
 {
     while (!m_stop) {
         auto src = m_roiQueue.take();
@@ -143,15 +149,15 @@ void HddlPipeline::fetchRoiData()
     }
 }
 
-void HddlPipeline::sendRoiData(QByteArray* ba)
+void HddlChannel::sendRoiData(QByteArray* ba)
 {
     m_client->sendByteArray(ba);
     delete ba;
 }
 
-gboolean HddlPipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
+gboolean HddlChannel::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
 {
-    HddlPipeline* obj = (HddlPipeline*)data;
+    HddlChannel* obj = (HddlChannel*)data;
     switch (GST_MESSAGE_TYPE(msg)) {
     case GST_MESSAGE_ERROR: {
         GError* err = NULL;
@@ -179,9 +185,9 @@ gboolean HddlPipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
     return true;
 }
 
-GstFlowReturn HddlPipeline::new_sample(GstElement* sink, gpointer data)
+GstFlowReturn HddlChannel::new_sample(GstElement* sink, gpointer data)
 {
-    HddlPipeline* obj = (HddlPipeline*)data;
+    HddlChannel* obj = (HddlChannel*)data;
     GstSample* sample;
 
     /* Retrieve the buffer */
