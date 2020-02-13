@@ -36,6 +36,7 @@
 #include <gst/base/gstbasesink.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideometa.h>
+#include <fstream>
 
 #ifdef __cplusplus
 extern "C" {
@@ -199,6 +200,7 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
 
     /* Retrieve the buffer */
     g_signal_emit_by_name(sink, "pull-sample", &sample);
+
 
     if (sample) {
         GstBuffer* metaBuffer = gst_sample_get_buffer(sample);

@@ -1,9 +1,7 @@
 #include "hddldemo.h"
-#include <fstream>
 #include <getopt.h>
 #include <iostream>
 #include <stdio.h>
-#include <unistd.h>
 #include <QApplication>
 #include "ConfigParser.h"
 

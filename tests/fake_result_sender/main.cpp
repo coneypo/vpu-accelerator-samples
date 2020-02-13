@@ -1,83 +1,123 @@
 #include "HLog.h"
+#include "utils/infermetasender.h"
 #include <IPC.h>
 #include <atomic>
-#include <boost/algorithm/string.hpp>
+#include <fstream>
+#include <getopt.h>
 #include <iostream>
-#include <map>
+#include <regex>
 #include <string>
 #include <thread>
 #include <vector>
 
 using namespace HddlUnite;
 
-class Client {
-private:
-    Connection::Ptr m_connection;
-    Poller::Ptr m_poller;
-    std::string m_serialized_result;
+static void print_usage(const char* program_name, int exit_code);
 
-public:
-    bool connectServer(const std::string& server_name)
-    {
-        m_poller = Poller::create();
-        m_connection = Connection::create(m_poller);
-        for (int i = 0; i < 10; ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            if (m_connection->connect(server_name)) {
-                std::cout << "succeed connecting" << server_name << std::endl;
-                return true;
-            }
+static const char* roi_simulation_file = nullptr;
+static const char* socket_path = nullptr;
+
+static bool parse_cmdline(int argc, char* argv[])
+{
+    const char* const brief = "hs:r:";
+    const struct option details[] = {
+        {
+            "socket",
+            1,
+            nullptr,
+            's',
+        },
+        {
+            "roi",
+            1,
+            nullptr,
+            'r',
+        },
+        {
+            "help",
+            0,
+            nullptr,
+            'h',
+        },
+        { nullptr, 0, nullptr, 0 }
+    };
+
+    int opt = 0;
+    while (opt != -1) {
+        opt = getopt_long(argc, argv, brief, details, nullptr);
+        switch (opt) {
+        case 's':
+            socket_path = optarg;
+            break;
+        case 'r':
+            roi_simulation_file = optarg;
+            break;
+        case 'h': /* help */
+            print_usage(argv[0], 0);
+            break;
+        case '?': /* an invalid option. */
+            print_usage(argv[0], 1);
+            break;
+        case -1: /* Done with options. */
+            break;
+        default: /* unexpected. */
+            print_usage(argv[0], 1);
+            abort();
         }
     }
+    return true;
+}
 
-    void serializeSave(int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(), size_t pts = 0, double probability = 0)
-    {
-        std::string single_element = std::to_string(roi_x) + "," + std::to_string(roi_y) + "," + std::to_string(roi_width) + "," + std::to_string(roi_height)
-            + "," + label + "," + std::to_string(pts) + "," + std::to_string(probability) + ",";
-        m_serialized_result += single_element;
-    }
-
-    bool send()
-    {
-        std::string to_send_data(std::move(m_serialized_result));
-        int length = static_cast<int>(to_send_data.length());
-        if (length <= 0) {
-            HError("Error: invalid message length, length=%lu", length);
-            return false;
-        }
-        AutoMutex autoLock(m_connection->getMutex());
-
-        if (!m_connection->write(&length, sizeof(length))) {
-            HError("Error: write message length failed");
-            return false;
-        }
-
-        if (!m_connection->write(&to_send_data[0], length)) {
-            HError("Error: write message failed, expectLen=%lu", length);
-            return false;
-        }
-        return true;
-    }
-};
+static void print_usage(const char* program_name, int exit_code)
+{
+    printf("Usage: %s...\n", program_name);
+    printf(
+        " -s --socket socket path.\n"
+        " -r --roi roi simulation path.\n"
+        "-h --help Display this usage information.\n");
+    exit(exit_code);
+}
 
 int main(int argc, char* argv[])
 {
-    std::string unix_domain_socket;
-    if (argc < 2) {
-        unix_domain_socket = "/var/tmp/gstreamer_ipc.sock";
 
-    } else {
-        unix_domain_socket = argv[1];
+    parse_cmdline(argc, argv);
+    if (!roi_simulation_file || !socket_path) {
+        std::cerr << "Invalid arguments" << std::endl;
+        return EXIT_FAILURE;
+    }
+    std::string unix_domain_socket = socket_path;
+
+    std::ifstream file(roi_simulation_file);
+
+    if (!file.is_open()) {
+        std::cerr << "can not open roi simulation file" << std::endl;
+        return EXIT_FAILURE;
     }
 
-    Client client;
+    std::regex re("(\\d+),(\\d+),(\\d+),(\\d+),(\\w+),(\\d+),([\\d|\\.]+)");
+    int x, y, w, h;
+    size_t pts;
+    std::string label, line;
+    double prob;
+    InferMetaSender client;
     if (client.connectServer(unix_domain_socket)) {
-        while (true) {
-            client.serializeSave(300, 300, 300, 300, unix_domain_socket, 0, 0.1);
-            client.serializeSave(650, 650, 300, 300, unix_domain_socket, 0, 0.2);
-            std::this_thread::sleep_for(std::chrono::milliseconds(30));
-            if (!client.send()) {
-                return -1;
+        while (std::getline(file, line)) {
+            std::smatch result;
+            if (std::regex_match(line, result, re)) {
+                x = std::stoi(result[1]);
+                y = std::stoi(result[2]);
+                w = std::stoi(result[3]);
+                h = std::stoi(result[4]);
+                label = result[5];
+                pts = std::stoul(result[6]);
+                prob = std::stod(result[7]);
+                client.serializeSave(x, y, w, h, label, pts, prob);
+                client.send();
+                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            } else {
+                std::cerr << "Invalidate data format:" << line << std::endl;
+                return EXIT_FAILURE;
             }
         }
     } else {
