@@ -170,11 +170,8 @@ void HDDLDemo::runPipeline()
         QString ipc_name = "/var/tmp/gstreamer_ipc_" + QString::number(m_launchedNum);
         QString pipeline_format = QString::fromStdString(m_pipeline[m_launchedNum]);
         QString media_file = QString::fromStdString(m_mediaFiles[m_launchedNum]);
-        qDebug() << pipeline_format.arg(media_file, m_detectionModelPath, ipc_name);
-        auto arguments = pipeline_format.arg(media_file, m_detectionModelPath, ipc_name).split(" ");
-        arguments.append(QString::number(m_launchedNum));
-        gstreamer_process->start(gstreamer_cmd, arguments);
-
+        auto arguments = pipeline_format.arg(media_file, m_detectionModelPath, ipc_name, ipc_name).split(" ");
+        arguments.append(QString::number(m_launchedNum)); gstreamer_process->start(gstreamer_cmd, arguments);
         m_launchedNum++;
     } else {
         m_pipelineTimer->stop();

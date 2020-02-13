@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <gst/gst.h>
+#include <gst/video/gstvideometa.h>
 #include <gst/video/videooverlay.h>
 #include <opencv2/opencv.hpp>
 #include <thread>
@@ -22,8 +23,8 @@ class QTimer;
 class HddlChannel : public QMainWindow {
     Q_OBJECT
 public:
-    HddlChannel(int channelId, QWidget* parent = 0);
-    ~HddlChannel();
+    explicit HddlChannel(int channelId, QWidget* parent = 0);
+    virtual ~HddlChannel();
     bool initConnection(QString serverPath = "hddldemo");
     bool setupPipeline(QString pipelineDescription, QString displaySinkName);
     void run();
@@ -38,19 +39,15 @@ private:
     void sendFps();
     void fetchRoiData();
     void sendRoiData(QByteArray* ba);
-
     static gboolean busCallBack(GstBus* bus, GstMessage* msg, gpointer data);
-    static GstFlowReturn new_sample(GstElement* sink, gpointer data);
 
-    QString m_config;
+    int m_id;
     GstElement* m_pipeline;
     GstVideoOverlay* m_overlay;
     SocketClient* m_client;
     FpsStat* m_probPad;
     QTimer* m_fpstimer;
     BlockingQueue<std::shared_ptr<cv::UMat>> m_roiQueue;
-    InferMetaSender m_sender;
-    int m_id;
 
     std::thread m_roiThread;
     std::atomic<bool> m_stop;

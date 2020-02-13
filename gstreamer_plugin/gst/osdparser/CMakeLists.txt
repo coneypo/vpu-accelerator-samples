@@ -42,7 +42,7 @@ target_link_libraries(${pluginname} PRIVATE
         gstinference
         OpenCL
         utils_static
-        gstmfx msdkmfx)
+        gstmfx)
 
 add_dependencies(${pluginname} msdk-gst utils_static)
 

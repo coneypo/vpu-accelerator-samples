@@ -10,7 +10,6 @@
 #include <sstream>
 #include <string>
 
-#include "utils/CompileUtils.h"
 #include "utils/FileUtils.h"
 #include "utils/Mutex.h"
 #include "utils/Singleton.h"

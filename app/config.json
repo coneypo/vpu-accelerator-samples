@@ -2,7 +2,7 @@
   "decode": [
     {
       "suffix": "mp4",
-      "pipe": "filesrc location=%1 ! qtdemux ! h264parse ! tee name=t0 ! queue ! remoteoffloadbin.( vaapih264dec !  videoconvert ! gvadetect model=%2 ! queue ! gvawatermark ! videoconvert ! videoroimetadetach  ) ! appsink name=myappsink t0. ! queue ! mfxh264dec ! inference socketname=%3 ! osdparser  ! fakesink name=mysink"
+      "pipe": "filesrc location=%1 ! qtdemux ! h264parse ! tee name=t0 ! queue ! remoteoffloadbin.( vaapih264dec !  videoconvert ! gvadetect model=%2 ! queue ! gvawatermark ! videoconvert ! videoroimetadetach  ) ! roisink socketname=%3 t0. ! queue ! mfxh264dec ! inference socketname=%4 ! osdparser  ! fakesink name=mysink"
     }
   ],
   "app": {

@@ -1,17 +1,14 @@
 #include "hddlchannel.h"
-#include "blockingqueue.h"
 #include "cropdefs.h"
 #include "fpsstat.h"
 #include "socketclient.h"
 
 #include <QApplication>
-#include <QDebug>
 #include <QHBoxLayout>
 #include <QImage>
 #include <QTimer>
 #include <QWidget>
 
-#include <gst/video/gstvideometa.h>
 #include <memory>
 #include <opencv2/opencv.hpp>
 
@@ -63,14 +60,9 @@ bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySink
     m_overlay = GST_VIDEO_OVERLAY(gst_bin_get_by_name(GST_BIN(dspSink), OVERLAY_NAME));
     //Q_ASSERT(m_overlay != nullptr);
 
-    GstElement* appSink = gst_bin_get_by_name(GST_BIN(m_pipeline), "myappsink");
-    g_object_set(appSink, "emit-signals", TRUE, NULL);
-    g_signal_connect(appSink, "new-sample", G_CALLBACK(HddlChannel::new_sample), this);
-
     GstBus* bus = gst_element_get_bus(m_pipeline);
     gst_bus_add_watch(bus, HddlChannel::busCallBack, this);
     gst_object_unref(bus);
-
 
     //probe sinkpad for calculate fps
     GstPad* sinkPad = gst_element_get_static_pad(dspSink, "sink");
@@ -88,7 +80,7 @@ bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySink
 bool HddlChannel::initConnection(QString serverPath)
 {
     m_client = new SocketClient(serverPath, this);
-    if(!m_client->connectServer()){
+    if (!m_client->connectServer()) {
         return false;
     };
     m_client->sendWinId(this->winId());
@@ -97,36 +89,20 @@ bool HddlChannel::initConnection(QString serverPath)
 
 void HddlChannel::run()
 {
-    QString ipc_name = "/var/tmp/gstreamer_ipc_" + QString::number(m_id);
-#ifndef USE_FAKE_RESULT_SENDER
-    QTimer::singleShot(200, [this, &ipc_name]() {
-        if (!m_sender.connectServer(ipc_name.toStdString())) {
-            qDebug() << "connect server error";
-        }
-    });
-#else
-    QTimer::singleShot(200, [this, &ipc_name] {
-        QProcess* hva_process = new QProcess(this);
-        hva_process->setProcessChannelMode(QProcess::ForwardedChannels);
-        QString hva_cmd = QString("./fake_result_sender");
-        hva_process->start(hva_cmd, QStringList(ipc_name));
-    });
-#endif
-
-    WId xwinid = this->centralWidget()->winId();
-    if(m_overlay) {
+    if (m_overlay) {
+        WId xwinid = this->centralWidget()->winId();
         gst_video_overlay_set_window_handle(m_overlay, xwinid);
     }
 
-    GstStateChangeReturn sret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
-    if (sret == GST_STATE_CHANGE_FAILURE) {
+    auto ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
         QTimer::singleShot(0, QApplication::activeWindow(), SLOT(quit()));
     }
 }
 
 void HddlChannel::resizeEvent(QResizeEvent* event)
 {
-    if(m_overlay) {
+    if (m_overlay) {
         gst_video_overlay_expose(m_overlay);
     }
     QMainWindow::resizeEvent(event);
@@ -183,41 +159,4 @@ gboolean HddlChannel::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
     }
 
     return true;
-}
-
-GstFlowReturn HddlChannel::new_sample(GstElement* sink, gpointer data)
-{
-    HddlChannel* obj = (HddlChannel*)data;
-    GstSample* sample;
-
-    /* Retrieve the buffer */
-    g_signal_emit_by_name(sink, "pull-sample", &sample);
-    if (sample) {
-        /* The only thing we do in this example is print a * to indicate a received buffer */
-        GstBuffer* metaBuffer = gst_sample_get_buffer(sample);
-        if (metaBuffer) {
-            GstClockTime pts = GST_BUFFER_PTS(metaBuffer);
-
-            GstVideoRegionOfInterestMeta* meta_orig = NULL;
-            gpointer state = NULL;
-            gboolean needSend = FALSE;
-            while ((meta_orig = (GstVideoRegionOfInterestMeta*)
-                        gst_buffer_iterate_meta_filtered(metaBuffer,
-                            &state,
-                            gst_video_region_of_interest_meta_api_get_type()))) {
-                std::string label = "null";
-                if (g_quark_to_string(meta_orig->roi_type)) {
-                    label = g_quark_to_string(meta_orig->roi_type);
-                }
-                obj->m_sender.serializeSave(meta_orig->x, meta_orig->y, meta_orig->w, meta_orig->h, label, GST_BUFFER_PTS(metaBuffer), 1.0);
-                needSend = TRUE;
-            }
-            if (needSend) {
-                obj->m_sender.send();
-            }
-        }
-        gst_sample_unref(sample);
-        return GST_FLOW_OK;
-    }
-    return GST_FLOW_ERROR;
 }

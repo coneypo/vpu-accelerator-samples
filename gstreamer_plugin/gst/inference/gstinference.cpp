@@ -5,12 +5,10 @@
  * and pass them to the downstream element.
  */
 
-#include "HLog.h"
 #include "IPC.h"
 #include "Semaphore.h"
 #include <atomic>
 #include <boost/algorithm/string.hpp>
-#include <iostream>
 #include <map>
 #include <string>
 #include <thread>
@@ -193,15 +191,18 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
         break;
     }
     case GST_EVENT_STREAM_START: {
-        HInfo("server is waiting connection .....");
+        GST_DEBUG("server is waiting connection .....");
         //this function will block until socket connection is established.
-        static bool connect_client = [&parent]() {
-            std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
-            return connection_establised.waitFor(10000);
-        }();
-        if (!connect_client) {
-            HInfo("connect to client failed, yet continue playing...");
-        }
+
+        std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
+        //static bool connect_client = [&parent]() {
+        //    std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
+        //    return connection_establised.waitFor(10);
+        //}();
+        //if (!connect_client) {
+        //    GST_WARNING("connect to client failed, yet continue playing...");
+        //    g_print("connect to client failed, yet continue playing...\n");
+        //}
     }
     default:
         ret = gst_pad_event_default(pad, parent, event);
@@ -314,7 +315,7 @@ static int receiveRoutine(const char* socket_address)
     auto poller = Poller::create();
     auto connection = Connection::create(poller);
     if (!connection->listen(socket_address)) {
-        HError("Error: Create service listening socket failed.");
+        GST_ERROR("Error: Create service listening socket failed.\n");
         return -1;
     }
 
@@ -322,7 +323,7 @@ static int receiveRoutine(const char* socket_address)
         auto event = poller->waitEvent(100);
         switch (event.type) {
         case Event::Type::CONNECTION_IN:
-            HInfo("connection in");
+            GST_DEBUG("connection in");
             connection->accept();
             connection_establised.post();
             break;
@@ -332,29 +333,29 @@ static int receiveRoutine(const char* socket_address)
             AutoMutex autoLock(data_connection->getMutex());
 
             if (!data_connection->read(&length, sizeof(length))) {
-                HError("Error: receive message length failed");
+                GST_ERROR("Error: receive message length failed");
                 break;
             }
 
             if (length <= 0) {
-                HError("Error: invalid message length, length=%lu", length);
+                GST_ERROR("Error: invalid message length, length=%d", length);
                 break;
             }
 
             std::string serialized_data(static_cast<size_t>(length), ' ');
             if (!data_connection->read(&serialized_data[0], length)) {
-                HError("Error: receive message failed, expectLen=%lu ", length);
+                GST_ERROR("Error: receive message failed, expectLen=%d ", length);
                 break;
             }
 
             if (!deserialize(serialized_data)) {
-                HError("Error: data format doesn't match.");
+                GST_ERROR("Error: data format doesn't match.");
                 break;
             }
             break;
         }
         case Event::Type::CONNECTION_OUT:
-            HInfo("connection out");
+            GST_DEBUG("connection out");
             mutex_total_results.lock();
             total_results.clear();
             mutex_total_results.unlock();
