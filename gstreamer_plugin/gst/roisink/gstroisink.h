@@ -37,8 +37,9 @@ typedef struct _GstRoiSinkClass GstRoiSinkClass;
 
 struct _GstRoiSink {
     GstAppSink parent;
-    const gchar* sockname;
+    gboolean isConnected;
     InferMetaSender* sender;
+    const gchar* socketName;
 };
 
 struct _GstRoiSinkClass {

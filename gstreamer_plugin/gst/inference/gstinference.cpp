@@ -40,7 +40,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_inference_debug);
 enum {
     PROP_0,
     PROP_SILENT,
-    PROP_SOCKNAME
+    PROP_SOCKET_NAME
 };
 
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE("sink",
@@ -96,7 +96,7 @@ gst_inference_class_init(GstInferenceClass* klass)
     g_object_class_install_property(gobject_class, PROP_SILENT,
         g_param_spec_boolean("silent", "Silent", "Produce verbose output ?",
             FALSE, G_PARAM_READWRITE));
-    g_object_class_install_property(gobject_class, PROP_SOCKNAME,
+    g_object_class_install_property(gobject_class, PROP_SOCKET_NAME,
         g_param_spec_string("socketname", "SocketName", "unix socket file name",
             "/var/tmp/gstreamer_ipc.sock", G_PARAM_READWRITE));
 
@@ -141,7 +141,7 @@ gst_inference_set_property(GObject* object, guint prop_id,
     case PROP_SILENT:
         filter->silent = g_value_get_boolean(value);
         break;
-    case PROP_SOCKNAME:
+    case PROP_SOCKET_NAME:
         filter->sockname = g_value_dup_string(value);
         break;
     default:
@@ -160,7 +160,7 @@ gst_inference_get_property(GObject* object, guint prop_id,
     case PROP_SILENT:
         g_value_set_boolean(value, filter->silent);
         break;
-    case PROP_SOCKNAME:
+    case PROP_SOCKET_NAME:
         g_value_set_string(value, filter->sockname);
         break;
     default:
@@ -196,7 +196,7 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
 
         std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
         //static bool connect_client = [&parent]() {
-        //    std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
+        //    std::thread(receiveRoutine, GST_INFERENCE(parent)->socketName).detach();
         //    return connection_establised.waitFor(10);
         //}();
         //if (!connect_client) {

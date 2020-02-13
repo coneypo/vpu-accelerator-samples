@@ -62,7 +62,7 @@ static GstFlowReturn new_sample(GstElement* sink, gpointer data);
 
 enum {
     PROP_0,
-    PROP_SOCKNAME
+    PROP_SOCKET_NAME
 };
 
 /* pad templates */
@@ -98,15 +98,16 @@ gst_roisink_class_init(GstRoiSinkClass* klass)
     gobject_class->get_property = gst_roisink_get_property;
     base_sink_class->query = GST_DEBUG_FUNCPTR(gst_roisink_query);
 
-    g_object_class_install_property(gobject_class, PROP_SOCKNAME,
+    g_object_class_install_property(gobject_class, PROP_SOCKET_NAME,
         g_param_spec_string("socketname", "SocketName", "unix socket file name",
-            "/var/tmp/gstreamer_ipc.sock", G_PARAM_READWRITE));
+            NULL, G_PARAM_READWRITE));
 }
 
 static void
 gst_roisink_init(GstRoiSink* roisink)
 {
     roisink->sender = new InferMetaSender();
+    roisink->isConnected = FALSE;
     GstBaseSink* baseSink = GST_BASE_SINK(roisink);
 
     gst_pad_set_event_function(baseSink->sinkpad,
@@ -131,8 +132,8 @@ void gst_roisink_set_property(GObject* object, guint property_id,
     GST_DEBUG_OBJECT(roisink, "set_property");
 
     switch (property_id) {
-    case PROP_SOCKNAME:
-        roisink->sockname = g_value_dup_string(value);
+    case PROP_SOCKET_NAME:
+        roisink->socketName = g_value_dup_string(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -147,9 +148,8 @@ void gst_roisink_get_property(GObject* object, guint property_id,
 
     GST_DEBUG_OBJECT(roisink, "get_property");
     switch (property_id) {
-    case PROP_SOCKNAME:
-        g_value_set_string(value, roisink->sockname);
-        roisink->sender->connectServer(roisink->sockname);
+    case PROP_SOCKET_NAME:
+        g_value_set_string(value, roisink->socketName);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -178,8 +178,11 @@ static gboolean gst_roisink_event(GstPad* pad, GstObject* parent, GstEvent* even
     switch (GST_EVENT_TYPE(event)) {
     case GST_EVENT_STREAM_START: {
         GstRoiSink* roiSink = GST_ROISINK(parent);
-        if (!roiSink->sender->connectServer(roiSink->sockname)) {
-            GST_ERROR("falied to connect server: %s \n", roiSink->sockname);
+        if (roiSink->socketName) {
+            roiSink->isConnected = roiSink->sender->connectServer(roiSink->socketName);
+            if (!roiSink->isConnected) {
+                GST_WARNING("falied to connect server: %s \n", roiSink->socketName);
+            }
         }
     }
     default:
@@ -192,15 +195,15 @@ static gboolean gst_roisink_event(GstPad* pad, GstObject* parent, GstEvent* even
 GstFlowReturn new_sample(GstElement* sink, gpointer data)
 {
     GstSample* sample;
+    GstRoiSink* roiSink = GST_ROISINK(sink);
+
     /* Retrieve the buffer */
     g_signal_emit_by_name(sink, "pull-sample", &sample);
+
     if (sample) {
-        /* The only thing we do in this example is print a * to indicate a received buffer */
         GstBuffer* metaBuffer = gst_sample_get_buffer(sample);
         if (metaBuffer) {
-            GstClockTime pts = GST_BUFFER_PTS(metaBuffer);
             GstVideoRegionOfInterestMeta* meta_orig = NULL;
-            GstRoiSink* roiSink = GST_ROISINK(sink);
             gpointer state = NULL;
             gboolean needSend = FALSE;
 
@@ -212,7 +215,7 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
                 roiSink->sender->serializeSave(meta_orig->x, meta_orig->y, meta_orig->w, meta_orig->h, label, GST_BUFFER_PTS(metaBuffer), 1.0);
                 needSend = TRUE;
             }
-            if (needSend) {
+            if (needSend && roiSink->isConnected) {
                 roiSink->sender->send();
             }
         }
