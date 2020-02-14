@@ -20,7 +20,14 @@
 #define MAX_BUF_SIZE 1024
 #define QUEUE_CAPACITY 10
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <hddl/gsthddlcontext.h>
+#ifdef __cplusplus
+}
+#endif
+
 #define XLINK_DEVICE_PATH	"/tmp/xlink_mock"
 #define XLINK_DEVICE_TYPE	PCIE_DEVICE
 typedef struct {
