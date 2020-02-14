@@ -32,11 +32,11 @@
 #include "gstroisink.h"
 #include "infermetasender.h"
 
+#include <fstream>
 #include <gst/app/gstappsink.h>
 #include <gst/base/gstbasesink.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideometa.h>
-#include <fstream>
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,9 +57,9 @@ static void gst_roisink_get_property(GObject* object,
     guint property_id, GValue* value, GParamSpec* pspec);
 static gboolean gst_roisink_query(GstBaseSink* sink, GstQuery* query);
 
-static gboolean gst_roisink_event(GstPad* pad, GstObject* parent, GstEvent* event);
 
 static GstFlowReturn new_sample(GstElement* sink, gpointer data);
+static gboolean connectRoutine(GstRoiSink* roiSink);
 
 enum {
     PROP_0,
@@ -111,9 +111,6 @@ gst_roisink_init(GstRoiSink* roisink)
     roisink->isConnected = FALSE;
     GstBaseSink* baseSink = GST_BASE_SINK(roisink);
 
-    gst_pad_set_event_function(baseSink->sinkpad,
-        GST_DEBUG_FUNCPTR(gst_roisink_event));
-
     gst_app_sink_set_emit_signals(GST_APP_SINK(roisink), TRUE);
     g_signal_connect(GST_APP_SINK(roisink), "new-sample", G_CALLBACK(new_sample), NULL);
 }
@@ -128,13 +125,16 @@ static void gst_roisink_finalize(GstRoiSink* roisink)
 void gst_roisink_set_property(GObject* object, guint property_id,
     const GValue* value, GParamSpec* pspec)
 {
-    GstRoiSink* roisink = GST_ROISINK(object);
+    GstRoiSink* roiSink = GST_ROISINK(object);
 
-    GST_DEBUG_OBJECT(roisink, "set_property");
+    GST_DEBUG_OBJECT(roiSink, "set_property");
 
     switch (property_id) {
     case PROP_SOCKET_NAME:
-        roisink->socketName = g_value_dup_string(value);
+        roiSink->socketName = g_value_dup_string(value);
+        if (roiSink->socketName) {
+            std::thread(connectRoutine, roiSink).detach();
+        }
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -173,26 +173,6 @@ gst_roisink_query(GstBaseSink* sink, GstQuery* query)
     }
 }
 
-static gboolean gst_roisink_event(GstPad* pad, GstObject* parent, GstEvent* event)
-{
-    gboolean ret = true;
-    switch (GST_EVENT_TYPE(event)) {
-    case GST_EVENT_STREAM_START: {
-        GstRoiSink* roiSink = GST_ROISINK(parent);
-        if (roiSink->socketName) {
-            roiSink->isConnected = roiSink->sender->connectServer(roiSink->socketName);
-            if (!roiSink->isConnected) {
-                GST_WARNING("falied to connect server: %s \n", roiSink->socketName);
-            }
-        }
-    }
-    default:
-        ret = gst_pad_event_default(pad, parent, event);
-        break;
-    }
-    return ret;
-}
-
 GstFlowReturn new_sample(GstElement* sink, gpointer data)
 {
     GstSample* sample;
@@ -200,7 +180,6 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
 
     /* Retrieve the buffer */
     g_signal_emit_by_name(sink, "pull-sample", &sample);
-
 
     if (sample) {
         GstBuffer* metaBuffer = gst_sample_get_buffer(sample);
@@ -225,6 +204,15 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
         return GST_FLOW_OK;
     }
     return GST_FLOW_ERROR;
+}
+
+static gboolean connectRoutine(GstRoiSink* roiSink)
+{
+    roiSink->isConnected = roiSink->sender->connectServer(roiSink->socketName);
+    if (!roiSink->isConnected) {
+        GST_WARNING("falied to connect server: %s \n", roiSink->socketName);
+    }
+    return roiSink->isConnected;
 }
 
 static gboolean

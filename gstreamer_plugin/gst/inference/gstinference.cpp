@@ -193,16 +193,14 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
     case GST_EVENT_STREAM_START: {
         GST_DEBUG("server is waiting connection .....");
         //this function will block until socket connection is established.
-
-        std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
-        //static bool connect_client = [&parent]() {
-        //    std::thread(receiveRoutine, GST_INFERENCE(parent)->socketName).detach();
-        //    return connection_establised.waitFor(10);
-        //}();
-        //if (!connect_client) {
-        //    GST_WARNING("connect to client failed, yet continue playing...");
-        //    g_print("connect to client failed, yet continue playing...\n");
-        //}
+        static bool connect_client = [&parent]() {
+            std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
+            return connection_establised.waitFor(10000);
+        }();
+        if (!connect_client) {
+            GST_WARNING("connect to client failed, yet continue playing...");
+            g_print("connect to client failed, yet continue playing...\n");
+        }
     }
     default:
         ret = gst_pad_event_default(pad, parent, event);
