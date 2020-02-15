@@ -19,45 +19,43 @@
 #define _VPP_BASE_H_
 
 #include <CL/opencl.h>
-#include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/opencv.hpp>
 
-#include <interface/vppinterface.h>
-#include "oclcommon.h"
 #include "boundingbox.h"
+#include "oclcommon.h"
+#include <interface/vppinterface.h>
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-class OclVppBase : public VppInterface
-{
+class OclVppBase : public VppInterface {
 public:
-    OclVppBase ();
-    virtual ~OclVppBase ();
+    OclVppBase();
+    virtual ~OclVppBase();
 
     virtual OclStatus
-    process ();
+    process();
 
     virtual OclStatus
-    process (const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num);
+    process(const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num);
 
     virtual OclStatus
-    process (const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
+    process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
 
     virtual OclStatus
-    process (const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
+    process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
 
     virtual gboolean
-    setParameters (gpointer) { return FALSE; }
+        setParameters(gpointer) { return FALSE; }
 
     virtual gboolean
-    getParameters (gpointer) { return FALSE; }
+        getParameters(gpointer) { return FALSE; }
 
     virtual OclStatus
-    setOclContext (const SharedPtr<OclContext>&);
+    setOclContext(const SharedPtr<OclContext>&);
 
     virtual const char*
-    getKernelFileName () { return NULL; }
+    getKernelFileName() { return NULL; }
 
     virtual const char*
     getKernelName() { return NULL; }
@@ -67,12 +65,13 @@ public:
 
     OclStatus
     printOclKernelInfo();
+
 protected:
-    guint16   m_pixel_size;
+    guint16 m_pixel_size;
     cv::ocl::Kernel m_kernel;
     SharedPtr<OclContext> m_context;
 };
 
 }
 
-#endif                          /* _VPP_BASE_H_ */
+#endif /* _VPP_BASE_H_ */

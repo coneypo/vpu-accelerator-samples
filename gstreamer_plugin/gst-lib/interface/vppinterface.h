@@ -18,44 +18,48 @@
 #ifndef _VPP_INTERFACE_H_
 #define _VPP_INTERFACE_H_
 
-#include "videodefs.h"
-#include "ocl/oclcontext.h"
 #include "boundingbox.h"
+#include "ocl/oclcontext.h"
+#include "videodefs.h"
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-class VppInterface
-{
-  public:
+class VppInterface {
+public:
+    virtual OclStatus
+    process()
+        = 0;
 
     virtual OclStatus
-    process () = 0;
+    process(const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num)
+        = 0;
 
     virtual OclStatus
-    process (const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num) = 0;
+    process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&)
+        = 0;
 
     virtual OclStatus
-    process (const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&) = 0;
-
-    virtual OclStatus
-    process (const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&,
-                const SharedPtr<VideoFrame>&) = 0;
+    process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&,
+        const SharedPtr<VideoFrame>&)
+        = 0;
 
     virtual gboolean
-    setParameters (gpointer) = 0;
+        setParameters(gpointer)
+        = 0;
 
     virtual gboolean
-    getParameters (gpointer) = 0;
+        getParameters(gpointer)
+        = 0;
 
     virtual OclStatus
-    setOclContext (const SharedPtr<OclContext>&) = 0;
+    setOclContext(const SharedPtr<OclContext>&)
+        = 0;
 
     virtual void
-    setOclFormat(CRCFormat crc_format) = 0;
+    setOclFormat(CRCFormat crc_format)
+        = 0;
 
-    virtual
-    ~VppInterface () {}
+    virtual ~VppInterface() {}
 };
 }
-#endif                          /* _VPP_INTERFACE_H_ */
+#endif /* _VPP_INTERFACE_H_ */

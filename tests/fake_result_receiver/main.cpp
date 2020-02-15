@@ -1,4 +1,3 @@
-#include "HLog.h"
 #include <IPC.h>
 #include <atomic>
 #include <boost/algorithm/string.hpp>
@@ -18,7 +17,6 @@ int receiveRoutine(const char* socket_address)
     auto poller = Poller::create();
     auto connection = Connection::create(poller);
     if (!connection->listen(socket_address)) {
-        HError("Error: Create service listening socket failed.");
         return -1;
     }
 
@@ -26,28 +24,24 @@ int receiveRoutine(const char* socket_address)
         auto event = poller->waitEvent(100);
         switch (event.type) {
         case Event::Type::CONNECTION_IN:
-            HInfo("connection in");
             connection->accept();
             break;
         case Event::Type::MESSAGE_IN: {
 
             int length = 0;
             auto& data_connection = event.connection;
-            AutoMutex autoLock(data_connection->getMutex());
+            std::lock_guard<std::mutex> autoLock(data_connection->getMutex());
 
             if (!data_connection->read(&length, sizeof(length))) {
-                HError("Error: receive message length failed");
                 break;
             }
 
             if (length <= 0) {
-                HError("Error: invalid message length, length=%lu", length);
                 break;
             }
 
             std::string serialized(static_cast<size_t>(length), ' ');
             if (!data_connection->read(&serialized[0], length)) {
-                HError("Error: receive message failed, expectLen=%lu ", length);
                 break;
             }
 
@@ -59,7 +53,6 @@ int receiveRoutine(const char* socket_address)
                 fields.pop_back();
             }
             if (fields.size() < 7 || fields.size() % element_nums != 0) {
-                HError("Error: data format doesn't match.");
                 break;
             }
 
@@ -70,7 +63,6 @@ int receiveRoutine(const char* socket_address)
             break;
         }
         case Event::Type::CONNECTION_OUT:
-            HInfo("connection out");
             mutex_total_results.lock();
             // it will continously display the result if don't clear
             total_results.clear();

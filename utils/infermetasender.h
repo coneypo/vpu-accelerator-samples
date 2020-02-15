@@ -5,8 +5,8 @@
 #ifndef HDDLDEMO_INFERMETASENDER_H
 #define HDDLDEMO_INFERMETASENDER_H
 
-#include "utils/HLog.h"
 #include "utils/IPC.h"
+#include <iostream>
 #include <thread>
 
 using namespace HddlUnite;
@@ -29,6 +29,7 @@ public:
                 return true;
             }
         }
+        return false;
     }
 
     void serializeSave(int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(), size_t pts = 0, double probability = 0)
@@ -43,18 +44,15 @@ public:
         std::string to_send_data(std::move(m_serialized_result));
         int length = static_cast<int>(to_send_data.length());
         if (length <= 0) {
-            HError("Error: invalid message length, length=%lu", length);
             return false;
         }
-        AutoMutex autoLock(m_connection->getMutex());
+        std::lock_guard<std::mutex> lock(m_connection->getMutex());
 
         if (!m_connection->write(&length, sizeof(length))) {
-            HError("Error: write message length failed");
             return false;
         }
 
         if (!m_connection->write(&to_send_data[0], length)) {
-            HError("Error: write message failed, expectLen=%lu", length);
             return false;
         }
         return true;

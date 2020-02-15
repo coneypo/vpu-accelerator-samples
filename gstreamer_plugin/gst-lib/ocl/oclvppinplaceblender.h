@@ -18,39 +18,35 @@
 #ifndef _OCL_VPP_INPLACE_BLENDER_H_
 #define _OCL_VPP_INPLACE_BLENDER_H_
 
-#include "oclvppbase.h"
 #include "Vppfactory.h"
 #include "boundingbox.h"
+#include "oclvppbase.h"
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-class OclVppInplaceBlender : public OclVppBase
-{
+class OclVppInplaceBlender : public OclVppBase {
 public:
-    OclStatus process (const SharedPtr<VideoFrame>&,   const SharedPtr<VideoFrame>&);
-    OclStatus process (const SharedPtr<VideoFrame>&,   const SharedPtr<VideoFrame>&,const SharedPtr<VideoFrame>&);
-    OclStatus process (const SharedPtr<VideoFrame>&,  BoundingBox* box, guint32 num);
+    OclStatus process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
+    OclStatus process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
+    OclStatus process(const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num);
     void acquireBoundingBoxClBuffer(BoundingBox* box, guint32 num);
     void releaseBoundingBoxClBuffer();
 
-    const char* getKernelFileName () { return "inplaceblend"; }
+    const char* getKernelFileName() { return "inplaceblend"; }
     const char* getKernelName() { return "blend"; }
 
-
 private:
-    OclStatus blend_helper ();
+    OclStatus blend_helper();
 
-    guint32   m_src_w;
-    guint32   m_src_h;
+    guint32 m_src_w;
+    guint32 m_src_h;
 
-    OclCLMemInfo *m_src; // nv12
-    OclCLMemInfo *m_src2; //gray
-    OclCLMemInfo *m_dst; // nv12
+    OclCLMemInfo* m_src; // nv12
+    OclCLMemInfo* m_src2; //gray
+    OclCLMemInfo* m_dst; // nv12
 
-    cl_mem  m_boundingbox;
+    cl_mem m_boundingbox;
     guint32 m_num;
-
 
     static const bool s_registered;
 };

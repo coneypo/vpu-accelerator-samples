@@ -18,31 +18,29 @@
 #ifndef _OCL_VPP_BLENDER_H_
 #define _OCL_VPP_BLENDER_H_
 
-#include "oclvppbase.h"
 #include "Vppfactory.h"
+#include "oclvppbase.h"
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-class OclVppBlender : public OclVppBase
-{
+class OclVppBlender : public OclVppBase {
 public:
-    OclStatus process (const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
-    const char* getKernelFileName () { return "blend"; }
+    OclStatus process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
+    const char* getKernelFileName() { return "blend"; }
     const char* getKernelName() { return "blend"; }
 
 private:
-    OclStatus blend_helper ();
+    OclStatus blend_helper();
 
-    guint32   m_dst_w;
-    guint32   m_dst_h;
+    guint32 m_dst_w;
+    guint32 m_dst_h;
 
-    guint32   m_src_w;
-    guint32   m_src_h;
+    guint32 m_src_w;
+    guint32 m_src_h;
 
-    OclCLMemInfo *m_src; //osd
-    OclCLMemInfo *m_src2; //nv12
-    OclCLMemInfo *m_dst;
+    OclCLMemInfo* m_src; //osd
+    OclCLMemInfo* m_src2; //nv12
+    OclCLMemInfo* m_dst;
 
     cl_mem clBuffer_osd;
     cl_mem clBuffer_dst;

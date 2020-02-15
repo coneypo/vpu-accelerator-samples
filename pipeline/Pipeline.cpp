@@ -19,6 +19,7 @@ bool Pipeline::parse(const std::string& pipelineConfig)
         g_printerr("Pipeline Parse Error: %s", pipelineConfig.c_str());
         return false;
     }
+    return true;
 }
 
 GstElement* Pipeline::getElementByName(const std::string& name)

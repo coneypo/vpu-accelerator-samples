@@ -1,7 +1,7 @@
 #ifndef MESSAGETYPE
 #define MESSAGETYPE
 
-enum MessageType{
+enum MessageType {
     MESSAGE_UNKNOWN = 0,
     MESSAGE_WINID,
     Message_STRING,
@@ -9,6 +9,4 @@ enum MessageType{
     MESSAGE_BYTEARRAY
 };
 
-
 #endif // MESSAGETYPE
-

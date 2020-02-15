@@ -15,14 +15,13 @@
  * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-
 #ifndef __IMAGE_PROCESSOR_H__
 #define __IMAGE_PROCESSOR_H__
 
 #include <gst/gst.h>
-#include <gst/video/video.h>
 #include <gst/gstbuffer.h>
 #include <gst/gstpad.h>
+#include <gst/video/video.h>
 
 #include <interface/videodefs.h>
 #include <interface/vppinterface.h>
@@ -43,19 +42,18 @@ public:
     /* parse input caps and create ocl buffer pool based on ocl caps
     *  vppType: Blender, Inplace Blender and Crop
     */
-    GstFlowReturn init(GstCaps *incaps, int vppType);
+    GstFlowReturn init(GstCaps* incaps, int vppType);
 
     /*Process image:
     *   Note: oclcontext will be setup when first call this function
     */
-    GstFlowReturn process_image(GstBuffer* inbuf, GstBuffer* inbuf2, GstBuffer** outbuf, VideoRect *crop);
+    GstFlowReturn process_image(GstBuffer* inbuf, GstBuffer* inbuf2, GstBuffer** outbuf, VideoRect* crop);
 
     GstFlowReturn process_image(GstBuffer* inbuf, BoundingBox* box, guint32 num);
 
-    GstFlowReturn process_image(GstBuffer* inbuf,std::shared_ptr<cv::UMat> outMat, VideoRect *crop);
+    GstFlowReturn process_image(GstBuffer* inbuf, std::shared_ptr<cv::UMat> outMat, VideoRect* crop);
 
-
-    void get_input_video_size(int *w, int *h)
+    void get_input_video_size(int* w, int* h)
     {
         *w = mInVideoInfo.width;
         *h = mInVideoInfo.height;
@@ -64,7 +62,7 @@ public:
     void ocl_lock();
     void ocl_unlock();
 
-    GstVideoInfo     mInVideoInfo;
+    GstVideoInfo mInVideoInfo;
 
     SharedPtr<VideoFrame> mSrcFrame;
     SharedPtr<VideoFrame> mSrcFrame2;
@@ -77,12 +75,11 @@ private:
     void setup_ocl_context(VideoDisplayID display);
     void setup_ocl_context_output(VideoDisplayID display);
 
-
-    GstFlowReturn process_image_blend(GstBuffer* inbuf,GstBuffer* inbuf2, GstBuffer** outbuf, VideoRect *rect);
-    GstFlowReturn process_image_blend_inplace(GstBuffer* inbuf, GstBuffer* osd_buf, VideoRect *crop);
-    GstFlowReturn process_image_crop(GstBuffer* inbuf, GstBuffer** outbuf, VideoRect *rect);
+    GstFlowReturn process_image_blend(GstBuffer* inbuf, GstBuffer* inbuf2, GstBuffer** outbuf, VideoRect* rect);
+    GstFlowReturn process_image_blend_inplace(GstBuffer* inbuf, GstBuffer* osd_buf, VideoRect* crop);
+    GstFlowReturn process_image_crop(GstBuffer* inbuf, GstBuffer** outbuf, VideoRect* rect);
 
     SharedPtr<OclContext> mContext;
-    gboolean   mOclInited;
+    gboolean mOclInited;
 };
 #endif

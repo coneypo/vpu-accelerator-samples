@@ -51,12 +51,10 @@ GST_DEBUG_CATEGORY_STATIC(gst_roisink_debug_category);
 
 /* prototypes */
 
-static void gst_roisink_set_property(GObject* object,
-    guint property_id, const GValue* value, GParamSpec* pspec);
-static void gst_roisink_get_property(GObject* object,
-    guint property_id, GValue* value, GParamSpec* pspec);
+static void gst_roisink_set_property(GObject* object, guint property_id, const GValue* value, GParamSpec* pspec);
+static void gst_roisink_get_property(GObject* object, guint property_id, GValue* value, GParamSpec* pspec);
+static void gst_roisink_finalize(GstRoiSink* roisink);
 static gboolean gst_roisink_query(GstBaseSink* sink, GstQuery* query);
-
 
 static GstFlowReturn new_sample(GstElement* sink, gpointer data);
 static gboolean connectRoutine(GstRoiSink* roiSink);
@@ -97,6 +95,7 @@ gst_roisink_class_init(GstRoiSinkClass* klass)
 
     gobject_class->set_property = gst_roisink_set_property;
     gobject_class->get_property = gst_roisink_get_property;
+    gobject_class->finalize = (GObjectFinalizeFunc)gst_roisink_finalize;
     base_sink_class->query = GST_DEBUG_FUNCPTR(gst_roisink_query);
 
     g_object_class_install_property(gobject_class, PROP_SOCKET_NAME,
@@ -109,7 +108,6 @@ gst_roisink_init(GstRoiSink* roisink)
 {
     roisink->sender = new InferMetaSender();
     roisink->isConnected = FALSE;
-    GstBaseSink* baseSink = GST_BASE_SINK(roisink);
 
     gst_app_sink_set_emit_signals(GST_APP_SINK(roisink), TRUE);
     g_signal_connect(GST_APP_SINK(roisink), "new-sample", G_CALLBACK(new_sample), NULL);

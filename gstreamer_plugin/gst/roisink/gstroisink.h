@@ -20,9 +20,9 @@
 #ifndef _GST_ROISINK_H_
 #define _GST_ROISINK_H_
 
+#include "utils/infermetasender.h"
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
-#include "utils/infermetasender.h"
 
 G_BEGIN_DECLS
 

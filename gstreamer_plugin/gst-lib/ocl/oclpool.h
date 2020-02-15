@@ -25,12 +25,12 @@
 
 G_BEGIN_DECLS
 
-typedef struct _OclPool        OclPool;
-typedef struct _OclPoolClass   OclPoolClass;
+typedef struct _OclPool OclPool;
+typedef struct _OclPoolClass OclPoolClass;
 typedef struct _OclPoolPrivate OclPoolPrivate;
 
-#define GST_TYPE_OCL_POOL      (ocl_pool_get_type())
-#define OCL_POOL_CAST(obj)     ((OclPool*)(obj))
+#define GST_TYPE_OCL_POOL (ocl_pool_get_type())
+#define OCL_POOL_CAST(obj) ((OclPool*)(obj))
 
 #define OCL_POOL_NAME "oclpool"
 /*
@@ -38,26 +38,24 @@ typedef struct _OclPoolPrivate OclPoolPrivate;
     (!strncmp (((GstObject *) pool)->name, OCL_POOL_NAME, strlen (OCL_POOL_NAME)))
 */
 
-#define OCL_POOL_GET_PRIVATE(obj)  \
-   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GST_TYPE_OCL_POOL, OclPoolPrivate))
+#define OCL_POOL_GET_PRIVATE(obj) \
+    (G_TYPE_INSTANCE_GET_PRIVATE((obj), GST_TYPE_OCL_POOL, OclPoolPrivate))
 
-typedef GstMemory* (*MemoryAlloc) (OclPool* oclpool);
+typedef GstMemory* (*MemoryAlloc)(OclPool* oclpool);
 
-struct _OclPool
-{
+struct _OclPool {
     GstBufferPool bufferpool;
-    OclPoolPrivate *priv;
+    OclPoolPrivate* priv;
     MemoryAlloc memory_alloc;
 };
 
-struct _OclPoolClass
-{
+struct _OclPoolClass {
     GstBufferPoolClass parent_class;
 };
 
-GType ocl_pool_get_type (void);
+GType ocl_pool_get_type(void);
 
-GstBufferPool* ocl_pool_create (GstCaps* caps, gsize size, gint min, gint max);
+GstBufferPool* ocl_pool_create(GstCaps* caps, gsize size, gint min, gint max);
 
 G_END_DECLS
 

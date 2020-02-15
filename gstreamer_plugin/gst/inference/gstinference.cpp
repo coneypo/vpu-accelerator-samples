@@ -6,10 +6,12 @@
  */
 
 #include "IPC.h"
-#include "Semaphore.h"
 #include <atomic>
 #include <boost/algorithm/string.hpp>
+#include <chrono>
+#include <condition_variable>
 #include <map>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -64,7 +66,8 @@ typedef guint64 PTS;
 static std::map<PTS, BoxWrappers> total_results;
 
 static std::mutex mutex_total_results;
-static Semaphore connection_establised;
+static std::mutex mutex_connection;
+static std::condition_variable connection_establised;
 
 static bool deserialize(const std::string& serialized_data);
 static int receiveRoutine(const char* socket_address);
@@ -195,11 +198,11 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
         //this function will block until socket connection is established.
         static bool connect_client = [&parent]() {
             std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
-            return connection_establised.waitFor(10000);
+            std::unique_lock<std::mutex> connection_lock(mutex_connection);
+            return connection_establised.wait_for(connection_lock, std::chrono::milliseconds(10000)) == std::cv_status::no_timeout;
         }();
         if (!connect_client) {
             GST_WARNING("connect to client failed, yet continue playing...");
-            g_print("connect to client failed, yet continue playing...\n");
         }
     }
     default:
@@ -323,12 +326,12 @@ static int receiveRoutine(const char* socket_address)
         case Event::Type::CONNECTION_IN:
             GST_DEBUG("connection in");
             connection->accept();
-            connection_establised.post();
+            connection_establised.notify_one();
             break;
         case Event::Type::MESSAGE_IN: {
             int length = 0;
             auto& data_connection = event.connection;
-            AutoMutex autoLock(data_connection->getMutex());
+            std::lock_guard<std::mutex> autoLock(data_connection->getMutex());
 
             if (!data_connection->read(&length, sizeof(length))) {
                 GST_ERROR("Error: receive message length failed");

@@ -1,7 +1,4 @@
-#include "HLog.h"
 #include "utils/infermetasender.h"
-#include <IPC.h>
-#include <atomic>
 #include <fstream>
 #include <getopt.h>
 #include <iostream>

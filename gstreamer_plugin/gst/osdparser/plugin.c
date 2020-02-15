@@ -15,7 +15,6 @@
  * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-
 #include <gst/gst.h>
 
 #ifdef HAVE_CONFIG_H
@@ -25,13 +24,13 @@
 #include "gstosdparser.h"
 
 static gboolean
-plugin_init (GstPlugin * plugin)
+plugin_init(GstPlugin* plugin)
 {
-    if (!gst_element_register (plugin, "osdparser", GST_RANK_PRIMARY,
-        GST_TYPE_OSDPARSER))
-      return FALSE;
+    if (!gst_element_register(plugin, "osdparser", GST_RANK_PRIMARY,
+            GST_TYPE_OSDPARSER))
+        return FALSE;
 
-  return TRUE;
+    return TRUE;
 }
 
 #ifndef VERSION
@@ -47,7 +46,7 @@ plugin_init (GstPlugin * plugin)
 #define GST_PACKAGE_ORIGIN "http://www.intel.com"
 #endif
 
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
+GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     osdparser,
     "OSD Parser filters for HDDL DEMO",

@@ -52,35 +52,33 @@ G_BEGIN_DECLS
 
 /* #defines don't like whitespacey bits */
 #define GST_TYPE_INFERENCE \
-  (gst_inference_get_type())
+    (gst_inference_get_type())
 #define GST_INFERENCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_INFERENCE,GstInference))
+    (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_INFERENCE, GstInference))
 #define GST_INFERENCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_INFERENCE,GstInferenceClass))
+    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_INFERENCE, GstInferenceClass))
 #define GST_IS_INFERENCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_INFERENCE))
+    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_INFERENCE))
 #define GST_IS_INFERENCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_INFERENCE))
+    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_INFERENCE))
 
-typedef struct _GstInference      GstInference;
+typedef struct _GstInference GstInference;
 typedef struct _GstInferenceClass GstInferenceClass;
 
-struct _GstInference
-{
-  GstElement element;
+struct _GstInference {
+    GstElement element;
 
-  GstPad *sinkpad, *srcpad;
+    GstPad *sinkpad, *srcpad;
 
-  gboolean silent;
-  const gchar* sockname;
+    gboolean silent;
+    const gchar* sockname;
 };
 
-struct _GstInferenceClass 
-{
-  GstElementClass parent_class;
+struct _GstInferenceClass {
+    GstElementClass parent_class;
 };
 
-GType gst_inference_get_type (void);
+GType gst_inference_get_type(void);
 
 G_END_DECLS
 

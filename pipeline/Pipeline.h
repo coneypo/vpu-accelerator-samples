@@ -5,9 +5,9 @@
 #ifndef HDDLDEMO_PIPELINEPARSER_H
 #define HDDLDEMO_PIPELINEPARSER_H
 
-#include <stdarg.h>
 #include <gst/gst.h>
 #include <gst/video/videooverlay.h>
+#include <stdarg.h>
 #include <string>
 
 class Pipeline {
@@ -28,7 +28,6 @@ public:
     GstVideoOverlay* getVideoOverlay(const std::string& elementName, const std::string& overlayName);
 
 private:
-
     GstElement* m_pipeline { nullptr };
 };
 

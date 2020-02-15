@@ -16,12 +16,8 @@
 #include <unistd.h>
 #include <unordered_map>
 
-#include "utils/FileUtils.h"
-#include "utils/HLog.h"
 #include "utils/IPC.h"
-#include "utils/Mutex.h"
-#include "utils/ScopeGuard.h"
-#include "utils/StringUtils.h"
+//#include "utils/ScopeGuard.h"
 
 namespace HddlUnite {
 class Connection::Impl : public std::enable_shared_from_this<Connection::Impl> {
@@ -84,7 +80,7 @@ private:
     void eraseConnectionById(uint64_t connectionId);
 
 private:
-    Mutex m_mutex;
+    std::mutex m_mutex;
     int m_epollFd;
     std::string m_name;
     std::unordered_map<int, Connection::Ptr> m_connections;
@@ -106,14 +102,12 @@ Connection::Impl::Impl()
 
 Connection::Impl::~Impl()
 {
-    HDebug("[Connection##%lu] to destruct connection, socketFd=%d", m_id, m_fd);
     if (m_fd > 0) {
         close(m_fd);
     }
     if (!m_serverName.empty()) {
         unlink(m_serverName.c_str());
     }
-    HDebug("[Connection##%lu] destruct connection done", m_id);
 }
 
 Connection::State Connection::Impl::getState() const
@@ -134,61 +128,34 @@ IPCHandle Connection::Impl::getHandle() const
 bool Connection::Impl::listen(const std::string& serverName, int numListen)
 {
     if (serverName.empty()) {
-        HError("Error: serverName should not be empty");
         return false;
     }
 
     if (numListen <= 0) {
-        HError("Error: numListen should be greater than zero");
         return false;
     }
 
     m_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (m_fd < 0) {
-        HError("Error: create unix domain socket failed, errorCode=%s", strerror(errno));
         return false;
     }
-
-    HDebug("[Connection##%lu] create socket(%d) done", m_id, m_fd);
-
-    auto scopeGuard = makeScopeGuard([&] {
-        HDebug("[Connection##%lu] close socket(%d), unlink socket file(%s)", m_id, m_fd, serverName);
-        close(m_fd);
-        unlink(serverName.c_str());
-        m_fd = -1;
-        m_state = Connection::State::ERROR;
-    });
 
     unlink(serverName.c_str());
 
     struct sockaddr_un addr = {};
     addr.sun_family = AF_UNIX;
-    size_t copyBytes = StringUtils::copyStringSafe(addr.sun_path, serverName);
-    socklen_t addrlen = offsetof(sockaddr_un, sun_path) + copyBytes + 1;
-    if (bind(m_fd, (struct sockaddr*)&addr, addrlen) != 0) {
-        HError("Error: bind socketFd(%d) failed, errorCode=%s", m_fd, strerror(errno));
+    strcpy(addr.sun_path, serverName.c_str());
+    socklen_t addrlen = offsetof(sockaddr_un, sun_path) + strlen(addr.sun_path) + 1;
+    if (bind(m_fd, (struct sockaddr*)&addr, addrlen) != 0 || ::listen(m_fd, numListen) != 0) {
+        close(m_fd);
+        unlink(serverName.c_str());
+        m_fd = -1;
+        m_state = Connection::State::ERROR;
         return false;
     }
-
-    HDebug("[Connection##%lu] bind socket(%d) on socket file(%s) done", m_id, m_fd, serverName);
-
-    if (!FileUtils::updateAccessAttribute(serverName, m_group, m_user, m_mode)) {
-        HError("Error: update access attributes failed, serverName=%s", serverName);
-        return false;
-    }
-
-    HDebug("[Connection##%lu] update attribute of socket file(%s) done", m_id, serverName);
-
-    if (::listen(m_fd, numListen) != 0) {
-        HError("Error: listen on socketFd(%d) failed, errorCode=%s", m_fd, strerror(errno));
-        return false;
-    }
-
-    HDebug("[Connection##%lu] listen on socket(%d) done", m_id, m_fd);
 
     m_state = Connection::State::LISTENING;
     m_serverName = serverName;
-    scopeGuard.dismiss();
 
     return true;
 }
@@ -196,38 +163,26 @@ bool Connection::Impl::listen(const std::string& serverName, int numListen)
 bool Connection::Impl::connect(const std::string& serverName)
 {
     if (serverName.empty()) {
-        HError("Error: serverName should not be empty");
         return false;
     }
 
     m_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (m_fd < 0) {
-        HError("Error: create unix domain socket failed, errorCode=%s", strerror(errno));
         return false;
     }
-
-    HDebug("[Connection##%lu] create socket(%d) done", m_id, m_fd);
-
-    auto scopeGuard = makeScopeGuard([&] {
-        HDebug("[Connection##%lu] close socket(%d)", m_id, m_fd);
-        close(m_fd);
-        m_fd = -1;
-    });
 
     struct sockaddr_un addr = {};
     addr.sun_family = AF_UNIX;
-    size_t copyBytes = StringUtils::copyStringSafe(addr.sun_path, serverName);
-    socklen_t addrLen = offsetof(struct sockaddr_un, sun_path) + copyBytes + 1;
+    strcpy(addr.sun_path, serverName.c_str());
+    socklen_t addrLen = offsetof(struct sockaddr_un, sun_path) + strlen(addr.sun_path) + 1;
 
     if (::connect(m_fd, (struct sockaddr*)&addr, addrLen) != 0) {
-        HError("Error: connect to server failed, connectFd=%d serverName=%s errorCode=%s", m_fd, serverName, strerror(errno));
+        close(m_fd);
+        m_fd = -1;
         return false;
     }
 
-    HDebug("[Connection##%lu] connect socket(%d) to socket file(%s) done", m_id, m_fd, serverName);
-
     m_state = Connection::State::CONNECTED;
-    scopeGuard.dismiss();
 
     return true;
 }
@@ -235,7 +190,6 @@ bool Connection::Impl::connect(const std::string& serverName)
 IPCHandle Connection::Impl::accept()
 {
     if (m_state != Connection::State::LISTENING) {
-        HError("Error: connection is not in listening state");
         return {};
     }
 
@@ -244,11 +198,8 @@ IPCHandle Connection::Impl::accept()
 
     int connectFd = ::accept(m_fd, (struct sockaddr*)&addr, &addrLen);
     if (connectFd <= 0) {
-        HError("Error: accept connection failed, listenFd=%d errorCode=%s", m_fd, strerror(errno));
         return {};
     }
-
-    HDebug("[Connection##%lu] accept new socket(%d) through listen socket(%d)", m_id, connectFd, m_fd);
 
     return connectFd;
 }
@@ -256,36 +207,28 @@ IPCHandle Connection::Impl::accept()
 int Connection::Impl::read(void* buffer, const int bufferSize)
 {
     if (m_fd < 0) {
-        HError("Error: invalid connection, m_fd=%d", m_fd);
         return 0;
     }
 
     if (!buffer || bufferSize < 0) {
-        HError("Error: invalid input parameters, buffer=%p bufferSize=%d", buffer, bufferSize);
         return 0;
     }
 
     if (!makeBlock()) {
-        HError("Error: make fd block failed");
         return 0;
     }
-
-    HDebug("[Connection##%lu] make data socket(%d) blocked", m_id, m_fd);
 
     char* data = static_cast<char*>(buffer);
 
     size_t leftBytes = bufferSize;
     while (leftBytes > 0) {
         ssize_t readBytes = ::read(m_fd, data, leftBytes);
-        HDebug("[Connection##%lu] read %d bytes through data socket(%d)", m_id, readBytes, m_fd);
         if (readBytes == 0) { // reach EOF
             break;
         } else if (readBytes < 0) {
             if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
-                HError("Error: read socket(%d) failed, errorCode=%s", m_fd, strerror(errno));
                 break;
             } else {
-                HInfo("error(%s) occured when reading socket(%d), ignore it", strerror(errno), m_fd);
                 readBytes = 0;
             }
         }
@@ -294,24 +237,18 @@ int Connection::Impl::read(void* buffer, const int bufferSize)
         leftBytes -= readBytes;
     }
 
-    HDebug("[Connection##%lu] read done, socket=%d expect=%d actual=%d", m_id, m_fd, bufferSize, bufferSize - leftBytes);
-
     return bufferSize - leftBytes;
 }
 
 bool Connection::Impl::read(IPCHandle& handle)
 {
     if (m_fd < 0) {
-        HError("Error: invalid connection, m_fd=%d", m_fd);
         return false;
     }
 
     if (!makeBlock()) {
-        HError("Error: make fd block failed");
         return false;
     }
-
-    HDebug("[Connection##%lu] make data socket(%d) blocked", m_id, m_fd);
 
     int num_fd = -1;
     struct iovec iov[1];
@@ -336,13 +273,11 @@ bool Connection::Impl::read(IPCHandle& handle)
         ret = ::recvmsg(m_fd, &msg, 0);
 
         if (!ret) {
-            HError("The peer has performed an orderly shutdown. socket=(%d)", m_fd);
             return false;
         }
 
         if (ret < 0) {
             if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
-                HError("Error: receive fd through socket (%d) failed", m_fd);
                 return false;
             }
         }
@@ -354,7 +289,6 @@ bool Connection::Impl::read(IPCHandle& handle)
     }
 
     if (rfd < 0) {
-        HError("Error: could not get recv_fd from socket");
         return false;
     }
 
@@ -365,12 +299,10 @@ bool Connection::Impl::read(IPCHandle& handle)
 int Connection::Impl::write(const void* buffer, const int bufferSize)
 {
     if (m_fd < 0) {
-        HError("Error: invalid connection, m_fd=%d", m_fd);
         return 0;
     }
 
     if (!buffer || bufferSize < 0) {
-        HError("Error: invalid input parameters, buffer=%p bufferSize=%d", buffer, bufferSize);
         return 0;
     }
 
@@ -379,13 +311,10 @@ int Connection::Impl::write(const void* buffer, const int bufferSize)
     size_t leftBytes = bufferSize;
     while (leftBytes > 0) {
         ssize_t writeBytes = ::write(m_fd, data, leftBytes);
-        HDebug("[Connection##%lu] write %d bytes through data socket(%d)", m_id, writeBytes, m_fd);
         if (writeBytes < 0) {
             if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
-                HError("Error: write socket(%d) failed, errorCode=%s", m_fd, strerror(errno));
                 break;
             } else {
-                HInfo("error(%s) occured when writing socket(%d), ignore it", strerror(errno), m_fd);
                 writeBytes = 0;
             }
         }
@@ -394,15 +323,12 @@ int Connection::Impl::write(const void* buffer, const int bufferSize)
         leftBytes -= writeBytes;
     }
 
-    HDebug("[Connection##%lu] write done, socket=%d expect=%d actual=%d", m_id, m_fd, bufferSize, bufferSize - leftBytes);
-
     return bufferSize - leftBytes;
 }
 
 bool Connection::Impl::write(const IPCHandle handle) const
 {
     if (m_fd < 0) {
-        HError("Error: invalid connection, m_fd=%d", m_fd);
         return false;
     }
 
@@ -434,7 +360,6 @@ bool Connection::Impl::write(const IPCHandle handle) const
         ret = ::sendmsg(m_fd, &msg, 0);
         if (ret < 0) {
             if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
-                HError("Error: send fd(%d) through socket(%d) failed.\n", handle, m_fd);
                 return false;
             }
         }
@@ -448,7 +373,6 @@ bool Connection::Impl::makeBlock()
     int flag = fcntl(m_fd, F_GETFL, 0) & (~O_NONBLOCK);
     int status = fcntl(m_fd, F_SETFL, flag);
     if (status < 0) {
-        HError("Error: make socketFd(%d) blocked failed, errorCode=%s", m_fd, strerror(errno));
         return false;
     }
 
@@ -490,25 +414,22 @@ bool Poller::Impl::isOK()
 
 size_t Poller::Impl::getTotalConnections()
 {
-    AutoMutex autoLock(m_mutex);
+    std::lock_guard<std::mutex> autoLock(m_mutex);
     return static_cast<size_t>(m_connections.size());
 }
 
 bool Poller::Impl::addConnection(Connection::Ptr spConnection)
 {
     if (!spConnection) {
-        HError("Error: invalid connection");
         return false;
     }
 
     int socketFd = spConnection->getHandle();
     if (socketFd < 0) {
-        HError("Error: invalid connection socket, socketFd=%d", socketFd);
         return false;
     }
 
     if (getConnectionBySocket(socketFd)) {
-        HError("Error: connection with same socketFd(%d) already exists", socketFd);
         return false;
     }
 
@@ -525,13 +446,10 @@ bool Poller::Impl::addConnection(Connection::Ptr spConnection)
 
     auto ret = epoll_ctl(m_epollFd, EPOLL_CTL_ADD, socketFd, &event);
     if (ret) {
-        HError("Error: epoll_ctl(EPOLL_CTL_ADD) failed, m_epollFd=%d socketFd=%d errorCode=%s", m_epollFd, socketFd, strerror(errno));
         return false;
     }
 
     insertConnection(socketFd, spConnection);
-
-    HDebug("[Poller##%s] add connection(%lu) done, numElem=%lu", m_name, spConnection->getId(), m_connections.size());
 
     return true;
 }
@@ -540,7 +458,6 @@ void Poller::Impl::removeConnection(uint64_t connectionId)
 {
     auto spConnection = getConnectionById(connectionId);
     if (!spConnection) {
-        HError("Error: cannot find connection with id=%lu", connectionId);
         return;
     }
 
@@ -548,8 +465,6 @@ void Poller::Impl::removeConnection(uint64_t connectionId)
     epoll_ctl(m_epollFd, EPOLL_CTL_DEL, socketFd, nullptr);
 
     eraseConnectionById(connectionId);
-
-    HDebug("[Poller##%s] remove connection(id:%lu) done, numElem=%lu", m_name, spConnection->getId(), m_connections.size());
 }
 
 Event Poller::Impl::waitEvent(int milliseconds)
@@ -561,7 +476,6 @@ Event Poller::Impl::waitEvent(int milliseconds)
     int numEvents = epoll_wait(m_epollFd, &event, 1, milliseconds);
 
     if (numEvents < 0) {
-        HError("Error: epoll_wait(EPOLL_CTL_ADD) failed, errorCode=%s", strerror(errno));
         return { nullptr, Event::Type::NONE };
     }
 
@@ -573,7 +487,6 @@ Event Poller::Impl::waitEvent(int milliseconds)
     auto connection = getConnectionBySocket(socketFd);
 
     if (!connection) {
-        HError("Error: cannot find connection with socketFd=%d", socketFd);
         return { nullptr, Event::Type::NONE };
     }
 
@@ -581,22 +494,18 @@ Event Poller::Impl::waitEvent(int milliseconds)
         auto state = connection->getState();
         switch (state) {
         case Connection::State::LISTENING:
-            HDebug("[Poller##%s] event(CONNECTION_IN) occured on listening connection(%lu)", m_name, connection->getId());
             return { connection, Event::Type::CONNECTION_IN };
 
         case Connection::State::CONNECTED:
             // EPOLLIN and EPOLLHUP may arrive simultaneously
             if (event.events & EPOLLRDHUP || event.events & EPOLLHUP) {
-                HDebug("[Poller##%s] event(CONNECTION_OUT) occured on data connection(%lu)", m_name, connection->getId());
                 removeConnection(connection->getId());
                 return { connection, Event::Type::CONNECTION_OUT };
             } else {
-                HDebug("[Poller##%s] event(MESSAGE_IN) occured on data connection(%lu)", m_name, connection->getId());
                 return { connection, Event::Type::MESSAGE_IN };
             }
 
         default:
-            HError("Error: abnormal connection(%lu) with EPOLLIN, state=%d", connection->getId(), static_cast<int>(state));
             return { nullptr, Event::Type::NONE };
         }
     }
@@ -617,13 +526,13 @@ void Poller::Impl::blockPipeSignal()
 
 void Poller::Impl::insertConnection(int socketFd, Connection::Ptr& spConnection)
 {
-    AutoMutex autoLock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_connections.insert(std::make_pair(socketFd, spConnection));
 }
 
 Connection::Ptr Poller::Impl::getConnectionBySocket(int socketFd)
 {
-    AutoMutex autoLock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
 
     if (m_connections.count(socketFd)) {
         return m_connections[socketFd];
@@ -634,7 +543,7 @@ Connection::Ptr Poller::Impl::getConnectionBySocket(int socketFd)
 
 Connection::Ptr Poller::Impl::getConnectionById(uint64_t connectionId)
 {
-    AutoMutex autoLock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
 
     for (const auto& entry : m_connections) {
         const auto& connection = entry.second;
@@ -648,7 +557,7 @@ Connection::Ptr Poller::Impl::getConnectionById(uint64_t connectionId)
 
 void Poller::Impl::eraseConnectionById(uint64_t connectionId)
 {
-    AutoMutex autoLock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
 
     for (const auto& entry : m_connections) {
         const auto& connection = entry.second;
@@ -703,7 +612,6 @@ bool Connection::listen(const std::string& serverName, int numListen)
     if (spPoller) {
         m_isInPoller = spPoller->addConnection(shared_from_this());
         if (!m_isInPoller) {
-            HError("Error: add connection to poller failed");
             return false;
         }
     }
@@ -721,7 +629,6 @@ bool Connection::connect(const std::string& serverName)
     if (spPoller) {
         m_isInPoller = spPoller->addConnection(shared_from_this());
         if (!m_isInPoller) {
-            HError("Error: add connection to poller failed");
             return false;
         }
     }
@@ -738,39 +645,29 @@ Connection::Ptr Connection::accept()
 
     Connection::Ptr spConnection;
 
-    auto scopeGuard = makeScopeGuard([&] {
-        if (!spConnection) {
-            close(connectFd);
-        } else {
-            HDebug("connectFd(%d) will be closed in connection(%lu)", spConnection->getId());
-        }
-    });
-
     spConnection = Connection::create(m_poller);
     if (!spConnection) {
-        HError("Error: create Connection::Impl instance failed");
+        close(connectFd);
         return {};
     }
 
     spConnection->m_impl->setFd(connectFd);
     spConnection->m_impl->setState(Connection::State::CONNECTED);
 
-    HDebug("[Connection##%lu] new connection created with data socket(%d)", spConnection->getId(), connectFd);
-
     auto spPoller = m_poller.lock();
     if (spPoller) {
         if (!spPoller->addConnection(spConnection)) {
-            HError("Error: add connection(%lu) to poller failed", spConnection->getId());
+            if (!spConnection) {
+                close(connectFd);
+            }
             return {};
         }
     }
 
-    scopeGuard.dismiss();
-
     return spConnection;
 }
 
-Mutex& Connection::getMutex() const noexcept
+std::mutex& Connection::getMutex() const noexcept
 {
     return m_mutex;
 }

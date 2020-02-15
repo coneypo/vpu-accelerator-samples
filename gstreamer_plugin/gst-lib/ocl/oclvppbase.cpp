@@ -15,57 +15,56 @@
  * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <va/va_drmcommon.h>
 #include "oclvppbase.h"
+#include <va/va_drmcommon.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-OclVppBase::OclVppBase () : m_pixel_size(1)
+OclVppBase::OclVppBase()
+    : m_pixel_size(1)
 {
 }
 
-OclVppBase::~OclVppBase ()
+OclVppBase::~OclVppBase()
 {
     m_context.reset();
 }
 
 OclStatus
-OclVppBase::process ()
+OclVppBase::process()
 {
     return OCL_SUCCESS;
 }
 
 OclStatus
-OclVppBase::process ( const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num)
-{
-    return OCL_SUCCESS;
-}
-
-
-OclStatus
-OclVppBase::process (const SharedPtr<VideoFrame>&,const SharedPtr<VideoFrame>&)
+OclVppBase::process(const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num)
 {
     return OCL_SUCCESS;
 }
 
 OclStatus
-OclVppBase::process (const SharedPtr<VideoFrame>&,const SharedPtr<VideoFrame>&,
-                       const SharedPtr<VideoFrame>&)
+OclVppBase::process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&)
 {
     return OCL_SUCCESS;
 }
 
 OclStatus
-OclVppBase::setOclContext (const SharedPtr<OclContext>& context)
+OclVppBase::process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&,
+    const SharedPtr<VideoFrame>&)
+{
+    return OCL_SUCCESS;
+}
+
+OclStatus
+OclVppBase::setOclContext(const SharedPtr<OclContext>& context)
 {
     m_context = context;
 
-    m_kernel = m_context->acquireKernelCV (getKernelName(), getKernelFileName());
+    m_kernel = m_context->acquireKernelCV(getKernelName(), getKernelFileName());
     GST_LOG("kernel:%s - m_kernel = %p\n", getKernelName(), &m_kernel);
     if (m_kernel.empty()) {
         GST_ERROR("invalid kernel file: %s.cl\n", getKernelFileName());

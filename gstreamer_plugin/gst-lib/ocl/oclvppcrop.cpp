@@ -16,32 +16,30 @@
  */
 
 #include "oclvppcrop.h"
-#include "common.h"
 #include "Vppfactory.h"
+#include "common.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <opencv2/opencv.hpp>
 #include <CL/cl.h>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/opencv.hpp>
 
 using namespace cv;
 using namespace cv::ocl;
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-OclStatus OclVppCrop::blend_helper ()
+OclStatus OclVppCrop::blend_helper()
 {
-    gboolean ret;   
+    gboolean ret;
     //m_kernel.args(m_src->cl_memory[0], m_src->cl_memory[1],m_dst->cl_memory[0],
     //              m_src_w, m_src_h);
 
-    m_kernel.args(m_src->cl_memory[0], m_src->cl_memory[1],m_dst->cl_memory[0],
-                  m_crop_x, m_crop_y, m_crop_w, m_crop_h);
-
+    m_kernel.args(m_src->cl_memory[0], m_src->cl_memory[1], m_dst->cl_memory[0],
+        m_crop_x, m_crop_y, m_crop_w, m_crop_h);
 
     size_t globalWorkSize[2], localWorkSize[2];
     localWorkSize[0] = 8;
@@ -50,21 +48,20 @@ OclStatus OclVppCrop::blend_helper ()
     //globalWorkSize[0] = ALIGN_POW2 (m_src_w, 2 * localWorkSize[0]) / 2;
     //globalWorkSize[1] = ALIGN_POW2 (m_src_h, 2 * localWorkSize[1]) / 2;
 
-    globalWorkSize[0] = ALIGN_POW2 (m_crop_w,  2* localWorkSize[0]) / 2;
-    globalWorkSize[1] = ALIGN_POW2 (m_crop_h,  2* localWorkSize[1]) / 2;
+    globalWorkSize[0] = ALIGN_POW2(m_crop_w, 2 * localWorkSize[0]) / 2;
+    globalWorkSize[1] = ALIGN_POW2(m_crop_h, 2 * localWorkSize[1]) / 2;
 
     ret = m_kernel.run(2, globalWorkSize, localWorkSize, true);
-    if(!ret) {
-        GST_ERROR("%s() - failed to run kernel!!!\n",__func__);
+    if (!ret) {
+        GST_ERROR("%s() - failed to run kernel!!!\n", __func__);
         return OCL_FAIL;
     }
 
     return OCL_SUCCESS;
 }
 
-
-
-OclStatus  OclVppCrop::process (const SharedPtr<VideoFrame>& src, const SharedPtr<VideoFrame>& dst){
+OclStatus OclVppCrop::process(const SharedPtr<VideoFrame>& src, const SharedPtr<VideoFrame>& dst)
+{
     OclStatus status = OCL_SUCCESS;
 
     m_src_w = src->width;
@@ -80,20 +77,19 @@ OclStatus  OclVppCrop::process (const SharedPtr<VideoFrame>& src, const SharedPt
         return OCL_INVALID_PARAM;
     }
 
-    if (m_kernel.empty())
-    {
-        GST_ERROR ("OclVppBlender: invalid kernel\n");
+    if (m_kernel.empty()) {
+        GST_ERROR("OclVppBlender: invalid kernel\n");
         return OCL_FAIL;
     }
 
-    m_src = (OclCLMemInfo*) m_context->acquireVAMemoryCL ((VideoSurfaceID *)&src->surface, 2, CL_MEM_READ_ONLY);
+    m_src = (OclCLMemInfo*)m_context->acquireVAMemoryCL((VideoSurfaceID*)&src->surface, 2, CL_MEM_READ_ONLY);
     if (!m_src) {
         GST_ERROR("failed to acquire src va memory\n");
         m_context->releaseVAMemoryCL(&m_src);
         return OCL_FAIL;
     }
 
-    m_dst = (OclCLMemInfo*) m_context->acquireMemoryCL ( dst->mem, 1);
+    m_dst = (OclCLMemInfo*)m_context->acquireMemoryCL(dst->mem, 1);
     if (!m_dst) {
         GST_ERROR("failed to acquire dst memory\n");
         m_context->finish();
@@ -108,11 +104,8 @@ OclStatus  OclVppCrop::process (const SharedPtr<VideoFrame>& src, const SharedPt
     m_context->finish();
 
     return status;
-
-
 }
 
-const bool OclVppCrop::s_registered =
-    OclVppFactory::register_<OclVppCrop>(OCL_VPP_MYCONVERTOR);
+const bool OclVppCrop::s_registered = OclVppFactory::register_<OclVppCrop>(OCL_VPP_MYCONVERTOR);
 
 }

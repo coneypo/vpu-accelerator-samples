@@ -7,15 +7,11 @@
 #define HDDLUNITE_IPC_H
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <tuple>
 
-#include "utils/Mutex.h"
-
-#ifdef WIN32
-#else
 #define IPCHandle int
-#endif
 
 namespace HddlUnite {
 class Poller;
@@ -43,7 +39,7 @@ public:
     bool connect(const std::string& serverName);
     Connection::Ptr accept();
 
-    Mutex& getMutex() const noexcept;
+    std::mutex& getMutex() const noexcept;
 
     int read(void* buffer, int bufferSize) const;
     int write(const void* buffer, int bufferSize) const;
@@ -60,7 +56,7 @@ private:
 private:
     class Impl;
     bool m_isInPoller;
-    mutable Mutex m_mutex;
+    mutable std::mutex m_mutex;
     std::unique_ptr<Impl> m_impl;
     std::weak_ptr<Poller> m_poller;
 };

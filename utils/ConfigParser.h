@@ -12,7 +12,6 @@
 
 class ConfigParser {
 public:
-
     enum class PlayMode {
         DEFAULT,
         REPLAY

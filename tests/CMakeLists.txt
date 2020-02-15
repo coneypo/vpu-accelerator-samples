@@ -1,3 +1,2 @@
 add_subdirectory(fake_result_sender)
 add_subdirectory(fake_result_receiver)
-add_subdirectory(pipeline)

@@ -23,12 +23,11 @@
 using namespace HDDLStreamFilter;
 
 #define NEW_VPP_SHARED_PTR(mimeType) \
-    VppInstanceCreate (mimeType), VppInstanceDestroy
+    VppInstanceCreate(mimeType), VppInstanceDestroy
 
-extern "C"
-{
-    VppInterface* VppInstanceCreate (const char* mimeType);
-    void VppInstanceDestroy(VppInterface* vpp);
+extern "C" {
+VppInterface* VppInstanceCreate(const char* mimeType);
+void VppInstanceDestroy(VppInterface* vpp);
 }
 
-#endif                          /* _VPP_HOST_H_ */
+#endif /* _VPP_HOST_H_ */

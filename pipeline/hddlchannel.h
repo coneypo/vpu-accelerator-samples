@@ -16,7 +16,7 @@
 
 using namespace std::chrono;
 
-class SocketClient;
+class AppConnector;
 class FpsStat;
 class QTimer;
 
@@ -44,7 +44,7 @@ private:
     int m_id;
     GstElement* m_pipeline;
     GstVideoOverlay* m_overlay;
-    SocketClient* m_client;
+    AppConnector* m_client;
     FpsStat* m_probPad;
     QTimer* m_fpstimer;
     BlockingQueue<std::shared_ptr<cv::UMat>> m_roiQueue;

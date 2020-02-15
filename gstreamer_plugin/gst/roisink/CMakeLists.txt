@@ -5,6 +5,7 @@ aux_source_directory(. DIR_SRCS)
 
 
 add_library(${pluginname} SHARED ${DIR_SRCS})
+add_dependencies(${pluginname} utils_static)
 
 target_include_directories(${pluginname} PRIVATE .
         ${GSTAPP_INCLUDE_DIRS}

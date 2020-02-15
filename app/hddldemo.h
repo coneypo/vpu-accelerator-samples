@@ -5,7 +5,7 @@
 #include <QMap>
 #include <QWindow>
 
-class SocketServer;
+class ChannelReceiver;
 class QLabel;
 
 namespace Ui {
@@ -29,10 +29,10 @@ private:
     void runPipeline();
     void initConfig();
 
-    int m_rows { 0 }; // channel rows
-    int m_cols { 0 }; // channel cols
-    int m_launchedNum { 0 }; // nums of launched hddlpipelines
-    int m_embededNum { 0 }; // nums of launched hddlpipelines which are embeded in GUI
+    uint32_t m_rows { 0 }; // channel rows
+    uint32_t m_cols { 0 }; // channel cols
+    uint32_t m_launchedNum { 0 }; // nums of launched hddlpipelines
+    uint32_t m_embededNum { 0 }; // nums of launched hddlpipelines which are embeded in GUI
     std::vector<std::string> m_pipeline {}; // channel gstreamer pipeline
     std::vector<std::string> m_mediaFiles {}; // channel media input files
     QString m_classificationModelPath;
@@ -44,7 +44,7 @@ private:
     QMap<qintptr, qint32> m_socketToIndex;
     QMap<qint32, int> m_channelToRoiNum;
 
-    SocketServer* m_server;
+    ChannelReceiver* m_server;
     Ui::HDDLDemo* ui;
 };
 

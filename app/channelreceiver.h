@@ -1,20 +1,18 @@
 #ifndef SOCKETSERVER_H
 #define SOCKETSERVER_H
 
+#include <QMap>
 #include <QObject>
 #include <QtGui>
-#include <QMap>
-
 
 class QLocalServer;
 class QLocalSocket;
 
-class SocketServer : public QObject
-{
+class ChannelReceiver : public QObject {
     Q_OBJECT
 public:
-    explicit SocketServer(QString name, QObject *parent = 0);
-    virtual ~SocketServer();
+    explicit ChannelReceiver(QString name, QObject* parent = 0);
+    virtual ~ChannelReceiver();
 
     void close();
     void MessageRecieved(qintptr);
@@ -31,10 +29,10 @@ public Q_SLOTS:
 
 private:
     QString m_name;
-    QLocalServer * m_server;
+    QLocalServer* m_server;
     QMap<qintptr, QLocalSocket*> m_clientSocket;
     QMap<qintptr, QDataStream*> m_dataStream;
-    QMap<qintptr, quint32 > m_curMsgLength;
+    QMap<qintptr, quint32> m_curMsgLength;
 };
 
 #endif // SOCKETSERVER_H

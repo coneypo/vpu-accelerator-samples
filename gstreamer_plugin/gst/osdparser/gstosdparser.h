@@ -46,46 +46,44 @@
 #ifndef __GST_OSDPARSER_H__
 #define __GST_OSDPARSER_H__
 
-#include <gst/gst.h>
 #include <algo/blendwrapper.h>
+#include <gst/gst.h>
 #include <gstmfxsurface.h>
 
 G_BEGIN_DECLS
 
 /* #defines don't like whitespacey bits */
 #define GST_TYPE_OSDPARSER \
-  (gst_osd_parser_get_type())
+    (gst_osd_parser_get_type())
 #define GST_OSDPARSER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_OSDPARSER,GstOsdParser))
+    (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_OSDPARSER, GstOsdParser))
 #define GST_OSDPARSER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_OSDPARSER,GstOsdParserClass))
+    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_OSDPARSER, GstOsdParserClass))
 #define GST_IS_OSDPARSER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_OSDPARSER))
+    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_OSDPARSER))
 #define GST_IS_OSDPARSER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_OSDPARSER))
+    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_OSDPARSER))
 
-typedef struct _GstOsdParser      GstOsdParser;
+typedef struct _GstOsdParser GstOsdParser;
 typedef struct _GstOsdParserClass GstOsdParserClass;
 
-struct _GstOsdParser
-{
-  GstElement element;
+struct _GstOsdParser {
+    GstElement element;
 
-  GstPad *sinkpad, *srcpad;
+    GstPad *sinkpad, *srcpad;
 
-  //frame handler
-  FrameHandler blend_handle;
-  FrameHandler crop_handle;
+    //frame handler
+    FrameHandler blend_handle;
+    FrameHandler crop_handle;
 
-  gpointer roi_queue;
+    gpointer roi_queue;
 };
 
-struct _GstOsdParserClass 
-{
-  GstElementClass parent_class;
+struct _GstOsdParserClass {
+    GstElementClass parent_class;
 };
 
-GType gst_osd_parser_get_type (void);
+GType gst_osd_parser_get_type(void);
 
 G_END_DECLS
 

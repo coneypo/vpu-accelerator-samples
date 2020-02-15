@@ -1,8 +1,8 @@
 #include "hddldemo.h"
 #include "ConfigParser.h"
+#include "channelreceiver.h"
 #include "cropdefs.h"
 #include "messagetype.h"
-#include "socketserver.h"
 #include "ui_hddldemo.h"
 
 #include <QLabel>
@@ -19,9 +19,9 @@ HDDLDemo::HDDLDemo(QWidget* parent)
 
     initConfig();
 
-    for (int i = 0; i < m_rows; i++) {
+    for (uint32_t i = 0; i < m_rows; i++) {
         ui->grid_layout->setRowStretch(i, 1);
-        for (int j = 0; j < m_cols; j++) {
+        for (uint32_t j = 0; j < m_cols; j++) {
             m_channelToRoiNum[i * m_cols + j] = 0;
             if (i == 0) {
                 ui->grid_layout->setColumnStretch(j, 1);
@@ -97,10 +97,10 @@ HDDLDemo::HDDLDemo(QWidget* parent)
         }
     }
 
-    m_server = new SocketServer("hddldemo", this);
-    connect(m_server, &SocketServer::WIDReceived, this, &HDDLDemo::channelWIDReceived);
-    connect(m_server, &SocketServer::StringReceived, this, &HDDLDemo::channelFpsReceived);
-    connect(m_server, &SocketServer::ByteArrayReceived, this, &HDDLDemo::channelRoiReceived);
+    m_server = new ChannelReceiver("hddldemo", this);
+    connect(m_server, &ChannelReceiver::WIDReceived, this, &HDDLDemo::channelWIDReceived);
+    connect(m_server, &ChannelReceiver::StringReceived, this, &HDDLDemo::channelFpsReceived);
+    connect(m_server, &ChannelReceiver::ByteArrayReceived, this, &HDDLDemo::channelRoiReceived);
     connect(m_pipelineTimer, &QTimer::timeout, this, &HDDLDemo::runPipeline);
     connect(m_totalFpsTimer, &QTimer::timeout, this, &HDDLDemo::updateTotalFps);
 
@@ -158,7 +158,7 @@ void HDDLDemo::initConfig()
     m_classificationModelPath = QString::fromStdString(ConfigParser::instance()->getClassificationModelPath());
 
     m_rows = std::sqrt(m_pipeline.size());
-    m_cols = m_rows * m_rows <m_pipeline.size() ? m_rows + 1 : m_rows;
+    m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
 }
 
 void HDDLDemo::runPipeline()
@@ -171,7 +171,8 @@ void HDDLDemo::runPipeline()
         QString pipeline_format = QString::fromStdString(m_pipeline[m_launchedNum]);
         QString media_file = QString::fromStdString(m_mediaFiles[m_launchedNum]);
         auto arguments = pipeline_format.arg(media_file, m_detectionModelPath, ipc_name, ipc_name).split(" ");
-        arguments.append(QString::number(m_launchedNum)); gstreamer_process->start(gstreamer_cmd, arguments);
+        arguments.append(QString::number(m_launchedNum));
+        gstreamer_process->start(gstreamer_cmd, arguments);
         m_launchedNum++;
     } else {
         m_pipelineTimer->stop();
@@ -181,7 +182,7 @@ void HDDLDemo::runPipeline()
 void HDDLDemo::updateTotalFps()
 {
     double total = 0;
-    for (int i = 0; i < m_embededNum; i++) {
+    for (uint32_t i = 0; i < m_embededNum; i++) {
         QLabel* fps_label = this->findChild<QLabel*>(QString("label_fpsstream_%1").arg(i));
         if (fps_label) {
             QString fps = fps_label->text();

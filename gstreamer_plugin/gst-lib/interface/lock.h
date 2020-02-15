@@ -28,8 +28,7 @@
 
 namespace HDDLStreamFilter {
 
-class Lock
-{
+class Lock {
 public:
     Lock()
     {
@@ -61,10 +60,10 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Lock);
 };
 
-class AutoLock
-{
+class AutoLock {
 public:
-    explicit AutoLock(Lock& lock) : m_lock(lock)
+    explicit AutoLock(Lock& lock)
+        : m_lock(lock)
     {
         m_lock.lock();
     }
@@ -73,6 +72,7 @@ public:
         m_lock.unlock();
     }
     Lock& m_lock;
+
 private:
     DISALLOW_COPY_AND_ASSIGN(AutoLock);
 };

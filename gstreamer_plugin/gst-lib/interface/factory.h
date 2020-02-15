@@ -22,26 +22,25 @@
 #include <string>
 #include <vector>
 
-template < class T >
+template <class T>
 class Factory {
 public:
-    typedef T*  (*AllocatorFunc) (void);
+    typedef T* (*AllocatorFunc)(void);
     typedef std::map<std::string, AllocatorFunc> AllocatorMap;
     typedef typename AllocatorMap::iterator iterator;
     typedef typename AllocatorMap::const_iterator const_iterator;
 
-    template < class C >
-    static bool register_(const  std::string&  key)
+    template <class C>
+    static bool register_(const std::string& key)
     {
-        AllocatorMap &allocatorMap = getAllocatorMap();
-        std::pair<iterator, bool> result =
-           allocatorMap.insert(std::make_pair(key, allocate<C>));
+        AllocatorMap& allocatorMap = getAllocatorMap();
+        std::pair<iterator, bool> result = allocatorMap.insert(std::make_pair(key, allocate<C>));
         return result.second;
     }
 
     static T* create(const std::string& key)
     {
-        AllocatorMap &allocatorMap = getAllocatorMap();
+        AllocatorMap& allocatorMap = getAllocatorMap();
         const const_iterator creator(allocatorMap.find(key));
         if (creator != allocatorMap.end())
             return creator->second();
@@ -51,7 +50,7 @@ public:
     static std::vector<std::string> get_keys()
     {
         std::vector<std::string> result;
-        AllocatorMap &allocatorMap = getAllocatorMap();
+        AllocatorMap& allocatorMap = getAllocatorMap();
         const const_iterator endIt(allocatorMap.end());
         for (const_iterator it(allocatorMap.begin()); it != endIt; ++it)
             result.push_back(it->first);
@@ -59,15 +58,15 @@ public:
     }
 
 private:
-    template < class C >
+    template <class C>
     static T* allocate()
     {
         return new C;
     }
-     static AllocatorMap& getAllocatorMap()
+    static AllocatorMap& getAllocatorMap()
     {
-         static AllocatorMap allocatorMap;
-         return allocatorMap;
+        static AllocatorMap allocatorMap;
+        return allocatorMap;
     }
 };
 

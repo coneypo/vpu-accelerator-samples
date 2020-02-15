@@ -18,35 +18,30 @@
 #ifndef _OCL_VPP_CROP_H_
 #define _OCL_VPP_CROP_H_
 
-#include "oclvppbase.h"
 #include "Vppfactory.h"
+#include "oclvppbase.h"
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-class OclVppCrop: public OclVppBase
-{
+class OclVppCrop : public OclVppBase {
 public:
-    OclStatus process (const SharedPtr<VideoFrame>&,   const SharedPtr<VideoFrame>&);
-    const char* getKernelFileName () { return "crop"; }
+    OclStatus process(const SharedPtr<VideoFrame>&, const SharedPtr<VideoFrame>&);
+    const char* getKernelFileName() { return "crop"; }
     const char* getKernelName() { return "crop"; }
 
-
 private:
-    OclStatus blend_helper ();
+    OclStatus blend_helper();
 
-    guint32   m_src_w;
-    guint32   m_src_h;
+    guint32 m_src_w;
+    guint32 m_src_h;
 
-    OclCLMemInfo *m_src; // nv12
-    OclCLMemInfo *m_dst; //gray
-
+    OclCLMemInfo* m_src; // nv12
+    OclCLMemInfo* m_dst; //gray
 
     guint32 m_crop_x;
     guint32 m_crop_y;
     guint32 m_crop_w;
     guint32 m_crop_h;
-
 
     static const bool s_registered;
 };

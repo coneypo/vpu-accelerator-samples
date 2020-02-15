@@ -21,8 +21,7 @@
 #include "interface/factory.h"
 #include "interface/vppinterface.h"
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
 typedef Factory<VppInterface> OclVppFactory;
 

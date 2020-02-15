@@ -16,37 +16,36 @@
  */
 
 #include "oclvppblender.h"
-#include "common.h"
 #include "Vppfactory.h"
+#include "common.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <opencv2/opencv.hpp>
 #include <CL/cl.h>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/opencv.hpp>
 
 using namespace cv;
 using namespace cv::ocl;
 
-namespace HDDLStreamFilter
-{
+namespace HDDLStreamFilter {
 
-OclStatus OclVppBlender::blend_helper ()
+OclStatus OclVppBlender::blend_helper()
 {
-    gboolean ret;   
+    gboolean ret;
     m_kernel.args(m_src2->cl_memory[0], m_src2->cl_memory[1], m_src->cl_memory[0],
-                  m_dst->cl_memory[0], m_dst_w, m_dst_h);
+        m_dst->cl_memory[0], m_dst_w, m_dst_h);
 
     size_t globalWorkSize[2], localWorkSize[2];
     localWorkSize[0] = 8;
     localWorkSize[1] = 8;
-    globalWorkSize[0] = ALIGN_POW2 (m_dst_w, 2 * localWorkSize[0]) / 2;
-    globalWorkSize[1] = ALIGN_POW2 (m_dst_h, 2 * localWorkSize[1]) / 2;
+    globalWorkSize[0] = ALIGN_POW2(m_dst_w, 2 * localWorkSize[0]) / 2;
+    globalWorkSize[1] = ALIGN_POW2(m_dst_h, 2 * localWorkSize[1]) / 2;
     ret = m_kernel.run(2, globalWorkSize, localWorkSize, true);
-    if(!ret) {
-        GST_ERROR("%s() - failed to run kernel!!!\n",__func__);
+    if (!ret) {
+        GST_ERROR("%s() - failed to run kernel!!!\n", __func__);
         return OCL_FAIL;
     }
 
@@ -54,16 +53,16 @@ OclStatus OclVppBlender::blend_helper ()
 }
 
 OclStatus
-OclVppBlender::process (const SharedPtr<VideoFrame>& src,  /* osd */
-                           const SharedPtr<VideoFrame>& src2, /* NV12 */
-                           const SharedPtr<VideoFrame>& dst) /* rgb output */
+OclVppBlender::process(const SharedPtr<VideoFrame>& src, /* osd */
+    const SharedPtr<VideoFrame>& src2, /* NV12 */
+    const SharedPtr<VideoFrame>& dst) /* rgb output */
 {
     OclStatus status = OCL_SUCCESS;
 
     m_src_w = src->width;
     m_src_h = src->height;
-    m_dst_w  = dst->width;
-    m_dst_h  = dst->height;
+    m_dst_w = dst->width;
+    m_dst_h = dst->height;
 
     clBuffer_osd = 0;
     clBuffer_dst = 0;
@@ -72,33 +71,31 @@ OclVppBlender::process (const SharedPtr<VideoFrame>& src,  /* osd */
         return OCL_INVALID_PARAM;
     }
 
-    if((m_src_w != m_dst_w) || (m_src_h != m_dst_h)) {
+    if ((m_src_w != m_dst_w) || (m_src_h != m_dst_h)) {
         GST_ERROR("OclVppBlender failed due to dst and src is not same resolution!\n");
         return OCL_INVALID_PARAM;
     }
 
-
-    if (m_kernel.empty())
-    {
-        GST_ERROR ("OclVppBlender: invalid kernel\n");
+    if (m_kernel.empty()) {
+        GST_ERROR("OclVppBlender: invalid kernel\n");
         return OCL_FAIL;
     }
 
-    m_src = (OclCLMemInfo*) m_context->acquireMemoryCL (src->mem, 1);
+    m_src = (OclCLMemInfo*)m_context->acquireMemoryCL(src->mem, 1);
     if (!m_src) {
         GST_ERROR("failed to acquire src memory\n");
         m_context->finish();
         return OCL_FAIL;
     }
 
-    m_src2 = (OclCLMemInfo*) m_context->acquireVAMemoryCL ((VideoSurfaceID *)&src2->surface, 2);
+    m_src2 = (OclCLMemInfo*)m_context->acquireVAMemoryCL((VideoSurfaceID*)&src2->surface, 2);
     if (!m_src2) {
         GST_ERROR("failed to acquire src2 va memory\n");
         m_context->releaseMemoryCL(&m_src);
         return OCL_FAIL;
     }
 
-    m_dst = (OclCLMemInfo*) m_context->acquireMemoryCL (dst->mem, 1);
+    m_dst = (OclCLMemInfo*)m_context->acquireMemoryCL(dst->mem, 1);
     if (!m_dst) {
         GST_ERROR("failed to acquire dst memory\n");
         m_context->releaseMemoryCL(&m_src);
@@ -118,7 +115,6 @@ OclVppBlender::process (const SharedPtr<VideoFrame>& src,  /* osd */
     return status;
 }
 
-const bool OclVppBlender::s_registered =
-    OclVppFactory::register_<OclVppBlender>(OCL_VPP_BLENDER);
+const bool OclVppBlender::s_registered = OclVppFactory::register_<OclVppBlender>(OCL_VPP_BLENDER);
 
 }

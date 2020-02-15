@@ -1,19 +1,18 @@
 #ifndef SOCKETCLIENT_H
 #define SOCKETCLIENT_H
 
+#include <QDataStream>
 #include <QObject>
 #include <QtGui>
-#include <QDataStream>
 #include <functional>
 #include <memory>
 
 class QLocalSocket;
 
-class SocketClient: public QObject
-{
+class AppConnector : public QObject {
     Q_OBJECT
 public:
-    SocketClient(QString socketName, QObject* parent=nullptr);
+    AppConnector(QString socketName, QObject* parent = nullptr);
     bool connectServer();
     void close();
 
@@ -21,7 +20,6 @@ public:
     void sendString(QString);
     void sendWinId(WId);
     void sendByteArray(QByteArray* ba);
-
 
 public Q_SLOTS:
     void connectedCallBack();

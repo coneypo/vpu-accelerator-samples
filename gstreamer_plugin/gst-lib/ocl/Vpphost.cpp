@@ -27,17 +27,17 @@ using namespace HDDLStreamFilter;
 extern "C" {
 
 VppInterface*
-VppInstanceCreate (const char *mimeType)
+VppInstanceCreate(const char* mimeType)
 {
     if (!mimeType) {
-        g_print ("Null  mime type.\n");
+        g_print("Null  mime type.\n");
         return NULL;
     }
 
-   VppInterface* instance = OclVppFactory::create (mimeType);
+    VppInterface* instance = OclVppFactory::create(mimeType);
 
     if (!instance) {
-        g_print ("Failed to create vpp for mimeType: '%s'\n", mimeType);
+        g_print("Failed to create vpp for mimeType: '%s'\n", mimeType);
     } else {
         //g_print ("Created vpp for mimeType: '%s\n'", mimeType);
     }
@@ -45,8 +45,7 @@ VppInstanceCreate (const char *mimeType)
     return instance;
 }
 
-void
-VppInstanceDestroy (VppInterface *instance)
+void VppInstanceDestroy(VppInterface* instance)
 {
     delete instance;
 }

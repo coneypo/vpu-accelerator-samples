@@ -51,32 +51,28 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#  include <config.h>
+#include <config.h>
 #endif
 
-#include <gst/gst.h>
-#include <stdlib.h>
+#include "gstmfxsurface_vaapi.h"
+#include "gstmfxvideometa.h"
 #include "gstosdparser.h"
 #include "inferresultmeta.h"
-#include "gstmfxvideometa.h"
-#include "gstmfxsurface_vaapi.h"
+#include <gst/gst.h>
+#include <stdlib.h>
 
-
-
-GST_DEBUG_CATEGORY_STATIC (gst_osd_parser_debug);
+GST_DEBUG_CATEGORY_STATIC(gst_osd_parser_debug);
 #define GST_CAT_DEFAULT gst_osd_parser_debug
 
 /* Filter signals and args */
-enum
-{
-  /* FILL ME */
-  LAST_SIGNAL
+enum {
+    /* FILL ME */
+    LAST_SIGNAL
 };
 
-enum
-{
-  PROP_0,
-  PROP_ROI_QUEUE
+enum {
+    PROP_0,
+    PROP_ROI_QUEUE
 };
 
 /* the capabilities of the inputs and outputs.
@@ -84,73 +80,61 @@ enum
  * describe the real formats here.
  */
 
+static const char sink_caps_str[] = GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:MFXSurface", "{ NV12 }");
 
-static const char sink_caps_str[] = \
-    GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:MFXSurface", "{ NV12 }");
-
-static GstStaticPadTemplate sink_factory =
-    GST_STATIC_PAD_TEMPLATE (
+static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (sink_caps_str)
-    );
+    GST_STATIC_CAPS(sink_caps_str));
 
+static const char src_pic_caps_str[] = GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:MFXSurface", "{ NV12 }");
 
-static const char src_pic_caps_str[] = \
-    GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:MFXSurface", "{ NV12 }");
-
-static GstStaticPadTemplate src_factory =
-    GST_STATIC_PAD_TEMPLATE (
+static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     "src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS (src_pic_caps_str)
-    );
-
+    GST_STATIC_CAPS(src_pic_caps_str));
 
 #define gst_osd_parser_parent_class parent_class
-G_DEFINE_TYPE (GstOsdParser, gst_osd_parser, GST_TYPE_ELEMENT)
+G_DEFINE_TYPE(GstOsdParser, gst_osd_parser, GST_TYPE_ELEMENT)
 
-static gboolean gst_osd_parser_sink_event (GstPad * pad, GstObject * parent, GstEvent * event);
-static GstFlowReturn gst_osd_parser_chain (GstPad * pad, GstObject * parent, GstBuffer * buf);
-static void gst_osd_parser_finalize (GstOsdParser* parser);
+static gboolean gst_osd_parser_sink_event(GstPad* pad, GstObject* parent, GstEvent* event);
+static GstFlowReturn gst_osd_parser_chain(GstPad* pad, GstObject* parent, GstBuffer* buf);
+static void gst_osd_parser_finalize(GstOsdParser* parser);
 static void gst_osd_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec);
 static void gst_osd_get_property(GObject* object, guint prop_id, GValue* value, GParamSpec* pspec);
-
 
 /* GObject vmethod implementations */
 
 /* initialize the osdparser's class */
 static void
-gst_osd_parser_class_init (GstOsdParserClass * klass)
+gst_osd_parser_class_init(GstOsdParserClass* klass)
 {
-  GObjectClass *gobject_class;
-  GstElementClass *gstelement_class;
+    GObjectClass* gobject_class;
+    GstElementClass* gstelement_class;
 
-  gobject_class = (GObjectClass *) klass;
-  gstelement_class = (GstElementClass *) klass;
-  gobject_class->finalize = (GObjectFinalizeFunc) gst_osd_parser_finalize;
+    gobject_class = (GObjectClass*)klass;
+    gstelement_class = (GstElementClass*)klass;
+    gobject_class->finalize = (GObjectFinalizeFunc)gst_osd_parser_finalize;
 
-  gobject_class->set_property = gst_osd_set_property;
-  gobject_class->get_property = gst_osd_get_property;
+    gobject_class->set_property = gst_osd_set_property;
+    gobject_class->get_property = gst_osd_get_property;
 
-  g_object_class_install_property(gobject_class, PROP_ROI_QUEUE,
-                                  g_param_spec_pointer("roi_queue", "RoiQueque", "roi queue",
-                                                       G_PARAM_READWRITE));
+    g_object_class_install_property(gobject_class, PROP_ROI_QUEUE,
+        g_param_spec_pointer("roi_queue", "RoiQueque", "roi queue",
+            G_PARAM_READWRITE));
 
+    gst_element_class_set_details_simple(gstelement_class,
+        "OsdParser",
+        "FIXME:Generic",
+        "FIXME:Generic Template Element",
+        "xiao <<user@hostname.org>>");
 
-
-  gst_element_class_set_details_simple(gstelement_class,
-    "OsdParser",
-    "FIXME:Generic",
-    "FIXME:Generic Template Element",
-    "xiao <<user@hostname.org>>");
-
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&src_factory));
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&sink_factory));
+    gst_element_class_add_pad_template(gstelement_class,
+        gst_static_pad_template_get(&src_factory));
+    gst_element_class_add_pad_template(gstelement_class,
+        gst_static_pad_template_get(&sink_factory));
 }
 
 /* initialize the new element
@@ -159,29 +143,28 @@ gst_osd_parser_class_init (GstOsdParserClass * klass)
  * initialize instance structure
  */
 static void
-gst_osd_parser_init (GstOsdParser * filter)
+gst_osd_parser_init(GstOsdParser* filter)
 {
-  filter->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
-  gst_pad_set_event_function (filter->sinkpad,
-                              GST_DEBUG_FUNCPTR(gst_osd_parser_sink_event));
-  gst_pad_set_chain_function (filter->sinkpad,
-                              GST_DEBUG_FUNCPTR(gst_osd_parser_chain));
-  GST_PAD_SET_PROXY_CAPS (filter->sinkpad);
-  gst_element_add_pad (GST_ELEMENT (filter), filter->sinkpad);
+    filter->sinkpad = gst_pad_new_from_static_template(&sink_factory, "sink");
+    gst_pad_set_event_function(filter->sinkpad,
+        GST_DEBUG_FUNCPTR(gst_osd_parser_sink_event));
+    gst_pad_set_chain_function(filter->sinkpad,
+        GST_DEBUG_FUNCPTR(gst_osd_parser_chain));
+    GST_PAD_SET_PROXY_CAPS(filter->sinkpad);
+    gst_element_add_pad(GST_ELEMENT(filter), filter->sinkpad);
 
-  filter->srcpad = gst_pad_new_from_static_template (&src_factory, "src");
-  GST_PAD_SET_PROXY_CAPS (filter->srcpad);
-  gst_element_add_pad (GST_ELEMENT (filter), filter->srcpad);
+    filter->srcpad = gst_pad_new_from_static_template(&src_factory, "src");
+    GST_PAD_SET_PROXY_CAPS(filter->srcpad);
+    gst_element_add_pad(GST_ELEMENT(filter), filter->srcpad);
 
-
-  filter->blend_handle= cvdlhandler_create();
-  filter->crop_handle= cvdlhandler_create();
-  filter->roi_queue = NULL;
+    filter->blend_handle = cvdlhandler_create();
+    filter->crop_handle = cvdlhandler_create();
+    filter->roi_queue = NULL;
 }
 
 static void
 gst_osd_set_property(GObject* object, guint prop_id,
-                     const GValue* value, GParamSpec* pspec)
+    const GValue* value, GParamSpec* pspec)
 {
     GstOsdParser* filter = GST_OSDPARSER(object);
 
@@ -197,7 +180,7 @@ gst_osd_set_property(GObject* object, guint prop_id,
 
 static void
 gst_osd_get_property(GObject* object, guint prop_id,
-                     GValue* value, GParamSpec* pspec)
+    GValue* value, GParamSpec* pspec)
 {
     GstOsdParser* filter = GST_OSDPARSER(object);
 
@@ -211,87 +194,81 @@ gst_osd_get_property(GObject* object, guint prop_id,
     }
 }
 
-
-
-
 /* GstElement vmethod implementations */
 
 /* this function handles sink events */
 static gboolean
-gst_osd_parser_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
+gst_osd_parser_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
 {
-  GstOsdParser *filter;
-  gboolean ret;
+    GstOsdParser* filter;
+    gboolean ret;
 
-  filter = GST_OSDPARSER (parent);
+    filter = GST_OSDPARSER(parent);
 
-  GST_LOG_OBJECT (filter, "Received %s event: %" GST_PTR_FORMAT,
-      GST_EVENT_TYPE_NAME (event), event);
+    GST_LOG_OBJECT(filter, "Received %s event: %" GST_PTR_FORMAT,
+        GST_EVENT_TYPE_NAME(event), event);
 
-  switch (GST_EVENT_TYPE (event)) {
-    case GST_EVENT_CAPS:
-    {
-      GstCaps * caps;
-      gst_event_parse_caps (event, &caps);
-      /* do something with the caps */
-      /* and forward */
-      ret = gst_pad_event_default (pad, parent, event);
-      cvdlhandler_init(filter->blend_handle ,caps, "GRAY8");
-      cvdlhandler_init(filter->crop_handle,caps, "BGRA");
+    switch (GST_EVENT_TYPE(event)) {
+    case GST_EVENT_CAPS: {
+        GstCaps* caps;
+        gst_event_parse_caps(event, &caps);
+        /* do something with the caps */
+        /* and forward */
+        ret = gst_pad_event_default(pad, parent, event);
+        cvdlhandler_init(filter->blend_handle, caps, "GRAY8");
+        cvdlhandler_init(filter->crop_handle, caps, "BGRA");
 
-      break;
+        break;
     }
     default:
-      ret = gst_pad_event_default (pad, parent, event);
-      break;
-  }
+        ret = gst_pad_event_default(pad, parent, event);
+        break;
+    }
 
-  return ret;
+    return ret;
 }
 
-
-static void gst_osd_parser_clean(GstOsdParser* parser){
-    if(parser->blend_handle){
+static void gst_osd_parser_clean(GstOsdParser* parser)
+{
+    if (parser->blend_handle) {
         cvdlhandler_destroy(parser->blend_handle);
     }
-    if(parser->crop_handle){
+    if (parser->crop_handle) {
         cvdlhandler_destroy(parser->crop_handle);
     }
     parser->blend_handle = NULL;
-    parser->crop_handle= NULL;
+    parser->crop_handle = NULL;
     parser->roi_queue = NULL;
-
 }
 
 static void
-gst_osd_parser_finalize (GstOsdParser* parser)
+gst_osd_parser_finalize(GstOsdParser* parser)
 {
     // release pool
     gst_osd_parser_clean(parser);
 
-    G_OBJECT_CLASS (parent_class)->finalize (G_OBJECT (parser));
+    G_OBJECT_CLASS(parent_class)->finalize(G_OBJECT(parser));
 }
-
 
 /* chain function
  * this function does the actual processing
  */
 static GstFlowReturn
-gst_osd_parser_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
+gst_osd_parser_chain(GstPad* pad, GstObject* parent, GstBuffer* buf)
 {
-  GstOsdParser *filter = GST_OSDPARSER (parent);
-  GstBuffer* osd_buf = NULL;
+    GstOsdParser* filter = GST_OSDPARSER(parent);
+    GstBuffer* osd_buf = NULL;
 
-  InferResultMeta *meta = gst_buffer_get_infer_result_meta(buf);
-  if (meta) {
-      cvdlhandler_crop_frame( filter->crop_handle, buf, meta->boundingBox,meta->size, filter->roi_queue);
+    InferResultMeta* meta = gst_buffer_get_infer_result_meta(buf);
+    if (meta) {
+        cvdlhandler_crop_frame(filter->crop_handle, buf, meta->boundingBox, meta->size, filter->roi_queue);
 #if 1
-      cvdlhandler_generate_osd(filter->blend_handle, meta->boundingBox, meta->size, &osd_buf);
-      cvdlhandler_process_osd(filter->blend_handle, buf, osd_buf);
-      gst_buffer_unref(osd_buf);
+        cvdlhandler_generate_osd(filter->blend_handle, meta->boundingBox, meta->size, &osd_buf);
+        cvdlhandler_process_osd(filter->blend_handle, buf, osd_buf);
+        gst_buffer_unref(osd_buf);
 #else
-      cvdlhandler_process_boundingbox(filter->blend_handle, buf, meta->boundingBox,meta->size);
+        cvdlhandler_process_boundingbox(filter->blend_handle, buf, meta->boundingBox, meta->size);
 #endif
-  }
-  return gst_pad_push (filter->srcpad, buf);
+    }
+    return gst_pad_push(filter->srcpad, buf);
 }

@@ -36,7 +36,6 @@ public:
     BlockingQueue& operator=(const BlockingQueue&) = delete;
 
 private:
-
     std::mutex _mutex;
     std::condition_variable _nonEmpty;
     std::queue<T> _queue;

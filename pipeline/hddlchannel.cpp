@@ -1,7 +1,7 @@
 #include "hddlchannel.h"
+#include "AppConnector.h"
 #include "cropdefs.h"
 #include "fpsstat.h"
-#include "socketclient.h"
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -16,9 +16,9 @@
 
 HddlChannel::HddlChannel(int channelId, QWidget* parent)
     : QMainWindow(parent)
+    , m_id(channelId)
     , m_client(nullptr)
     , m_probPad(nullptr)
-    , m_id(channelId)
     , m_stop(false)
 {
     QWidget* container = new QWidget(this);
@@ -75,11 +75,12 @@ bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySink
     connect(this, &HddlChannel::roiReady, this, &HddlChannel::sendRoiData);
 
     m_fpstimer->start();
+    return true;
 }
 
 bool HddlChannel::initConnection(QString serverPath)
 {
-    m_client = new SocketClient(serverPath, this);
+    m_client = new AppConnector(serverPath, this);
     if (!m_client->connectServer()) {
         return false;
     };

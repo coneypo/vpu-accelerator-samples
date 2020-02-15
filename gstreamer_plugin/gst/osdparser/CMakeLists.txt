@@ -1,6 +1,3 @@
-cmake_policy(SET CMP0015 NEW)
-
-
 get_filename_component(pluginname ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 set(pluginname gst${pluginname})
 
@@ -13,20 +10,16 @@ aux_source_directory(${PLUGIN_ROOT_DIR}/gst-lib/ocl DIR_SRCS)
 aux_source_directory(${PLUGIN_ROOT_DIR}/gst-lib/algo DIR_SRCS)
 aux_source_directory(. DIR_SRCS)
 
-include_directories(
-        ${MSDK_GST_SOURCE}
-        ${MSDK_GST_SOURCE}/gst/mfx
-        ${MSDK_GST_SOURCE}/gst-libs/mfx
-        ${MSDK_GST_BINARY}
-)
-
-
 add_library(${pluginname} SHARED ${DIR_SRCS})
 
 target_include_directories(${pluginname} PRIVATE .
         ${MFX_INCLUDES}
         ${OpenCV_INCLUDE_DIRS}
         ${CMAKE_BINARY_DIR}/ocl
+        ${MSDK_GST_SOURCE}
+        ${MSDK_GST_SOURCE}/gst/mfx
+        ${MSDK_GST_SOURCE}/gst-libs/mfx
+        ${MSDK_GST_BINARY}
         ${PLUGIN_ROOT_DIR}/gst-lib/
         ${PLUGIN_ROOT_DIR}/gst-lib/ocl
         ${PLUGIN_ROOT_DIR}/gst-lib/algo

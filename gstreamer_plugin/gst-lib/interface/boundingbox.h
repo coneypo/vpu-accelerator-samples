@@ -5,14 +5,14 @@
 
 #define MAX_STR_LEN 100
 
-typedef struct BoundingBox{
-  gint          x;
-  gint          y;
-  gint          width;
-  gint          height;
-  gchar*        label;
-  GstClockTime  pts;
-  gdouble       probability;
-}BoundingBox;
+typedef struct BoundingBox {
+    gint x;
+    gint y;
+    gint width;
+    gint height;
+    gchar* label;
+    GstClockTime pts;
+    gdouble probability;
+} BoundingBox;
 
 #endif

@@ -20,9 +20,8 @@
 
 #include <gst/gst.h>
 
-#define HDDLS_CVDL_KERNEL_PATH_DEFAULT  "@CMAKE_RUNTIME_OUTPUT_DIRECTORY@/kernels"
+#define HDDLS_CVDL_KERNEL_PATH_DEFAULT "@CMAKE_RUNTIME_OUTPUT_DIRECTORY@/kernels"
 /* Use cv::ocl to do ocl kernwl work */
 #define USE_CV_OCL
-
 
 #endif
