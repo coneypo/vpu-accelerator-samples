@@ -11,9 +11,6 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-#include "blockingqueue.h"
-#include "infermetasender.h"
-
 using namespace std::chrono;
 
 class AppConnector;
@@ -47,7 +44,6 @@ private:
     AppConnector* m_client;
     FpsStat* m_probPad;
     QTimer* m_fpstimer;
-    BlockingQueue<std::shared_ptr<cv::UMat>> m_roiQueue;
 
     std::thread m_roiThread;
     std::atomic<bool> m_stop;

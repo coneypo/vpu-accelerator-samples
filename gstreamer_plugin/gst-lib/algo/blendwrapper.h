@@ -44,7 +44,7 @@ GstBuffer* cvdlhandler_get_free_buffer(FrameHandler handle);
 void cvdlhandler_generate_osd(FrameHandler handle, BoundingBox* boxList, gint size, GstBuffer** osd_buf);
 void cvdlhandler_process_osd(FrameHandler handle, GstBuffer* buffer, GstBuffer* osd_buf);
 void cvdlhandler_process_boundingbox(FrameHandler handle, GstBuffer* buffer, BoundingBox* box, guint32 num);
-void cvdlhandler_crop_frame(FrameHandler handle, GstBuffer* buffer, BoundingBox* box, guint32 num, gpointer roi_queue);
+void cvdlhandler_crop_frame(FrameHandler handle, GstBuffer* buffer, BoundingBox* box, guint32 num);
 
 #ifdef __cplusplus
 }

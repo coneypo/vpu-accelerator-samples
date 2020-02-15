@@ -6,9 +6,9 @@
 file(GLOB HDRS "*.h")
 file(GLOB SRCS "*.cpp")
 
-set(TARGET_NAME utils_static)
+set(TARGET_NAME hddldemoutils)
 
-add_library(${TARGET_NAME} STATIC ${HDRS} ${SRCS})
+add_library(${TARGET_NAME} SHARED ${HDRS} ${SRCS})
 target_include_directories(${TARGET_NAME} PUBLIC ${Boost_INCLUDE_DIR} ${PROJECT_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(${TARGET_NAME} PRIVATE ${Boost_LIBRARIES})
 target_link_libraries(${TARGET_NAME} PUBLIC ${CMAKE_THREAD_LIBS_INIT})

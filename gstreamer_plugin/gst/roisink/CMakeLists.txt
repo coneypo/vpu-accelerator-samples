@@ -5,7 +5,7 @@ aux_source_directory(. DIR_SRCS)
 
 
 add_library(${pluginname} SHARED ${DIR_SRCS})
-add_dependencies(${pluginname} utils_static)
+add_dependencies(${pluginname} hddldemoutils)
 
 target_include_directories(${pluginname} PRIVATE .
         ${GSTAPP_INCLUDE_DIRS}
@@ -16,7 +16,7 @@ target_link_libraries(${pluginname}
         ${GSTVIDEO_LIBRARIES}
         ${GSTAPP_LIBRARIES}
         ${GLIB2_LIBRARIES}
-        utils_static
+        hddldemoutils
         )
 
 install(TARGETS ${pluginname} DESTINATION lib)

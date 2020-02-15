@@ -3,12 +3,17 @@
 
 #include <condition_variable>
 #include <queue>
+#include <iostream>
 
 template <typename T>
 class BlockingQueue {
 
 public:
-    BlockingQueue() = default;
+    static BlockingQueue<T>& instance()
+    {
+        static BlockingQueue<T> obj;
+        return obj;
+    }
 
     T take()
     {
@@ -36,6 +41,10 @@ public:
     BlockingQueue& operator=(const BlockingQueue&) = delete;
 
 private:
+    BlockingQueue() {
+        std::cout<<"create bq"<<std::endl;
+
+    };
     std::mutex _mutex;
     std::condition_variable _nonEmpty;
     std::queue<T> _queue;

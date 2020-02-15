@@ -9,7 +9,7 @@ aux_source_directory(. DIR_SRCS)
 
 set(TARGET_NAME hddlpipeline)
 add_executable(${TARGET_NAME} ${DIR_SRCS})
-add_dependencies(${TARGET_NAME} utils_static)
+add_dependencies(${TARGET_NAME} hddldemoutils)
 
 target_include_directories(${TARGET_NAME} PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
@@ -18,13 +18,14 @@ target_include_directories(${TARGET_NAME} PRIVATE
         ${Qt5Widgets_INCLUDE_DIR}
         ${Qt5Network_INCLUDE_DIR})
 
-target_link_libraries(${TARGET_NAME} PRIVATE
-        utils_static
+target_link_libraries(${TARGET_NAME}
+        hddldemoutils
         ${OpenCV_LIBRARIES}
         ${Qt5Widgets_LIBRARIES}
         ${Qt5Network_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT})
+
 
 install(TARGETS ${TARGET_NAME} DESTINATION bin)

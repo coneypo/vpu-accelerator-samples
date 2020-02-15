@@ -2,6 +2,7 @@
 #include "AppConnector.h"
 #include "cropdefs.h"
 #include "fpsstat.h"
+#include "blockingqueue.h"
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -51,10 +52,6 @@ bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySink
     m_pipeline = gst_parse_launch_full(pipelineDescription.toStdString().c_str(), NULL, GST_PARSE_FLAG_FATAL_ERRORS, NULL);
     GstElement* dspSink = gst_bin_get_by_name(GST_BIN(m_pipeline), displaySinkName.toStdString().c_str());
     Q_ASSERT(dspSink != nullptr);
-
-    GstElement* osdparser = gst_bin_get_by_name(GST_BIN(m_pipeline), "osdparser0");
-    Q_ASSERT(osdparser != nullptr);
-    g_object_set(osdparser, "roi_queue", &m_roiQueue, NULL);
 
     //get gstreamer displaysink video overlay
     m_overlay = GST_VIDEO_OVERLAY(gst_bin_get_by_name(GST_BIN(dspSink), OVERLAY_NAME));
@@ -118,7 +115,7 @@ void HddlChannel::sendFps()
 void HddlChannel::fetchRoiData()
 {
     while (!m_stop) {
-        auto src = m_roiQueue.take();
+        auto src = BlockingQueue<std::shared_ptr<cv::UMat>>::instance().take();
         cv::Mat image;
         cv::resize(*src, image, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
         QByteArray* ba = new QByteArray((char*)image.data, image.total() * image.elemSize());

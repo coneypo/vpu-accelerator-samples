@@ -27,17 +27,17 @@ target_include_directories(${pluginname} PRIVATE .
 
 target_link_directories(${pluginname} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
-target_link_libraries(${pluginname} PRIVATE
+target_link_libraries(${pluginname}
         ${OpenCV_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
         ${GLIB2_LIBRARIES}
         gstinference
         OpenCL
-        utils_static
+        hddldemoutils
         gstmfx)
 
-add_dependencies(${pluginname} msdk-gst utils_static)
+add_dependencies(${pluginname} msdk-gst hddldemoutils)
 
 message(STATUS "Copy OpenCL kernel to: ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 

@@ -16,7 +16,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE
         ${Qt5Widgets_LIBRARIES}
         ${Qt5Network_LIBRARIES}
-        utils_static)
+        hddldemoutils)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 install(FILES "config.txt" DESTINATION "./")

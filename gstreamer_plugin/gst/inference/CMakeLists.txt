@@ -20,7 +20,7 @@ target_link_libraries(${pluginname}
         ${GSTVIDEO_LIBRARIES}
         ${GLIB2_LIBRARIES}
         ${Boost_LIBRARIES}
-        utils_static
+        hddldemoutils
         )
 
 install(TARGETS ${pluginname} DESTINATION lib)
