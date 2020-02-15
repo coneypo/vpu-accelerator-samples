@@ -34,9 +34,6 @@ private:
     uint32_t m_launchedNum { 0 }; // nums of launched hddlpipelines
     uint32_t m_embededNum { 0 }; // nums of launched hddlpipelines which are embeded in GUI
     std::vector<std::string> m_pipeline {}; // channel gstreamer pipeline
-    std::vector<std::string> m_mediaFiles {}; // channel media input files
-    QString m_classificationModelPath;
-    QString m_detectionModelPath;
 
     QTimer* m_pipelineTimer; // channel launch timer
     QTimer* m_totalFpsTimer; // total fps update timer

@@ -152,11 +152,6 @@ void HDDLDemo::channelRoiReceived(qintptr sp, QByteArray* ba)
 void HDDLDemo::initConfig()
 {
     m_pipeline = ConfigParser::instance()->getPipelines();
-    m_mediaFiles = ConfigParser::instance()->getMediaFiles();
-    Q_ASSERT(m_pipeline.size() == m_mediaFiles.size());
-    m_detectionModelPath = QString::fromStdString(ConfigParser::instance()->getDetectionModelPath());
-    m_classificationModelPath = QString::fromStdString(ConfigParser::instance()->getClassificationModelPath());
-
     m_rows = std::sqrt(m_pipeline.size());
     m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
 }
@@ -164,15 +159,12 @@ void HDDLDemo::initConfig()
 void HDDLDemo::runPipeline()
 {
     if (m_launchedNum < m_cols * m_rows) {
-        QProcess* gstreamer_process = new QProcess(this);
-        gstreamer_process->setProcessChannelMode(QProcess::ForwardedChannels);
-        QString gstreamer_cmd = QString("./hddlpipeline");
-        QString ipc_name = "/var/tmp/gstreamer_ipc_" + QString::number(m_launchedNum);
-        QString pipeline_format = QString::fromStdString(m_pipeline[m_launchedNum]);
-        QString media_file = QString::fromStdString(m_mediaFiles[m_launchedNum]);
-        auto arguments = pipeline_format.arg(media_file, m_detectionModelPath, ipc_name, ipc_name).split(" ");
+        QString hddlChannelCmd = QString("./hddlpipeline");
+        QProcess* hddlChannelProcess = new QProcess(this);
+        hddlChannelProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+        auto arguments = QString::fromStdString(m_pipeline[m_launchedNum]).split(" ");
         arguments.append(QString::number(m_launchedNum));
-        gstreamer_process->start(gstreamer_cmd, arguments);
+        hddlChannelProcess->start(hddlChannelCmd, arguments);
         m_launchedNum++;
     } else {
         m_pipelineTimer->stop();

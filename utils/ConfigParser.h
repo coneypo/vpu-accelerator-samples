@@ -7,6 +7,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -28,9 +29,7 @@ public:
     int getTimeout();
     PlayMode getPlayMode();
     std::vector<std::string> getPipelines();
-    std::vector<std::string> getMediaFiles();
-    std::string getDetectionModelPath();
-    std::string getClassificationModelPath();
+    std::vector<std::map<std::string, std::string>> getPipelineParams();
 
 private:
     ConfigParser() = default;
@@ -44,16 +43,12 @@ private:
     bool parsePipelines();
     bool parseTimeout();
     bool parsePlayMode();
-    bool parseDetectionModelPath();
-    bool parseClassficationModelPath();
-    bool parseMediaFiles();
+    void insertPipelineParams();
 
     std::vector<std::string> m_pipelines {};
-    std::vector<std::string> m_mediaFiles {};
+    std::vector<std::map<std::string, std::string>> m_params{};
     int m_timeout { 0 };
     PlayMode m_playMode { PlayMode::REPLAY };
-    std::string m_detectionModelPath {};
-    std::string m_classificationModelPath {};
 
     boost::property_tree::ptree m_ptree;
 };

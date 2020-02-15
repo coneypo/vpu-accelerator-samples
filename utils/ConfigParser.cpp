@@ -3,6 +3,7 @@
 //
 #include <boost/format.hpp>
 #include <fstream>
+#include <iostream>
 
 #include "ConfigParser.h"
 
@@ -26,17 +27,6 @@ bool ConfigParser::loadConfigFile(const std::string& filePath)
         return false;
     }
 
-    if (!parseClassficationModelPath()) {
-        return false;
-    }
-
-    if (!parseDetectionModelPath()) {
-        return false;
-    }
-
-    if (!parseMediaFiles()) {
-        return false;
-    }
     return true;
 }
 
@@ -76,6 +66,11 @@ std::vector<std::string> ConfigParser::getPipelines()
     return m_pipelines;
 }
 
+std::vector<std::map<std::string, std::string>> ConfigParser::getPipelineParams()
+{
+    return m_params;
+}
+
 int ConfigParser::getTimeout()
 {
     return m_timeout;
@@ -84,21 +79,6 @@ int ConfigParser::getTimeout()
 ConfigParser::PlayMode ConfigParser::getPlayMode()
 {
     return m_playMode;
-}
-
-std::string ConfigParser::getDetectionModelPath()
-{
-    return m_detectionModelPath;
-}
-
-std::string ConfigParser::getClassificationModelPath()
-{
-    return m_classificationModelPath;
-}
-
-std::vector<std::string> ConfigParser::getMediaFiles()
-{
-    return m_mediaFiles;
 }
 
 template <typename Type>
@@ -128,9 +108,51 @@ bool ConfigParser::parseList(const std::string& path, const std::string& subPath
     }
 }
 
+template <>
+bool ConfigParser::parseList(const std::string& path, const std::string& subPath, std::vector<std::map<std::string, std::string>>& result)
+{
+    try {
+        auto listNode = m_ptree.get_child(path);
+        for (auto& entry : listNode) {
+            auto& subNode = entry.second.get_child(subPath);
+            std::map<std::string, std::string> param;
+            for (auto& item : subNode) {
+                param.insert(std::make_pair(item.first, item.second.data()));
+            }
+            result.push_back(std::move(param));
+        }
+        return true;
+    } catch (...) {
+        printf("parse error");
+        return false;
+    }
+}
+
 bool ConfigParser::parsePipelines()
 {
-    return parseList("decode", "pipe", m_pipelines);
+    if (!parseList("decode", "pipe", m_pipelines)) {
+        return false;
+    }
+
+    if (!parseList("decode", "param", m_params)) {
+        return false;
+    }
+    insertPipelineParams();
+    return true;
+}
+
+void ConfigParser::insertPipelineParams()
+{
+    for (size_t index = 0; index < m_pipelines.size(); index++) {
+        for (auto& item : m_params[index]) {
+            std::string param = "${" + item.first + "}";
+            auto found = m_pipelines[index].find(param);
+            while (found != std::string::npos) {
+                m_pipelines[index].replace(found, param.length(), item.second);
+                found = m_pipelines[index].find(param, found+1);
+            }
+        }
+    }
 }
 
 bool ConfigParser::parseTimeout()
@@ -146,21 +168,6 @@ bool ConfigParser::parsePlayMode()
     }
     m_playMode = strToPlayMode(modeStr);
     return true;
-}
-
-bool ConfigParser::parseDetectionModelPath()
-{
-    return parse("app.detection", m_detectionModelPath);
-}
-
-bool ConfigParser::parseClassficationModelPath()
-{
-    return parse("app.classification", m_classificationModelPath);
-}
-
-bool ConfigParser::parseMediaFiles()
-{
-    return parseList("app.src", "path", m_mediaFiles);
 }
 
 static ConfigParser::PlayMode strToPlayMode(const std::string& str)

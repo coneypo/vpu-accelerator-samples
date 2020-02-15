@@ -3,7 +3,6 @@
 
 int main(int argc, char* argv[])
 {
-
     QApplication a(argc, argv);
     QString pipeline;
     for (int i = 1; i < argc - 1; i++) {
