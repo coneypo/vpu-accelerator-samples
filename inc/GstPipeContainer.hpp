@@ -20,6 +20,7 @@ public:
     GstElement* pipeline;
     GstElement* file_source;
     GstElement* parser;
+    GstElement* bypass;
     GstElement* dec;
     GstElement* tee;
     GstElement* vaapi_sink;

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <hvaPipeline.hpp>
-#include <infer_node.hpp>
+// #include <infer_node.hpp>
 #include <chrono>
 #include <thread>
 #include <util/jsonParser.hpp>
@@ -67,37 +67,37 @@ int main(){
         return -1;
     }
 
-    hva::hvaPipeline_t pl;
+    // hva::hvaPipeline_t pl;
 
-    InferInputParams_t paramsInfer;  // input param for infer
-    paramsInfer.filenameModel = detNetwork;
-    //paramsInfer.filenameModel = "/opt/yolotiny/yolotiny.blob";
-    paramsInfer.format = INFER_FORMAT_NV12;
-    paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2WithClassify;
-    paramsInfer.preproc = InferNodeWorker::preprocessNV12;
-    auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,1,STREAMS,paramsInfer), "DetectNode");
+    // InferInputParams_t paramsInfer;  // input param for infer
+    // paramsInfer.filenameModel = detNetwork;
+    // //paramsInfer.filenameModel = "/opt/yolotiny/yolotiny.blob";
+    // paramsInfer.format = INFER_FORMAT_NV12;
+    // paramsInfer.postproc = InferNodeWorker::postprocessTinyYolov2WithClassify;
+    // paramsInfer.preproc = InferNodeWorker::preprocessNV12;
+    // auto& detectNode = pl.setSource(std::make_shared<InferNode>(1,1,STREAMS,paramsInfer), "DetectNode");
 
-    paramsInfer.filenameModel = clsNetwork;
-    //paramsInfer.filenameModel = "/opt/resnet/resnet.blob";
-    paramsInfer.format = INFER_FORMAT_NV12;
-    paramsInfer.postproc = InferNodeWorker::postprocessClassification;
-    paramsInfer.preproc = InferNodeWorker::preprocessNV12_ROI;
-    auto& classifyNode = pl.setSource(std::make_shared<InferNode>(1,0,STREAMS,paramsInfer), "ClassifyNode");
+    // paramsInfer.filenameModel = clsNetwork;
+    // //paramsInfer.filenameModel = "/opt/resnet/resnet.blob";
+    // paramsInfer.format = INFER_FORMAT_NV12;
+    // paramsInfer.postproc = InferNodeWorker::postprocessClassification;
+    // paramsInfer.preproc = InferNodeWorker::preprocessNV12_ROI;
+    // auto& classifyNode = pl.setSource(std::make_shared<InferNode>(1,0,STREAMS,paramsInfer), "ClassifyNode");
 
-    pl.linkNode("DetectNode", 0, "ClassifyNode", 0);
+    // pl.linkNode("DetectNode", 0, "ClassifyNode", 0);
 
-    hva::hvaBatchingConfig_t config;
-    config.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
-    config.batchSize = 1;
-    config.streamNum = STREAMS;
-    config.threadNumPerBatch = 1;
+    // hva::hvaBatchingConfig_t config;
+    // config.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+    // config.batchSize = 1;
+    // config.streamNum = STREAMS;
+    // config.threadNumPerBatch = 1;
 
-    detectNode.configBatch(config);
-    // classifyNode.configBatch(config);
+    // detectNode.configBatch(config);
+    // // classifyNode.configBatch(config);
 
-    pl.prepare();
+    // pl.prepare();
 
-    pl.start();
+    // pl.start();
 
     std::vector<std::thread*> vTh;
     vTh.reserve(STREAMS);
@@ -112,7 +112,9 @@ int main(){
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(cont.read(blob)){
-                        pl.sendToPort(blob,"DetectNode",0,ms(0));
+                        // pl.sendToPort(blob,"DetectNode",0,ms(0));
+                        int fd = *(blob.get<int, InfoROI_t>(0)->getPtr());
+                        std::cout<<"FD received is "<<fd<<std::endl;
                         blob.reset(new hva::hvaBlob_t());
                     }
                     // std::cout<<"Finished"<<std::endl;
@@ -127,7 +129,7 @@ int main(){
 
     std::cout<<"Going to stop pipeline."<<std::endl;
 
-    pl.stop();
+    // pl.stop();
 
     return 0;
 
