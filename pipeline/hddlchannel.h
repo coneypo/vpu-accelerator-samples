@@ -8,9 +8,9 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/videooverlay.h>
-#include <opencv2/opencv.hpp>
 #include <thread>
 
+#include "pipeline.h"
 #include "utils/messagetype.h"
 
 using namespace std::chrono;
@@ -41,17 +41,12 @@ protected:
 private:
     void fetchRoiData();
     void sendRoiData(QByteArray* ba);
-    static gboolean busCallBack(GstBus* bus, GstMessage* msg, gpointer data);
 
     int m_id;
-    GstElement* m_pipeline { nullptr };
-    GstElement* m_displaySink { nullptr };
-    GstVideoOverlay* m_overlay { nullptr };
-    FpsStat* m_probPad { nullptr };
     MessageDispatcher* m_dispatcher { nullptr };
-
-    std::thread m_roiThread;
+    std::shared_ptr<Pipeline> m_pipeline { nullptr };
     std::atomic<bool> m_stop { false };
+    std::thread m_roiThread;
 };
 
 #endif // HDDLPIPELINE_H
