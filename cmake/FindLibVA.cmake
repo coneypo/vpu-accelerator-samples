@@ -1,4 +1,4 @@
-find_package()(PkgConfig)
+find_package(PkgConfig)
 pkg_check_modules (LIBVA REQUIRED libva>=1.0.0)
 
 # set (LIBVA_LIBS "")

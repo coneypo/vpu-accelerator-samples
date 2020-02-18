@@ -1,8 +1,19 @@
 # find_package(InferenceEngine REQUIRED HINTS "/opt/intel/dldt/inference-engine/build")
 
-find_package(LibVA)
+find_package(LibVA REQUIRED)
 
-set(SAMPLE_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../inc")
+find_package(Gstreamer REQUIRED)
+find_package(Glib REQUIRED)
+
+find_path(BOOST_INC_DIR NAMES boost/property_tree/json_parser.hpp
+	HINTS $ENV{INSTALL_DIR}/include)
+if(NOT BOOST_INC_DIR)
+	message(FATAL_ERROR "BOOST header not found. hints path: $ENV{INSTALL_DIR}/include/boost")
+endif()
+
+message(INFO "boost header: ${BOOST_INC_DIR}")
+
+set(SAMPLE_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../inc")
 
 file(GLOB_RECURSE SAMPLE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
@@ -22,8 +33,8 @@ target_link_libraries(GstHvaSampleDecOnly hva)
 
 target_link_libraries(GstHvaSampleDecOnly "${LIBVA_LIBRARIES}")
 
-get_target_property(SAMPLE_INC_DIR GstHvaSample INCLUDE_DIRECTORIES)
+get_target_property(SAMPLE_INC_DIR GstHvaSampleDecOnly INCLUDE_DIRECTORIES)
 message("SAMPLE_INC_DIR: ${SAMPLE_INC_DIR}")
 
-get_target_property(NEW_SAMPLE_LINK_FLAGS GstHvaSample LINK_FLAGS)
+get_target_property(NEW_SAMPLE_LINK_FLAGS GstHvaSampleDecOnly LINK_FLAGS)
 message("NEW_SAMPLE_LINK_FLAGS: ${NEW_SAMPLE_LINK_FLAGS}")
