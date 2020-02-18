@@ -18,9 +18,6 @@
 HddlChannel::HddlChannel(int channelId, QWidget* parent)
     : QMainWindow(parent)
     , m_id(channelId)
-    , m_client(nullptr)
-    , m_probPad(nullptr)
-    , m_stop(false)
 {
     QWidget* container = new QWidget(this);
     setCentralWidget(container);
@@ -28,6 +25,7 @@ HddlChannel::HddlChannel(int channelId, QWidget* parent)
     this->resize(QApplication::primaryScreen()->size());
 
     m_roiThread = std::thread(&HddlChannel::fetchRoiData, this);
+    connect(this, &HddlChannel::roiReady, this, &HddlChannel::sendRoiData);
 }
 
 HddlChannel::~HddlChannel()
@@ -65,13 +63,8 @@ bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySink
     GstPad* sinkPad = gst_element_get_static_pad(dspSink, "sink");
     Q_ASSERT(sinkPad != nullptr);
     m_probPad = new FpsStat(sinkPad);
+    startTimer(1000);
 
-    m_fpstimer = new QTimer(this);
-    m_fpstimer->setInterval(1000);
-    connect(m_fpstimer, &QTimer::timeout, this, &HddlChannel::sendFps);
-    connect(this, &HddlChannel::roiReady, this, &HddlChannel::sendRoiData);
-
-    m_fpstimer->start();
     return true;
 }
 
@@ -82,6 +75,7 @@ bool HddlChannel::initConnection(QString serverPath)
         return false;
     };
     m_client->sendWinId(this->winId());
+    connect(m_client, &AppConnector::actionReceived, this, &HddlChannel::processAction);
     return true;
 }
 
@@ -106,10 +100,31 @@ void HddlChannel::resizeEvent(QResizeEvent* event)
     QMainWindow::resizeEvent(event);
 }
 
-void HddlChannel::sendFps()
+void HddlChannel::timerEvent(QTimerEvent* event)
 {
     auto fps = m_probPad->getRenderFps();
     m_client->sendString(QString::number(fps, 'f', 2));
+}
+
+
+void HddlChannel::processAction(PipelineAction action)
+{
+    QString actionStr;
+    switch(action){
+    case MESSAGE_START:
+        actionStr = "Start";
+        break;
+    case MESSAGE_STOP:
+        actionStr = "Stop";
+        break;
+
+    case MESSAGE_REPLAY:
+        actionStr = "Replay";
+        break;
+    default:
+        actionStr = "Unknown";
+    }
+    qDebug()<<"receive action:"<<actionStr;
 }
 
 void HddlChannel::fetchRoiData()

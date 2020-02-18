@@ -11,6 +11,8 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 
+#include "utils/messagetype.h"
+
 using namespace std::chrono;
 
 class AppConnector;
@@ -29,24 +31,26 @@ public:
 Q_SIGNALS:
     void roiReady(QByteArray* ba);
 
+public Q_SLOTS:
+    void processAction(PipelineAction action);
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void timerEvent(QTimerEvent* event) override;
 
 private:
-    void sendFps();
     void fetchRoiData();
     void sendRoiData(QByteArray* ba);
     static gboolean busCallBack(GstBus* bus, GstMessage* msg, gpointer data);
 
     int m_id;
-    GstElement* m_pipeline;
-    GstVideoOverlay* m_overlay;
-    AppConnector* m_client;
-    FpsStat* m_probPad;
-    QTimer* m_fpstimer;
+    GstElement* m_pipeline { nullptr };
+    GstVideoOverlay* m_overlay { nullptr };
+    FpsStat* m_probPad { nullptr };
+    AppConnector* m_client { nullptr };
 
     std::thread m_roiThread;
-    std::atomic<bool> m_stop;
+    std::atomic<bool> m_stop { false };
 };
 
 #endif // HDDLPIPELINE_H

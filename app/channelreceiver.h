@@ -4,6 +4,7 @@
 #include <QMap>
 #include <QObject>
 #include <QtGui>
+#include "utils/messagetype.h"
 
 class QLocalServer;
 class QLocalSocket;
@@ -25,6 +26,7 @@ Q_SIGNALS:
 
 public Q_SLOTS:
     void ConnectionArrived();
+    void sendAction(PipelineAction action);
     //void disconnectedCallBack();
 
 private:

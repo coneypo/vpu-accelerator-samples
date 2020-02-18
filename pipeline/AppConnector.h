@@ -4,8 +4,11 @@
 #include <QDataStream>
 #include <QObject>
 #include <QtGui>
+#include <atomic>
 #include <functional>
 #include <memory>
+
+#include "utils/messagetype.h"
 
 class QLocalSocket;
 
@@ -24,10 +27,15 @@ public:
 public Q_SLOTS:
     void connectedCallBack();
     void disconnectedCallBack();
+    void messageReceived();
+
+Q_SIGNALS:
+    void actionReceived(PipelineAction action);
 
 private:
-    QString m_socketName;
-    QLocalSocket* m_socket;
+    QString m_socketName {};
+    QLocalSocket* m_socket { nullptr };
+    std::atomic<bool> m_stop { false };
 };
 
 #endif // SOCKETCLIENT_H

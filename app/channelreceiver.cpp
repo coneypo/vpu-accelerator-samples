@@ -44,6 +44,18 @@ void ChannelReceiver::ConnectionArrived()
     m_curMsgLength.insert(sp, 0);
 }
 
+void ChannelReceiver::sendAction(PipelineAction action)
+{
+    for (auto& clientSocket : m_clientSocket) {
+        QDataStream out(clientSocket);
+        out.setVersion(QDataStream::Qt_5_5);
+        out << (quint32)sizeof(quint32) * 2;
+        out << (quint32)MESSAGE_ACTION;
+        out << (quint32)MESSAGE_STOP;
+        clientSocket->waitForBytesWritten();
+    }
+}
+
 void ChannelReceiver::MessageRecieved(qintptr sp)
 {
     while (!m_dataStream[sp]->atEnd()) {
@@ -74,7 +86,7 @@ void ChannelReceiver::MessageRecieved(qintptr sp)
                 Q_EMIT ImageReceived(sp, image);
                 break;
             }
-            case Message_STRING: {
+            case MESSAGE_STRING: {
                 QString text;
                 *m_dataStream[sp] >> text;
                 Q_EMIT StringReceived(sp, text);

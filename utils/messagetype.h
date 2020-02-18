@@ -4,9 +4,16 @@
 enum MessageType {
     MESSAGE_UNKNOWN = 0,
     MESSAGE_WINID,
-    Message_STRING,
+    MESSAGE_STRING,
     MESSAGE_IMAGE,
-    MESSAGE_BYTEARRAY
+    MESSAGE_BYTEARRAY,
+    MESSAGE_ACTION
+};
+
+enum PipelineAction {
+    MESSAGE_START,
+    MESSAGE_STOP,
+    MESSAGE_REPLAY
 };
 
 #endif // MESSAGETYPE
