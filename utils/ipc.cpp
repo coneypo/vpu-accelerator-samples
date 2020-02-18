@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
-#include "utils/IPC.h"
+#include "utils/ipc.h"
 //#include "utils/ScopeGuard.h"
 
 namespace HddlUnite {

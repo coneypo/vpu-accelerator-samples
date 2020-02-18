@@ -1,4 +1,4 @@
-#include "AppConnector.h"
+#include "messagedispatcher.h"
 #include "messagetype.h"
 #include <QImage>
 #include <QLocalSocket>
@@ -6,7 +6,7 @@
 #include <QTimer>
 #include <thread>
 
-AppConnector::AppConnector(QString socketName, QObject* parent)
+MessageDispatcher::MessageDispatcher(const QString& socketName, QObject* parent)
     : QObject(parent)
     , m_socketName(socketName)
 {
@@ -17,19 +17,18 @@ AppConnector::AppConnector(QString socketName, QObject* parent)
     connect(m_socket, SIGNAL(readyRead()), this, SLOT(messageReceived()));
 }
 
-bool AppConnector::connectServer()
+bool MessageDispatcher::connectServer()
 {
     m_socket->connectToServer(m_socketName);
     return m_socket->waitForConnected(10000);
 }
 
-void AppConnector::close()
+void MessageDispatcher::close()
 {
-    m_stop = true;
     m_socket->abort();
 }
 
-void AppConnector::sendByteArray(QByteArray* ba)
+void MessageDispatcher::sendByteArray(QByteArray* ba)
 {
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
@@ -41,7 +40,7 @@ void AppConnector::sendByteArray(QByteArray* ba)
     m_socket->flush();
 }
 
-void AppConnector::sendImage(QImage* image)
+void MessageDispatcher::sendImage(QImage* image)
 {
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
@@ -56,7 +55,7 @@ void AppConnector::sendImage(QImage* image)
     m_socket->flush();
 }
 
-void AppConnector::sendString(QString text)
+void MessageDispatcher::sendString(const QString& text)
 {
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
@@ -71,7 +70,7 @@ void AppConnector::sendString(QString text)
     m_socket->flush();
 }
 
-void AppConnector::sendWinId(WId winid)
+void MessageDispatcher::sendWinId(WId winid)
 {
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
@@ -86,17 +85,17 @@ void AppConnector::sendWinId(WId winid)
     m_socket->flush();
 }
 
-void AppConnector::connectedCallBack()
+void MessageDispatcher::connectedCallBack()
 {
     qDebug() << "socket is connected";
 }
 
-void AppConnector::disconnectedCallBack()
+void MessageDispatcher::disconnectedCallBack()
 {
     qDebug() << "socket is disconnected";
 }
 
-void AppConnector::messageReceived()
+void MessageDispatcher::messageReceived()
 {
     QDataStream dataStream(m_socket);
     dataStream.setVersion(QDataStream::Qt_5_5);

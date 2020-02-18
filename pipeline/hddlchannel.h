@@ -15,7 +15,7 @@
 
 using namespace std::chrono;
 
-class AppConnector;
+class MessageDispatcher;
 class FpsStat;
 class QTimer;
 
@@ -24,8 +24,8 @@ class HddlChannel : public QMainWindow {
 public:
     explicit HddlChannel(int channelId, QWidget* parent = 0);
     virtual ~HddlChannel();
-    bool initConnection(QString serverPath = "hddldemo");
-    bool setupPipeline(QString pipelineDescription, QString displaySinkName);
+    bool initConnection(const QString& serverPath = "hddldemo");
+    bool setupPipeline(const QString& pipelineDescription, const QString& displaySinkName);
     void run();
 
 Q_SIGNALS:
@@ -48,7 +48,7 @@ private:
     GstElement* m_displaySink { nullptr };
     GstVideoOverlay* m_overlay { nullptr };
     FpsStat* m_probPad { nullptr };
-    AppConnector* m_client { nullptr };
+    MessageDispatcher* m_dispatcher { nullptr };
 
     std::thread m_roiThread;
     std::atomic<bool> m_stop { false };

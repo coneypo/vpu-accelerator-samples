@@ -9,11 +9,11 @@
 class QLocalServer;
 class QLocalSocket;
 
-class ChannelReceiver : public QObject {
+class Dispatcher : public QObject {
     Q_OBJECT
 public:
-    explicit ChannelReceiver(QString name, QObject* parent = 0);
-    virtual ~ChannelReceiver();
+    explicit Dispatcher(const QString& name, QObject* parent = 0);
+    virtual ~Dispatcher();
 
     void close();
     void MessageRecieved(qintptr);

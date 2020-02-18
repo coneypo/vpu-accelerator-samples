@@ -1,7 +1,7 @@
 #include "hddldemo.h"
-#include "ConfigParser.h"
-#include "channelreceiver.h"
+#include "configparser.h"
 #include "cropdefs.h"
+#include "dispatcher.h"
 #include "messagetype.h"
 #include "ui_hddldemo.h"
 
@@ -97,10 +97,10 @@ HDDLDemo::HDDLDemo(QWidget* parent)
         }
     }
 
-    m_server = new ChannelReceiver("hddldemo", this);
-    connect(m_server, &ChannelReceiver::WIDReceived, this, &HDDLDemo::channelWIDReceived);
-    connect(m_server, &ChannelReceiver::StringReceived, this, &HDDLDemo::channelFpsReceived);
-    connect(m_server, &ChannelReceiver::ByteArrayReceived, this, &HDDLDemo::channelRoiReceived);
+    m_dispatcher = new Dispatcher("hddldemo", this);
+    connect(m_dispatcher, &Dispatcher::WIDReceived, this, &HDDLDemo::channelWIDReceived);
+    connect(m_dispatcher, &Dispatcher::StringReceived, this, &HDDLDemo::channelFpsReceived);
+    connect(m_dispatcher, &Dispatcher::ByteArrayReceived, this, &HDDLDemo::channelRoiReceived);
     connect(m_pipelineTimer, &QTimer::timeout, this, &HDDLDemo::runPipeline);
     connect(m_totalFpsTimer, &QTimer::timeout, this, &HDDLDemo::updateTotalFps);
 

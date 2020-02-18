@@ -5,7 +5,7 @@
 #include <QMap>
 #include <QWindow>
 
-class ChannelReceiver;
+class Dispatcher;
 class QLabel;
 
 namespace Ui {
@@ -41,7 +41,7 @@ private:
     QMap<qintptr, qint32> m_socketToIndex;
     QMap<qint32, int> m_channelToRoiNum;
 
-    ChannelReceiver* m_server;
+    Dispatcher* m_dispatcher;
     Ui::HDDLDemo* ui;
 };
 

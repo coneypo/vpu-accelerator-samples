@@ -4,7 +4,7 @@
 #include <boost/format.hpp>
 #include <iostream>
 
-#include "ConfigParser.h"
+#include "configparser.h"
 
 static ConfigParser::PlayMode strToPlayMode(const std::string& str);
 

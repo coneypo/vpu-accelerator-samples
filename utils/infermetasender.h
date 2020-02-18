@@ -5,7 +5,7 @@
 #ifndef HDDLDEMO_INFERMETASENDER_H
 #define HDDLDEMO_INFERMETASENDER_H
 
-#include "utils/IPC.h"
+#include "utils/ipc.h"
 #include <iostream>
 #include <thread>
 

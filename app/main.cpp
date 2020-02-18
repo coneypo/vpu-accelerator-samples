@@ -1,4 +1,4 @@
-#include "ConfigParser.h"
+#include "configparser.h"
 #include "hddldemo.h"
 #include <QApplication>
 #include <getopt.h>

@@ -1,8 +1,8 @@
 #include "hddlchannel.h"
-#include "AppConnector.h"
 #include "blockingqueue.h"
 #include "cropdefs.h"
 #include "fpsstat.h"
+#include "messagedispatcher.h"
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -24,8 +24,9 @@ HddlChannel::HddlChannel(int channelId, QWidget* parent)
     container->setStyleSheet("background-color: rgb(50, 50, 78);");
     this->resize(QApplication::primaryScreen()->size());
 
-    m_roiThread = std::thread(&HddlChannel::fetchRoiData, this);
     connect(this, &HddlChannel::roiReady, this, &HddlChannel::sendRoiData);
+
+    m_roiThread = std::thread(&HddlChannel::fetchRoiData, this);
 }
 
 HddlChannel::~HddlChannel()
@@ -38,10 +39,12 @@ HddlChannel::~HddlChannel()
     gst_object_unref(m_pipeline);
 
     m_stop.store(true);
-    m_roiThread.join();
+    if (m_roiThread.joinable()) {
+        m_roiThread.join();
+    }
 }
 
-bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySinkName)
+bool HddlChannel::setupPipeline(const QString& pipelineDescription, const QString& displaySinkName)
 {
     // init gstreamer
     gst_init(NULL, NULL);
@@ -68,14 +71,14 @@ bool HddlChannel::setupPipeline(QString pipelineDescription, QString displaySink
     return true;
 }
 
-bool HddlChannel::initConnection(QString serverPath)
+bool HddlChannel::initConnection(const QString& serverPath)
 {
-    m_client = new AppConnector(serverPath, this);
-    if (!m_client->connectServer()) {
+    m_dispatcher = new MessageDispatcher(serverPath, this);
+    if (!m_dispatcher->connectServer()) {
         return false;
     };
-    m_client->sendWinId(this->winId());
-    connect(m_client, &AppConnector::actionReceived, this, &HddlChannel::processAction);
+    m_dispatcher->sendWinId(this->winId());
+    connect(m_dispatcher, &MessageDispatcher::actionReceived, this, &HddlChannel::processAction);
     return true;
 }
 
@@ -103,7 +106,7 @@ void HddlChannel::resizeEvent(QResizeEvent* event)
 void HddlChannel::timerEvent(QTimerEvent* event)
 {
     auto fps = m_probPad->getRenderFps();
-    m_client->sendString(QString::number(fps, 'f', 2));
+    m_dispatcher->sendString(QString::number(fps, 'f', 2));
 }
 
 void HddlChannel::processAction(PipelineAction action)
@@ -124,7 +127,7 @@ void HddlChannel::processAction(PipelineAction action)
         break;
     }
     default:
-        qDebug()<<"Unrecognized action";
+        qDebug() << "Unrecognized action";
     }
 }
 
@@ -141,7 +144,7 @@ void HddlChannel::fetchRoiData()
 
 void HddlChannel::sendRoiData(QByteArray* ba)
 {
-    m_client->sendByteArray(ba);
+    m_dispatcher->sendByteArray(ba);
     delete ba;
 }
 

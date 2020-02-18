@@ -1,4 +1,4 @@
-#include "channelreceiver.h"
+#include "dispatcher.h"
 #include "messagetype.h"
 #include <QDataStream>
 #include <QImage>
@@ -6,7 +6,7 @@
 #include <QLocalSocket>
 #include <QtEndian>
 
-ChannelReceiver::ChannelReceiver(QString name, QObject* parent)
+Dispatcher::Dispatcher(const QString& name, QObject* parent)
     : QObject(parent)
     , m_name(name)
 {
@@ -17,16 +17,15 @@ ChannelReceiver::ChannelReceiver(QString name, QObject* parent)
                  << m_name << ":" << m_server->errorString();
         close();
     }
-
     connect(m_server, SIGNAL(newConnection()), this, SLOT(ConnectionArrived()));
 }
-ChannelReceiver::~ChannelReceiver()
+Dispatcher::~Dispatcher()
 {
     close();
     qDebug() << "socket server is closed";
 }
 
-void ChannelReceiver::ConnectionArrived()
+void Dispatcher::ConnectionArrived()
 {
     QLocalSocket* clientSocket = m_server->nextPendingConnection();
     qintptr sp = clientSocket->socketDescriptor();
@@ -44,7 +43,7 @@ void ChannelReceiver::ConnectionArrived()
     m_curMsgLength.insert(sp, 0);
 }
 
-void ChannelReceiver::sendAction(PipelineAction action)
+void Dispatcher::sendAction(PipelineAction action)
 {
     for (auto& clientSocket : m_clientSocket) {
         QDataStream out(clientSocket);
@@ -56,7 +55,7 @@ void ChannelReceiver::sendAction(PipelineAction action)
     }
 }
 
-void ChannelReceiver::MessageRecieved(qintptr sp)
+void Dispatcher::MessageRecieved(qintptr sp)
 {
     while (!m_dataStream[sp]->atEnd()) {
         /*
@@ -115,7 +114,7 @@ void ChannelReceiver::MessageRecieved(qintptr sp)
     }
 }
 
-void ChannelReceiver::close()
+void Dispatcher::close()
 {
     m_clientSocket.clear();
 

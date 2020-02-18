@@ -5,7 +5,7 @@
  * and pass them to the downstream element.
  */
 
-#include "IPC.h"
+#include "ipc.h"
 #include <atomic>
 #include <boost/algorithm/string.hpp>
 #include <chrono>
