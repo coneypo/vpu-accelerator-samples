@@ -1,8 +1,8 @@
 #include "hddlchannel.h"
 #include "AppConnector.h"
+#include "blockingqueue.h"
 #include "cropdefs.h"
 #include "fpsstat.h"
-#include "blockingqueue.h"
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -106,25 +106,26 @@ void HddlChannel::timerEvent(QTimerEvent* event)
     m_client->sendString(QString::number(fps, 'f', 2));
 }
 
-
 void HddlChannel::processAction(PipelineAction action)
 {
     QString actionStr;
-    switch(action){
+    switch (action) {
     case MESSAGE_START:
-        actionStr = "Start";
+        gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
         break;
     case MESSAGE_STOP:
-        actionStr = "Stop";
+        gst_element_set_state(m_pipeline, GST_STATE_PAUSED);
         break;
 
-    case MESSAGE_REPLAY:
-        actionStr = "Replay";
+    case MESSAGE_REPLAY: {
+        gst_pad_push_event(gst_element_get_static_pad(m_displaySink, "src"), gst_event_new_eos());
+        gst_element_seek_simple(m_pipeline, GST_FORMAT_TIME, GST_SEEK_FLAG_KEY_UNIT, 0);
+        gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
         break;
-    default:
-        actionStr = "Unknown";
     }
-    qDebug()<<"receive action:"<<actionStr;
+    default:
+        qDebug()<<"Unrecognized action";
+    }
 }
 
 void HddlChannel::fetchRoiData()

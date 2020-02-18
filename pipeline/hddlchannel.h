@@ -45,6 +45,7 @@ private:
 
     int m_id;
     GstElement* m_pipeline { nullptr };
+    GstElement* m_displaySink { nullptr };
     GstVideoOverlay* m_overlay { nullptr };
     FpsStat* m_probPad { nullptr };
     AppConnector* m_client { nullptr };
