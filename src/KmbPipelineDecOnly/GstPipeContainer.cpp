@@ -211,7 +211,6 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
             gst_memory_unref(mem);
             std::cout<<"Get fd from gstmemory failed!"<<std::endl;
             return false;
-            } 
         }
     }
 

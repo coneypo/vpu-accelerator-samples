@@ -108,16 +108,20 @@ int main(){
         // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
                     GstPipeContainer cont(i);
-                    cont.init(videoFile);
+                    if(!cont.init(videoFile)){
+                        std::cout<<"Fail to init cont!"<<std::endl;
+                        return;
+                    }
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(cont.read(blob)){
                         // pl.sendToPort(blob,"DetectNode",0,ms(0));
-                        int fd = *(blob.get<int, InfoROI_t>(0)->getPtr());
+                        int* fd = blob->get<int, std::pair<unsigned,unsigned>>(0)->getPtr();
                         std::cout<<"FD received is "<<fd<<std::endl;
                         blob.reset(new hva::hvaBlob_t());
                     }
                     // std::cout<<"Finished"<<std::endl;
+                    return;
                 }));
     }
 
