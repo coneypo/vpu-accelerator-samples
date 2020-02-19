@@ -15,7 +15,7 @@ message(INFO "boost header: ${BOOST_INC_DIR}")
 
 set(SAMPLE_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../inc")
 
-file(GLOB_RECURSE SAMPLE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../*.cpp)
+file(GLOB_RECURSE SAMPLE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../util/*.cpp)
 
 add_executable(GstHvaSampleDecOnly "${SAMPLE_SRC}")
 target_include_directories(GstHvaSampleDecOnly PUBLIC "$<BUILD_INTERFACE:${SAMPLE_INC_DIR}>")
