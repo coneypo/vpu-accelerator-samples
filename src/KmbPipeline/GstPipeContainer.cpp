@@ -6,7 +6,7 @@
 //#include <vpusmm/vpusmm.h>
 
 GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(nullptr), tee(nullptr),
-            parser(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
+            parser(nullptr), bypass(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
             m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr),
             capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0){
 }
@@ -14,6 +14,7 @@ GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(
 int GstPipeContainer::init(std::string filename){
     file_source = gst_element_factory_make("filesrc", "file_source");
     parser = gst_element_factory_make("h264parse", "parser");
+    bypass = gst_element_factory_make("bypass","bypass");
     dec = gst_element_factory_make("vaapih264dec", "dec");
     app_queue = gst_element_factory_make("queue", "app_queue");
     app_sink = gst_element_factory_make("appsink", "appsink");
@@ -26,7 +27,7 @@ int GstPipeContainer::init(std::string filename){
 #endif
     pipeline = gst_pipeline_new("pipeline");
 
-    if(!file_source || !parser || !dec || !app_sink || !app_queue || !pipeline
+    if(!file_source || !parser || !bypass || !dec || !app_sink || !app_queue || !pipeline
 #ifdef ENBALE_DISPLAY
             || !vaapi_queue || !vaapi_sink || !tee
 #else
@@ -58,9 +59,9 @@ int GstPipeContainer::init(std::string filename){
     g_object_set(file_source, "location", filename.c_str(), NULL);
 
 #ifdef ENABLE_DISPLAY
-    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, dec,
+    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, bypass, dec,
             tee, vaapi_queue, app_queue, vaapi_sink, app_sink, NULL);
-    if(!gst_element_link_many(file_source, parser, dec, tee, NULL)){
+    if(!gst_element_link_many(file_source, parser, bypass, dec, tee, NULL)){
         return -2;
     }
 
@@ -71,10 +72,10 @@ int GstPipeContainer::init(std::string filename){
         return -2;
     }
 #else
-    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, dec, capsfilter,
+    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, bypass, dec, capsfilter,
             app_queue, app_sink, NULL);
 
-    if(!gst_element_link_many(file_source, parser, dec, capsfilter, app_queue, app_sink, NULL)){
+    if(!gst_element_link_many(file_source, parser, bypass, dec, capsfilter, app_queue, app_sink, NULL)){
         return -2;
     }
 #endif
@@ -95,6 +96,31 @@ int GstPipeContainer::init(std::string filename){
     gst_object_unref(vaapi_pad);
     gst_object_unref(app_pad);
 #endif
+
+    GstStructure* structure = gst_structure_new ("WIDQuery",
+        "BypassQueryType", G_TYPE_STRING, "WorkloadContextQuery", NULL);
+    GstQuery* query = gst_query_new_custom (GST_QUERY_CUSTOM, structure);
+
+    if(!gst_element_query(bypass, query)){
+        std::cout<<"Fail to query workload context!"<<std::endl;
+        gst_query_unref(query);
+        return -4;
+    }
+
+    structure = nullptr;
+
+    uint64_t WID = -1;
+    const GstStructure* WIDRet = gst_query_get_structure (query);;
+
+    if(!gst_structure_get_uint64(WIDRet,"WorkloadContextId", &WID)){
+        std::cout<<"Fail to get Workload Contex ID from gst structure!"<<std::endl;
+        gst_query_unref(query);
+        return -5;
+    }
+
+    std::cout<<"WID Received: "<<WID<<std::endl;
+
+    gst_query_unref(query);
 
     return 0;
 }
