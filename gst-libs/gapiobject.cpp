@@ -79,6 +79,12 @@ gboolean render_sync(GstBuffer *outbuf, GstVideoInfo *sink_info,
     g_assert(sink_info != NULL);
     g_assert(src_info != NULL);
     g_assert(prims_pointer != NULL);
+
+    // judge if have objects need to draw
+    if (((cv::gapi::wip::draw::Prims *)prims_pointer)->size() == 0) {
+        return TRUE;
+    }
+
     GstMapInfo info;
     GstMapFlags mapFlag = GstMapFlags(GST_MAP_READ | GST_MAP_WRITE);
     //map buf to info
