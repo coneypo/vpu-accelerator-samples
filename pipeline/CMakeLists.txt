@@ -14,6 +14,7 @@ add_dependencies(${TARGET_NAME} hddldemoutils)
 target_include_directories(${TARGET_NAME} PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
         ${GSTVIDEO_INCLUDE_DIRS}
+        ${GIO_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Qt5Widgets_INCLUDE_DIR}
         ${Qt5Network_INCLUDE_DIR})
@@ -25,6 +26,7 @@ target_link_libraries(${TARGET_NAME}
         ${Qt5Network_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
+        ${GIO_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT})
 
 

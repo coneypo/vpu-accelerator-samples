@@ -5,7 +5,14 @@
 #include "pipeline.h"
 #include "fpsstat.h"
 
+#include <gio/gio.h>
+#include <gst/gstclock.h>
+
 #define OVERLAY_NAME "mfxsink0"
+
+static void timerAsync(gint32 timeout, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData);
+static void timerThread(GTask* task, gpointer source, gpointer userData, GCancellable* cancellable);
+static void timerCallBack(GObject* source, GAsyncResult* res, gpointer userData);
 
 Pipeline::~Pipeline()
 {
@@ -37,12 +44,19 @@ bool Pipeline::parse(const char* pipeline, const char* displaySink)
     return true;
 }
 
-bool Pipeline::run(guintptr winhandler)
+bool Pipeline::run(guintptr winhandler, int timeout)
 {
     if (m_overlay) {
         gst_video_overlay_set_window_handle(m_overlay, winhandler);
     }
     auto ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
+
+    if (timeout > 0) {
+        GCancellable* cancellable = g_cancellable_new();
+        timerAsync(timeout, cancellable, timerCallBack, m_pipeline);
+        g_object_unref(cancellable);
+    }
+
     return !(ret == GST_STATE_CHANGE_FAILURE);
 }
 
@@ -102,10 +116,41 @@ gboolean Pipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
 
     case GST_MESSAGE_EOS:
         GST_DEBUG("EOS");
+        g_print("eos\n");
         obj->m_fpsProb->reset();
         break;
     default:
         break;
     }
     return true;
+}
+
+void timerAsync(gint32 timeout, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)
+{
+    GTask* task = g_task_new(NULL, cancellable, callback, userData);
+    g_task_set_task_data(task, GINT_TO_POINTER(timeout), NULL);
+    g_task_run_in_thread(task, timerThread);
+    g_object_unref(task);
+}
+
+void timerThread(GTask* task, gpointer source, gpointer userData, GCancellable* cancellable)
+{
+    GstClock* clock;
+    GstClockID id;
+    GstClockTime base;
+    gint32 time = GPOINTER_TO_INT(userData);
+
+    clock = gst_system_clock_obtain();
+    base = gst_clock_get_time(clock);
+    id = gst_clock_new_single_shot_id(clock, base + time * GST_SECOND);
+    gst_clock_id_wait(id, NULL);
+    gst_clock_id_unschedule(id);
+    gst_clock_id_unref(id);
+    gst_object_unref(clock);
+}
+
+void timerCallBack(GObject* source, GAsyncResult* res, gpointer userData)
+{
+    GstElement* pipeline = GST_ELEMENT(userData);
+    gst_element_set_state(pipeline, GST_STATE_PAUSED);
 }

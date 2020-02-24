@@ -14,6 +14,7 @@ pkg_check_modules(GLIB2 REQUIRED glib-2.0)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTVIDEO REQUIRED gstreamer-video-1.0)
 pkg_check_modules(GSTAPP REQUIRED gstreamer-app-1.0)
+pkg_check_modules(GIO REQUIRED gio-2.0)
 
 
 set(CMAKE_CXX_STANDARD 11)

@@ -19,7 +19,7 @@ public:
     Pipeline() = default;
     virtual ~Pipeline();
     bool parse(const char* pipeline, const char* displaySink);
-    bool run(guintptr winhandler);
+    bool run(guintptr winhandler, int timeout = 0);
     void process(PipelineAction action);
     void exposeVideoOverlay();
     double getFps();
