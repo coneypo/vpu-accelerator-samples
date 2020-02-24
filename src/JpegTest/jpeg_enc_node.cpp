@@ -485,13 +485,13 @@ bool SurfacePool::moveToFreeUnsafe(Surface** surface){
 
 
 JpegEncNode::JpegEncNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum):
-        hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_ready(false), m_picHeight(0u), m_picWidth(0u){
-    if(!initVaapi()){
-        std::cout<<"Vaapi init failed"<<std::endl;
-        return;
-    }
-    m_allocator = new VaapiSurfaceAllocator(&m_vaDpy); //not allocated any surfaces yet
-    m_pool = new SurfacePool(&m_vaDpy, m_allocator); //not init yet
+        hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_vaDisplayReady(false), m_surfaceAndContextReady(false), m_picHeight(0u), m_picWidth(0u){
+    // if(!initVaapi()){
+    //     std::cout<<"Vaapi init failed"<<std::endl;
+    //     return;
+    // }
+    // m_allocator = new VaapiSurfaceAllocator(&m_vaDpy); //not allocated any surfaces yet
+    // m_pool = new SurfacePool(&m_vaDpy, m_allocator); //not init yet
     m_picPool = new JpegEncPicture[16];
     memset(m_picPool, 0, sizeof(JpegEncPicture)*16);
 }
@@ -579,6 +579,12 @@ bool JpegEncNode::initVaapi(){
         std::cout<<"VA Create Config failed"<<std::endl;
         return false;
     }
+
+    m_allocator = new VaapiSurfaceAllocator(&m_vaDpy); //not allocated any surfaces yet
+    m_pool = new SurfacePool(&m_vaDpy, m_allocator); //not init yet
+
+    m_vaDisplayReady = true;
+
     return true;
 }
 
@@ -632,6 +638,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
         SurfacePool::Surface* usedSurface = nullptr;
         ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
         if(!usedSurface){
+            // not likely to occur
             std::cout<<"ERROR! No free surfaces and no used surfaces!" <<std::endl;
             return;
         }
@@ -649,7 +656,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
         return;
     }
     std::cout<<"KL: blob received!"<<std::endl;
-    if(!((JpegEncNode*)m_parentNode)->m_ready){
+    if(!((JpegEncNode*)m_parentNode)->m_surfaceAndContextReady){
         InfoROI_t* meta = vInput[0]->get<unsigned char, InfoROI_t>(0)->getMeta();
         if(!meta->widthImage || !meta->heightImage){
             std::cout<<"Picture width or height unset!"<<std::endl;
@@ -668,7 +675,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                 std::cout<<"Init jpeg context failed!"<<std::endl;
                 return;
             }
-            ((JpegEncNode*)m_parentNode)->m_ready = true;
+            ((JpegEncNode*)m_parentNode)->m_surfaceAndContextReady = true;
         }
     }
 

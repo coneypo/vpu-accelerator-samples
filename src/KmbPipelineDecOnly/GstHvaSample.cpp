@@ -108,7 +108,7 @@ int main(){
         // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
                     GstPipeContainer cont(i);
-                    if(!cont.init(videoFile)){
+                    if(cont.init(videoFile) != 0){
                         std::cout<<"Fail to init cont!"<<std::endl;
                         return;
                     }
@@ -117,7 +117,7 @@ int main(){
                     while(cont.read(blob)){
                         // pl.sendToPort(blob,"DetectNode",0,ms(0));
                         int* fd = blob->get<int, std::pair<unsigned,unsigned>>(0)->getPtr();
-                        std::cout<<"FD received is "<<fd<<std::endl;
+                        std::cout<<"FD received is "<<*fd<<std::endl;
                         blob.reset(new hva::hvaBlob_t());
                     }
                     // std::cout<<"Finished"<<std::endl;

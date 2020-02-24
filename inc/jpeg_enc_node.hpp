@@ -344,7 +344,8 @@ private:
     VAContextID m_jpegCtxId;
     VaapiSurfaceAllocator* m_allocator;
     SurfacePool* m_pool;
-    bool m_ready;
+    bool m_surfaceAndContextReady;
+    bool m_vaDisplayReady;
     unsigned m_picWidth;
     unsigned m_picHeight;
     JpegEncPicture* m_picPool;
