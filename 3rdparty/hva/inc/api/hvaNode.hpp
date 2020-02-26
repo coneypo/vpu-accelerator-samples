@@ -12,6 +12,8 @@
 #include <inc/scheduler/hvaScheduler.hpp>
 #include <inc/util/hvaUtil.hpp>
 // #include <inc/api/hvaPipeline.hpp>
+#include <inc/api/hvaEvent.hpp>
+#include <inc/api/hvaEventManager.hpp>
 
 #include <TestConfig.h>
 
@@ -199,7 +201,13 @@ public:
     
     void stopBatching();
 
+    hvaStatus_t registerCallback(hvaEvent_t event, hvaEventHandlerFunc callback);
 
+    hvaStatus_t emitEvent(hvaEvent_t event, void* data);
+
+    void setEventManager(hvaEventManager_t* evMng);
+
+    const std::unordered_map<hvaEvent_t,hvaEventHandlerFunc>* getCallbackMap() const;
 #ifdef KL_TEST
 public:
 #else
@@ -226,6 +234,8 @@ private:
     std::condition_variable m_batchingCv;
     std::atomic_bool m_batchingStoped;
 
+    hvaEventManager_t* m_pEventMng;
+    std::unordered_map<hvaEvent_t,hvaEventHandlerFunc> m_callbackMap;
 };
 
 class hvaNodeWorker_t{ //ar: renamed NodeWorker_t
@@ -235,6 +245,7 @@ public:
     virtual ~hvaNodeWorker_t();
 
     virtual void process(std::size_t batchIdx) = 0;
+    virtual void processByFirstRun(std::size_t batchIdx);
     virtual void init();
     virtual void deinit();
     // void submitTask();

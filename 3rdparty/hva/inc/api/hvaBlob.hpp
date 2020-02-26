@@ -3,6 +3,7 @@
 
 #include <inc/api/hvaBuf.hpp>
 
+#include <functional>
 #include <condition_variable>
 #include <mutex>
 #include <iostream>

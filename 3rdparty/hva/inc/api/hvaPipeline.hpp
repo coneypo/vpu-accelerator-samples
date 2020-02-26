@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include <inc/util/hvaUtil.hpp>
 #include <inc/util/hvaGraphMeta.hpp>
@@ -14,6 +15,8 @@
 #include <inc/api/hvaExecutor.hpp>
 #include <3rdparty/ade/include/ade/graph.hpp>
 #include <3rdparty/ade/include/ade/typed_graph.hpp>
+#include <inc/api/hvaEvent.hpp>
+#include <inc/api/hvaEventManager.hpp>
 
 #include <TestConfig.h>
 
@@ -67,6 +70,13 @@ public:
 
     hvaStatus_t sendToPort(std::shared_ptr<hvaBlob_t> data, std::string nodeName, std::size_t portId, ms timeout = ms(1000));
 
+    hvaStatus_t registerEvent(hvaEvent_t event);
+
+    hvaStatus_t registerCallback(hvaEvent_t event, hvaEventHandlerFunc callback);
+
+    hvaStatus_t emitEvent(hvaEvent_t event, void* data);
+
+    hvaStatus_t waitForEvent(hvaEvent_t event);
 #ifdef KL_TEST
 public:
 #else
@@ -83,6 +93,7 @@ private:
     std::vector<std::unique_ptr<hvaExecutor_t>> m_vpExtor;
     std::unordered_map<std::string,ade::NodeHandle> m_nhMap;
     std::vector<std::string> m_vSource;
+    std::unique_ptr<hvaEventManager_t> m_pEventMng;
 };
 
 }

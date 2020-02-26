@@ -17,7 +17,10 @@ enum hvaStatus_t{
     hvaFailure,
     hvaPortFullDiscarded,
     hvaPortFullTimeout,
-    hvaPortNullPtr
+    hvaPortNullPtr,
+    hvaEventRegisterFailed,
+    hvaEventNotFound,
+    hvaCallbackFail
 };
 
 using ms = std::chrono::milliseconds;

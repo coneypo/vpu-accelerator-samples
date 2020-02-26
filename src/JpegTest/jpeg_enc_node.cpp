@@ -630,6 +630,13 @@ struct InfoROI_t {
     int frameId = 0;
 };
 
+void JpegEncNodeWorker::processByFirstRun(std::size_t batchIdx){
+    if(!((JpegEncNode*)m_parentNode)->initVaapi()){
+        std::cout<<"Vaapi init failed"<<std::endl;
+        return;
+    }
+}
+
 void JpegEncNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     std::cout<<"KL: start process:"<<std::endl;

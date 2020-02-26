@@ -358,6 +358,8 @@ public:
 
     virtual void process(std::size_t batchIdx) override;
 
+    virtual void processByFirstRun(std::size_t batchIdx) override;
+
     virtual void init() override;
 
     //virtual void deinit() override;
