@@ -159,14 +159,14 @@ dump_crypto_context(GstElement *gvaencrypt, guchar *iv, guchar *tag, encrypt_mes
     GString *iv_path = g_string_new(msg_ctxs->filepath);
     g_string_append_printf(iv_path, "iv_");
     g_string_append_printf(iv_path, "%s_", msg_ctxs->ele_name);
-    g_string_append_printf(iv_path, "%d", msg_ctxs->counter);
+    g_string_append_printf(iv_path, "%ld", msg_ctxs->counter);
     g_string_append_printf(iv_path, ".pub");
 
     /*specify file to save tag value*/
     GString *tag_path = g_string_new(msg_ctxs->filepath);
     g_string_append_printf(tag_path, "tag_");
     g_string_append_printf(tag_path, "%s_", msg_ctxs->ele_name);
-    g_string_append_printf(tag_path, "%d", msg_ctxs->counter);
+    g_string_append_printf(tag_path, "%ld", msg_ctxs->counter);
     g_string_append_printf(tag_path, ".pub");
     gva_write_hex_to_file_from_uint8_array(iv_path->str, iv, AES_256_GCM_IV_SIZE);
     gva_write_hex_to_file_from_uint8_array(tag_path->str, tag, AES_256_GCM_TAG_SIZE);
@@ -175,7 +175,7 @@ dump_crypto_context(GstElement *gvaencrypt, guchar *iv, guchar *tag, encrypt_mes
     GString *enc_data_path = g_string_new(msg_ctxs->filepath);
     g_string_append_printf(enc_data_path, "file_");
     g_string_append_printf(enc_data_path, "%s_", msg_ctxs->ele_name);
-    g_string_append_printf(enc_data_path, "%d", msg_ctxs->counter);
+    g_string_append_printf(enc_data_path, "%ld", msg_ctxs->counter);
     g_string_append_printf(enc_data_path, ".enc");
     g_print("Part of the ecnrypted data is written to %s\n", enc_data_path->str);
     GstElement *sink = gst_bin_get_by_name(GST_BIN(msg_ctxs->mp->pipeline), msg_ctxs->sink_name);
