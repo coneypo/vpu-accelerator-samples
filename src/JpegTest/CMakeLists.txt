@@ -25,8 +25,13 @@ message(INFO "LIBVA_INC_PATH: ${LIBVA_INC_PATH}")
 
 find_package(Threads REQUIRED)
 
+find_package(HddlUnite REQUIRED)
+
 add_executable(JpegTest "${JPEG_TEST_SRC}" "${JPEG_TEST_SRC_c}")
 target_include_directories(JpegTest PUBLIC "$<BUILD_INTERFACE:${JPEG_TEST_INC_DIR}>")
+
+target_include_directories(JpegTest PUBLIC "${HDDLUNITE_INCLUDE_DIR}")
+target_link_libraries(JpegTest "${HDDLUNITE_LIB}")
 
 target_link_libraries(JpegTest Threads::Threads)
 

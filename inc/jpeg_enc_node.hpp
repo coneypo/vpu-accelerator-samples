@@ -8,6 +8,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <WorkloadContext.h>
+
+#define NEW_HDDL_WCTX
 
 enum JpegEncNodeStatus_t{
     JpegEnc_NoError = 0,
@@ -349,6 +352,11 @@ private:
     unsigned m_picWidth;
     unsigned m_picHeight;
     JpegEncPicture* m_picPool;
+
+#ifdef NEW_HDDL_WCTX
+    HddlUnite::WorkloadContext::Ptr m_hddlWCtx;
+    WorkloadID m_WID;
+#endif
 };
 
 class JpegEncNodeWorker : public hva::hvaNodeWorker_t{

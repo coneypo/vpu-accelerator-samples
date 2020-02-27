@@ -517,6 +517,21 @@ std::shared_ptr<hva::hvaNodeWorker_t> JpegEncNode::createNodeWorker() const {
 
 bool JpegEncNode::initVaapi(){
 
+    /* 0. Init hddl unite workload context*/
+    m_hddlWCtx = createWorkloadContext();
+    m_hddlWCtx->setHint(
+        WorkloadContext::Hint::MEDIA_DECODE_BITRATE, float(2.1),
+        WorkloadContext::Hint::MEDIA_DECODE_RESOLUTION_W, uint32_t(1080),
+        WorkloadContext::Hint::MEDIA_DECODE_RESOLUTION_H, uint32_t(720),
+        WorkloadContext::Hint::MEDIA_DECODE_FPS, float(30.1)
+        );
+
+    if (context->setContext(m_WID) != HDDL_OK) {
+        std::cout<<"Failed to get Workload Context ID!"<<std::endl;
+        return false;
+    }
+
+
     /* 1. Initialize the va driver */
     m_vaDpy = va_open_display();
 
