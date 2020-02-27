@@ -57,7 +57,7 @@ public:
     };
 
     virtual void init() override{
-        m_in.open("/home/kezhen/Workspace/out.yuv", std::ios::in|std::ios::binary|std::ios::ate);
+        m_in.open("/home/kmb/kezhen/out.yuv", std::ios::in|std::ios::binary|std::ios::ate);
         if(m_in.is_open()){
             m_size = m_in.tellg();
             m_buf = new char[m_size];

@@ -1,7 +1,9 @@
 #include <jpeg_enc_node.hpp>
 #include <va_common/va_display.h>
 #include <cstdio>
-
+#include <unistd.h>
+#include <sys/syscall.h>
+//#include <WorkloadCache.h>
 
 Defaults::Defaults(){
     jpeg_luma_quant = new uint8_t[NUM_QUANT_ELEMENTS]{
@@ -518,18 +520,34 @@ std::shared_ptr<hva::hvaNodeWorker_t> JpegEncNode::createNodeWorker() const {
 bool JpegEncNode::initVaapi(){
 
     /* 0. Init hddl unite workload context*/
-    m_hddlWCtx = createWorkloadContext();
-    m_hddlWCtx->setHint(
-        WorkloadContext::Hint::MEDIA_DECODE_BITRATE, float(2.1),
-        WorkloadContext::Hint::MEDIA_DECODE_RESOLUTION_W, uint32_t(1080),
-        WorkloadContext::Hint::MEDIA_DECODE_RESOLUTION_H, uint32_t(720),
-        WorkloadContext::Hint::MEDIA_DECODE_FPS, float(30.1)
-        );
+    std::cout<<"Preparing to create WID with pid "<<getpid()<<" and tid "<<syscall(SYS_gettid)<<std::endl;
+    //m_hddlWCtx = HddlUnite::createWorkloadContext();
+    //m_hddlWCtx->setHint(
+    //    HddlUnite::WorkloadContext::Hint::MEDIA_DECODE_BITRATE, float(2.1),
+    //    HddlUnite::WorkloadContext::Hint::MEDIA_DECODE_RESOLUTION_W, uint32_t(1080),
+    //    HddlUnite::WorkloadContext::Hint::MEDIA_DECODE_RESOLUTION_H, uint32_t(720),
+    //    HddlUnite::WorkloadContext::Hint::MEDIA_DECODE_FPS, float(30.1)
+    //    );
 
-    if (context->setContext(m_WID) != HDDL_OK) {
-        std::cout<<"Failed to get Workload Context ID!"<<std::endl;
-        return false;
+    //if (m_hddlWCtx->setContext(m_WID) != HDDL_OK) {
+    //    std::cout<<"Failed to get Workload Context ID!"<<std::endl;
+    //    return false;
+    //}
+    
+    ContextHint ctxHint;
+    ctxHint.mediaBitrate = 2.1;
+    ctxHint.ResolutionWidth = 1080;
+    ctxHint.ResolutionHeight = 720;
+    ctxHint.mediaFps = 29.7;
+
+    if(HDDL_OK != createWorkloadContext(&m_WID, &ctxHint)){
+	std::cout<<"Fail to get workload context ID"<<std::endl;
+	return false;
     }
+
+    //HddlUnite::WorkloadContextCache::instance()->registerWorkloadContext(m_hddlWCtx);
+
+    std::cout<<"WID Received: "<<m_WID<<std::endl;
 
 
     /* 1. Initialize the va driver */
