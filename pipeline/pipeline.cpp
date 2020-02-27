@@ -70,7 +70,6 @@ void Pipeline::process(PipelineAction action)
         gst_element_set_state(m_pipeline, GST_STATE_PAUSED);
         break;
     case MESSAGE_REPLAY: {
-        gst_pad_push_event(gst_element_get_static_pad(m_displaySink, "src"), gst_event_new_eos());
         gst_element_seek_simple(m_pipeline, GST_FORMAT_TIME, GST_SEEK_FLAG_KEY_UNIT, 0);
         gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
         break;
@@ -118,6 +117,8 @@ gboolean Pipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
         GST_DEBUG("EOS");
         g_print("eos\n");
         obj->m_fpsProb->reset();
+        gst_element_seek_simple(obj->m_pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT ) , 0*GST_SECOND);
+        gst_element_set_state(obj->m_pipeline,GST_STATE_PLAYING);
         break;
     default:
         break;

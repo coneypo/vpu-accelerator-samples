@@ -57,6 +57,7 @@ static void gst_roisink_finalize(GstRoiSink* roisink);
 static gboolean gst_roisink_query(GstBaseSink* sink, GstQuery* query);
 
 static GstFlowReturn new_sample(GstElement* sink, gpointer data);
+static GstFlowReturn new_prepoll(GstElement* sink, gpointer data);
 static gboolean connectRoutine(GstRoiSink* roiSink);
 
 enum {
@@ -111,6 +112,7 @@ gst_roisink_init(GstRoiSink* roisink)
 
     gst_app_sink_set_emit_signals(GST_APP_SINK(roisink), TRUE);
     g_signal_connect(GST_APP_SINK(roisink), "new-sample", G_CALLBACK(new_sample), NULL);
+    g_signal_connect(GST_APP_SINK(roisink), "new-preroll", G_CALLBACK(new_prepoll), NULL);
 }
 
 static void gst_roisink_finalize(GstRoiSink* roisink)
@@ -203,6 +205,18 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
     }
     return GST_FLOW_ERROR;
 }
+
+GstFlowReturn new_prepoll(GstElement* sink, gpointer data)
+{
+    GstSample* sample;
+    g_signal_emit_by_name(sink, "pull-preroll", &sample);
+    if (sample) {
+        gst_sample_unref(sample);
+        return GST_FLOW_OK;
+    }
+    return GST_FLOW_ERROR;
+}
+
 
 static gboolean connectRoutine(GstRoiSink* roiSink)
 {
