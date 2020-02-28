@@ -11,9 +11,9 @@ if(NOT BOOST_INC_DIR)
 	message(FATAL_ERROR "BOOST header not found. hints path: $ENV{INSTALL_DIR}/include/boost")
 endif()
 
-message(INFO "boost header: ${BOOST_INC_DIR}")
+message("boost header: ${BOOST_INC_DIR}")
 
-set(SAMPLE_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../inc")
+set(SAMPLE_INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/KmbPipelineDecOnly ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/util)
 
 file(GLOB_RECURSE SAMPLE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../util/*.cpp)
 

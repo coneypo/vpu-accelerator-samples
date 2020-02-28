@@ -9,6 +9,7 @@
 #include <string>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
+#include <future>
 
 #define STREAMS 1
 
@@ -101,17 +102,27 @@ int main(){
 
     std::vector<std::thread*> vTh;
     vTh.reserve(STREAMS);
+    std::promise<uint64_t> WIDPromise;
+    std::future<uint64_t> WIDFuture = WIDPromise.get_future();
 
     using ms = std::chrono::milliseconds;
+
+    hva::hvaPipeline_t pl;
 
     for(unsigned i = 0; i < STREAMS; ++i){
         // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
                     GstPipeContainer cont(i);
-                    if(cont.init(videoFile) != 0){
+                    uint64_t WID = 0;
+                    if(cont.init(videoFile, WID) != 0 || WID == 0){
                         std::cout<<"Fail to init cont!"<<std::endl;
                         return;
                     }
+
+                    WIDPromise.set_value(WID);
+
+                    std::this_thread::sleep_for(ms(10000));
+                    std::cout<<"Dec source start feeding."<<std::endl;
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(cont.read(blob)){
@@ -125,15 +136,25 @@ int main(){
                 }));
     }
 
+    uint64_t WID = WIDFuture.get();
+    auto& mynode2 = pl.setSource(std::make_shared<JpegEncNode>(1,0,1, WID), "JpegEncNode");
+
+    pl.prepare();
+
+    std::cout<<"\nPipeline Start: "<<std::endl;
+    pl.start();
+
     for(unsigned i =0; i < STREAMS; ++i){
         vTh[i]->join();
     }
 
-    std::this_thread::sleep_for(ms(10000));
+    std::cout<<"\nDec source joined "<<std::endl;
+
+    std::this_thread::sleep_for(ms(5000));
 
     std::cout<<"Going to stop pipeline."<<std::endl;
 
-    // pl.stop();
+    pl.stop();
 
     return 0;
 
