@@ -1,5 +1,6 @@
 find_package(PkgConfig)
 pkg_check_modules (LIBVA REQUIRED libva>=1.0.0)
+pkg_check_modules (LIBVA_DRM REQUIRED libva-drm)
 
 # set (LIBVA_LIBS "")
 

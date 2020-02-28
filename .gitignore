@@ -1,3 +1,8 @@
 **/build*/
 .vscode/
 3rdparty/va
+*.log
+*.jpg
+*.jpeg
+*.yuv
+*.nv12

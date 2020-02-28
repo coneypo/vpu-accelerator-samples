@@ -380,7 +380,7 @@ void Defaults::populate_scan_header(JPEGScanHeader *scanHdr) const
 //     return true;
 // }
 
-SurfacePool::SurfacePool(VADisplay* dpy): m_dpy(dpy),
+SurfacePool::SurfacePool(VADisplay* dpy, JpegEncPicture* picPool): m_dpy(dpy), m_picPool(picPool),
         m_freeSurfaces(nullptr), m_usedSurfaces(nullptr){ }
 
 SurfacePool::~SurfacePool(){ }
@@ -412,12 +412,12 @@ bool SurfacePool::init(SurfacePool::Config& config){
     //     return false;
     // }
     for(std::size_t i = 0; i < config.surfaceNum; ++i){
-        Surface* newItem = new Surface{surfaces[i], i, m_freeSurfaces};
+        Surface* newItem = new Surface{surfaces[i], 0, i, nullptr, m_freeSurfaces};
         m_freeSurfaces = newItem;
     }
 }
 
-bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>> pBuf){
+bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf){
     *surface = m_freeSurfaces;
     m_freeSurfaces = (*surface)->next;
     (*surface)->next = nullptr;
@@ -459,8 +459,8 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
     attrib[1].value.type = VAGenericValueTypePointer;
     attrib[1].value.value.p = &extbuf;
 
-    VAStatus va_status = vaCreateSurfaces(*m_dpy, config.surfaceType, config.width, config.height, 
-                                 &((*surface)->surfaceId), 1, &attrib, 2);
+    VAStatus va_status = vaCreateSurfaces(*m_dpy, m_config.surfaceType, m_config.width, m_config.height, 
+                                 &((*surface)->surfaceId), 1, &(attrib[0]), 2);
     if(va_status != VA_STATUS_SUCCESS){
         std::cout<<"Failed to allocate surfaces: "<<va_status<<std::endl;
         return false;
@@ -469,7 +469,7 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
     return true;
 }
 
-bool SurfacePool::getFreeSurface(SurfacePool::Surface** surface, int fd, std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>> pBuf){
+bool SurfacePool::getFreeSurface(SurfacePool::Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf){
     std::unique_lock<std::mutex> lk(m_mutex);
     m_cv.wait(lk, [&]{return m_freeSurfaces!=nullptr;});
     getFreeSurfaceUnsafe(surface, fd, std::move(pBuf));
@@ -477,7 +477,7 @@ bool SurfacePool::getFreeSurface(SurfacePool::Surface** surface, int fd, std::sh
     return true;
 }
 
-bool SurfacePool::tryGetFreeSurface(SurfacePool::Surface** surface, int fd, std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>> pBuf){
+bool SurfacePool::tryGetFreeSurface(SurfacePool::Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf){
     std::lock_guard<std::mutex> lg(m_mutex);
     if(m_freeSurfaces){
         return getFreeSurfaceUnsafe(surface, fd, std::move(pBuf));
@@ -528,13 +528,13 @@ bool SurfacePool::moveToFree(Surface** surface){
 
 bool SurfacePool::moveToFreeUnsafe(Surface** surface){
     std::size_t index = (*surface)->index;
-    vaDestroyBuffer(*m_dpy, picPool[index].codedBufId);
-    vaDestroyBuffer(*m_dpy, picPool[index].picParamBufId);
-    vaDestroyBuffer(*m_dpy, picPool[index].qMatrixBufId);
-    vaDestroyBuffer(*m_dpy, picPool[index].huffmanTblBufId);
-    vaDestroyBuffer(*m_dpy, picPool[index].sliceParamBufId);
-    vaDestroyBuffer(*m_dpy, picPool[index].headerParamBufId);
-    vaDestroyBuffer(*m_dpy, picPool[index].headerDataBufId);
+    vaDestroyBuffer(*m_dpy, m_picPool[index].codedBufId);
+    vaDestroyBuffer(*m_dpy, m_picPool[index].picParamBufId);
+    vaDestroyBuffer(*m_dpy, m_picPool[index].qMatrixBufId);
+    vaDestroyBuffer(*m_dpy, m_picPool[index].huffmanTblBufId);
+    vaDestroyBuffer(*m_dpy, m_picPool[index].sliceParamBufId);
+    vaDestroyBuffer(*m_dpy, m_picPool[index].headerParamBufId);
+    vaDestroyBuffer(*m_dpy, m_picPool[index].headerDataBufId);
 
     vaDestroySurfaces(*m_dpy,&((*surface)->surfaceId),1);
     vaDestroyContext(*m_dpy,(*surface)->ctxId);
@@ -666,7 +666,7 @@ bool JpegEncNode::initVaapi(){
     }
 
     // m_allocator = new VaapiSurfaceAllocator(&m_vaDpy); //not allocated any surfaces yet
-    m_pool = new SurfacePool(&m_vaDpy); //not init yet
+    m_pool = new SurfacePool(&m_vaDpy, m_picPool); //not init yet
 
     m_vaDisplayReady = true;
 
@@ -772,7 +772,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
     }
 
     bool reApplyFreeSurface = false;
-    std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>> pBuf = vInput[0]->get<int, std::pair<unsigned, unsigned>>(1);
+    std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf = vInput[0]->get<int, std::pair<unsigned, unsigned>>(1);
     const int* fd = pBuf->getPtr();
     std::cout<<"KL: blob received with FD: "<<*fd<<std::endl;
     do{
@@ -798,7 +798,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             JpegEncPicture* picPool = ((JpegEncNode*)m_parentNode)->m_picPool;
             std::size_t index = surface->index;
             // Encoded buffer
-            VAStatus va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, surface->ctxId,
+            va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, surface->ctxId,
                     VAEncCodedBufferType, picWidth*picHeight*3/2, 1, NULL, &(picPool[index].codedBufId));
             if(va_status != VA_STATUS_SUCCESS){
                 std::cout<<"Create coded buffer failed!"<<std::endl;

@@ -46,7 +46,7 @@ target_include_directories(DecWithJpeg PUBLIC "$<BUILD_INTERFACE:${DEC_WITH_JPEG
 target_include_directories(DecWithJpeg PUBLIC "${HDDLUNITE_INCLUDE_DIR}")
 target_link_libraries(DecWithJpeg "${HDDLUNITE_LIB}")
 
-target_link_libraries(DecWithJpeg Threads::Threads)
+target_link_libraries(DecWithJpeg Threads::Threads dl)
 
 target_link_libraries(DecWithJpeg hva)
 
@@ -54,6 +54,13 @@ target_link_libraries(DecWithJpeg "${LIBVA_LIBRARIES}")
 
 # target_include_directories(JpegTest PUBLIC ${LIBVA_INC_PATH})
 target_include_directories(DecWithJpeg PUBLIC "${LIBVA_INCLUDE_DIRS}")
+
+target_link_libraries(DecWithJpeg "${LIBVA_DRM_LIBRARIES}")
+
+target_include_directories(DecWithJpeg PUBLIC "${LIBVA_DRM_INCLUDE_DIRS}")
+
+target_link_libraries(DecWithJpeg glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0 gstallocators-1.0 boost_filesystem)
+target_include_directories(DecWithJpeg PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_INCLUDE_DIRS}" "${BOOST_INC_DIR}")
 
 get_target_property(DEC_WITH_JPEG_INC_TEST DecWithJpeg INCLUDE_DIRECTORIES)
 message("INCLUDE_DIRECTORIES: ${DEC_WITH_JPEG_INC_TEST}")

@@ -10,7 +10,7 @@
 #include <atomic>
 #include <WorkloadContext.h>
 
-#define NEW_HDDL_WCTX
+//#define NEW_HDDL_WCTX
 
 enum JpegEncNodeStatus_t{
     JpegEnc_NoError = 0,
@@ -44,6 +44,8 @@ enum JpegEncNodeStatus_t{
 //     std::vector<VASurfaceID> m_surfaces;
 // };
 
+struct JpegEncPicture;
+
 class SurfacePool{
 public:
     struct Surface;
@@ -51,7 +53,7 @@ public:
         VASurfaceID surfaceId;
         VAContextID ctxId;
         std::size_t index;
-        std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>> pBuf;
+        std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf;
         Surface* next;
     };
 
@@ -63,16 +65,16 @@ public:
     };
 
     // SurfacePool(VADisplay* dpy, VaapiSurfaceAllocator* allocator);
-    SurfacePool(VADisplay* dpy);
+    SurfacePool(VADisplay* dpy, JpegEncPicture* picPool);
     ~SurfacePool();
-    bool init(VaapiSurfaceAllocator::Config& config);
-    bool getFreeSurface(Surface** surface, int fd, std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>> pBuf);
-    bool tryGetFreeSurface(Surface** surface, int fd, std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>> pBuf);
+    bool init(Config& config);
+    bool getFreeSurface(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf);
+    bool tryGetFreeSurface(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf);
     bool moveToUsed(Surface** surface);
     bool getUsedSurface(Surface** surface);
     bool moveToFree(Surface** surface);
 private:
-    bool getFreeSurfaceUnsafe(Surface** surface, int fd, std::shared_ptr<hvaBuf_t<int, std::pair<unsigned, unsigned>>);
+    bool getFreeSurfaceUnsafe(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf);
     bool moveToUsedUnsafe(Surface** surface);
     bool getUsedSurfaceUnsafe(Surface** surface);
     bool moveToFreeUnsafe(Surface** surface);
@@ -85,7 +87,7 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
     std::mutex m_usedListMutex;
-
+    JpegEncPicture* m_picPool;
     Config m_config;
 };
 
@@ -357,7 +359,7 @@ private:
     int m_vaMinorVer;
     VAConfigID m_jpegConfigId;
     // VAContextID m_jpegCtxId;
-    VaapiSurfaceAllocator* m_allocator;
+    //VaapiSurfaceAllocator* m_allocator;
     SurfacePool* m_pool;
     bool m_surfaceAndContextReady;
     bool m_vaDisplayReady;

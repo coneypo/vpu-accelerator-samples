@@ -10,6 +10,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <future>
+#include <jpeg_enc_node.hpp>
 
 #define STREAMS 1
 
