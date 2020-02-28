@@ -234,26 +234,26 @@ crop_and_push_buffer_BGRA(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         if (ymin > branch_ctx->height) {
             ymin = branch_ctx->height;
         }
-        //only image size is bigger than 16*16, the jpgenc will encode image.
+        //only image size is bigger than 32*32, the jpgenc will encode image.
         bFlag = false;
-        if (xmax - xmin < 16) {
-            xmax = xmin + 16;
+        if (xmax - xmin < 32) {
+            xmax = xmin + 32;
             if(xmax > branch_ctx->width) {
                 xmax = branch_ctx->width;
-                xmin = xmax - 16;
+                xmin = xmax - 32;
             }
             bFlag = true;
         }
-        if (ymax - ymin < 16) {
-            ymax = ymin + 16;
+        if (ymax - ymin < 32) {
+            ymax = ymin + 32;
             if(ymax > branch_ctx->height) {
                 ymax = branch_ctx->height;
-                ymin = ymax - 16;
+                ymin = ymax - 32;
             }
             bFlag = true;
         }
         if(bFlag) {
-            LOG_INFO("The range of rectangle is smaller than 16×16, has be increased !");
+            LOG_INFO("The range of rectangle is smaller than 32×32, has be increased !");
         }
         //corp the image and copy into a new buffer
         cv::Mat croped_ref(frame_mat, cv::Rect(xmin, ymin, xmax - xmin, ymax - ymin));
@@ -370,24 +370,24 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
             ymin = branch_ctx->height;
         }
         bFlag = false;
-        if (xmax - xmin < 16) {
-            xmax = xmin + 16;
+        if (xmax - xmin < 32) {
+            xmax = xmin + 32;
             if (xmax > branch_ctx->width) {
                 xmax = branch_ctx->width;
-                xmin = xmax - 16;
+                xmin = xmax - 32;
             }
             bFlag = true;
         }
-        if (ymax - ymin < 16) {
-            ymax = ymin + 16;
+        if (ymax - ymin < 32) {
+            ymax = ymin + 32;
             if (ymax > branch_ctx->height) {
                 ymax = branch_ctx->height;
-                ymin = ymax - 16;
+                ymin = ymax - 32;
             }
             bFlag = true;
         }
         if (bFlag) {
-            LOG_INFO("The range of rectangle is smaller than 16×16, has be increased !");
+            LOG_INFO("The range of rectangle is smaller than 32×32, has be increased !");
         }
         /*TODO:The coordinates of the crop-roi are restricted by the vaapijpegenc plugin
          *     The following method must be used.
