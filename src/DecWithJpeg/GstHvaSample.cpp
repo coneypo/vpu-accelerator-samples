@@ -128,8 +128,9 @@ int main(){
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(cont.read(blob)){
                         // pl.sendToPort(blob,"DetectNode",0,ms(0));
-                        int* fd = blob->get<int, std::pair<unsigned,unsigned>>(0)->getPtr();
+                        int* fd = blob->get<int, std::pair<unsigned,unsigned>>(1)->getPtr();
                         std::cout<<"FD received is "<<*fd<<std::endl;
+                        pl.sendToPort(blob,"JpegEncNode",0,ms(0));
                         blob.reset(new hva::hvaBlob_t());
                     }
                     // std::cout<<"Finished"<<std::endl;

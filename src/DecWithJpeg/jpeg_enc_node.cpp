@@ -415,6 +415,8 @@ bool SurfacePool::init(SurfacePool::Config& config){
         Surface* newItem = new Surface{surfaces[i], 0, i, nullptr, m_freeSurfaces};
         m_freeSurfaces = newItem;
     }
+
+    return true;
 }
 
 bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf){

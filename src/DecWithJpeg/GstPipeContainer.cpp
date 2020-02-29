@@ -150,6 +150,18 @@ int GstPipeContainer::start(){
     return 0;
 }
 
+struct InfoROI_t {
+    int widthImage = 0;
+    int heightImage = 0;
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    int indexROI = 0;
+    int totalROINum = 0;
+    int frameId = 0;
+};
+
 bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     if (!pipeline || !GST_IS_ELEMENT(pipeline)){
         std::cout<<"pipeline uninitialized! "<<std::endl;
@@ -242,6 +254,25 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     //             delete info;
     //             delete meta;
     //         });
+
+    InfoROI_t* pInfoROI = new InfoROI_t();
+    pInfoROI->height = 30;
+    pInfoROI->width = 30;
+    pInfoROI->widthImage = 1080;
+    pInfoROI->heightImage = 720;
+    pInfoROI->x = 66;
+    pInfoROI->y = 99;
+    pInfoROI->indexROI = 5;
+    pInfoROI->totalROINum = 13;
+    pInfoROI->frameId = 2;
+
+    blob->emplace<unsigned char, InfoROI_t>(nullptr, 0u,
+            pInfoROI, [](unsigned char* mem, InfoROI_t* meta){
+                // if (nullptr != mem) {
+                //     delete[] mem;
+                // } 
+                delete meta;
+            });
 
     blob->emplace<int, std::pair<unsigned, unsigned>>(new int(fd), m_width*m_height*3/2,
             new std::pair<unsigned, unsigned>(m_width,m_height),[mem, sampleRead](int* fd, std::pair<unsigned, unsigned>* meta){
