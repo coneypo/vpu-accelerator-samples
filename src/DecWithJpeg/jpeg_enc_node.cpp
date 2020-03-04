@@ -749,9 +749,10 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
 
         return;
     }
+
+    InfoROI_t* meta = vInput[0]->get<unsigned char, InfoROI_t>(0)->getMeta();
     
     if(!((JpegEncNode*)m_parentNode)->m_surfaceAndContextReady){
-        InfoROI_t* meta = vInput[0]->get<unsigned char, InfoROI_t>(0)->getMeta();
         if(!meta->widthImage || !meta->heightImage){
             std::cout<<"Picture width or height unset!"<<std::endl;
             return;
@@ -874,6 +875,40 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                 std::cout<<"Create header buffer failed!"<<std::endl;
                 return;
             }
+
+#ifdef HANTRO_JPEGENC_ROI_API
+            /* 12. Create ROI Buffer */
+            // VABufferID buf_id;
+            VAEncMiscParameterBuffer *misc_param;
+            HANTROEncMiscParameterBufferEmbeddedPreprocess *RIOData;
+            va_status = vaCreateBuffer((JpegEncNode*)m_parentNode)->m_vaDpy, surface->ctxId, VAEncMiscParameterBufferType,
+                    sizeof(VAEncMiscParameterBuffer) + sizeof(HANTROEncMiscParameterBufferEmbeddedPreprocess),
+                    1, NULL, &(picPool[index].ROIDataBufId));
+            if(va_status != VA_STATUS_SUCCESS){
+                std::cout<<"Create ROI Misc buffer failed!"<<std::endl;
+                return;
+            }
+
+            va_status = vaMapBuffer((JpegEncNode*)m_parentNode)->m_vaDpy,(picPool[index].ROIDataBufId),(void **)&misc_param);
+            if(va_status != VA_STATUS_SUCCESS){
+                std::cout<<"Map ROI Misc buffer failed!"<<std::endl;
+                return;
+            }
+
+            misc_param->type = HANTROEncMiscParameterTypeEmbeddedPreprocess;
+            RIOData= (HANTROEncMiscParameterBufferEmbeddedPreprocess*)misc_param->data;
+            preprocess->cropping_offset_x = meta->x;
+            preprocess->cropping_offset_y = meta->y;
+            preprocess->cropped_width = meta->width;
+            preprocess->cropped_height = meta->height;
+
+            va_status = vaUnmapBuffer((JpegEncNode*)m_parentNode)->m_vaDpy, (picPool[index].ROIDataBufId));
+            if(va_status != VA_STATUS_SUCCESS){
+                std::cout<<"Unmap ROI Misc buffer failed!"<<std::endl;
+                return;
+            }
+
+#endif //#ifdef HANTRO_JPEGENC_ROI_API
 
             // begine encoding
             va_status = vaBeginPicture(((JpegEncNode*)m_parentNode)->m_vaDpy, surface->ctxId, surface->surfaceId);

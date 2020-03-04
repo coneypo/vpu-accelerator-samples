@@ -11,6 +11,13 @@
 #include <WorkloadContext.h>
 
 //#define NEW_HDDL_WCTX
+#define HANTRO_JPEGENC_ROI_API
+
+#ifdef HANTRO_JPEGENC_ROI_API
+
+#include <va_hantro/va_hantro.h>
+
+#endif //#ifdef HANTRO_JPEGENC_ROI_API
 
 enum JpegEncNodeStatus_t{
     JpegEnc_NoError = 0,
@@ -102,6 +109,9 @@ struct JpegEncPicture{
     VABufferID sliceParamBufId;
     VABufferID headerParamBufId;
     VABufferID headerDataBufId;
+#ifdef HANTRO_JPEGENC_ROI_API
+    VABufferID ROIDataBufId;
+#endif //#ifdef HANTRO_JPEGENC_ROI_API
 
     // VAEncPictureParameterBufferJPEG picParam;
     // VAQMatrixBufferJPEG qMatrix;

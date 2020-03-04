@@ -11,6 +11,8 @@ if(NOT BOOST_INC_DIR)
 	message(FATAL_ERROR "BOOST header not found. hints path: $ENV{INSTALL_DIR}/include/boost")
 endif()
 
+find_package(Boost 1.53 COMPONENTS filesystem REQUIRED)
+
 message("boost header: ${BOOST_INC_DIR}")
 
 set(DEC_WITH_JPEG_INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/DecWithJpeg ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/util)
@@ -61,6 +63,9 @@ target_include_directories(DecWithJpeg PUBLIC "${LIBVA_DRM_INCLUDE_DIRS}")
 
 target_link_libraries(DecWithJpeg glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0 gstallocators-1.0 boost_filesystem)
 target_include_directories(DecWithJpeg PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_INCLUDE_DIRS}" "${BOOST_INC_DIR}")
+
+target_include_directories(DecWithJpeg PUBLIC ${Boost_INCLUDE_DIR})
+target_link_libraries(DecWithJpeg ${Boost_LIBRARIES})
 
 get_target_property(DEC_WITH_JPEG_INC_TEST DecWithJpeg INCLUDE_DIRECTORIES)
 message("INCLUDE_DIRECTORIES: ${DEC_WITH_JPEG_INC_TEST}")
