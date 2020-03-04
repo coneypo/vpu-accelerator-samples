@@ -7,6 +7,7 @@
 
 #include <gio/gio.h>
 #include <gst/gstclock.h>
+#include <gst/video/gstvideometa.h>
 
 #define OVERLAY_NAME "mfxsink0"
 
@@ -27,8 +28,13 @@ bool Pipeline::parse(const char* pipeline, const char* displaySink)
     //parse gstreamer pipeline
     gst_init(NULL, NULL);
     m_pipeline = gst_parse_launch_full(pipeline, NULL, GST_PARSE_FLAG_FATAL_ERRORS, NULL);
-    m_displaySink = gst_bin_get_by_name(GST_BIN(m_pipeline), displaySink);
-    m_overlay = GST_VIDEO_OVERLAY(gst_bin_get_by_name(GST_BIN(m_displaySink), OVERLAY_NAME));
+    if (displaySink) {
+        m_displaySink = gst_bin_get_by_name(GST_BIN(m_pipeline), displaySink);
+        m_overlay = GST_VIDEO_OVERLAY(gst_bin_get_by_name(GST_BIN(m_displaySink), OVERLAY_NAME));
+    } else {
+        m_displaySink = gst_bin_get_by_interface(GST_BIN(m_pipeline), GST_TYPE_VIDEO_SINK);
+        m_overlay = GST_VIDEO_OVERLAY(gst_bin_get_by_interface(GST_BIN(m_pipeline), GST_TYPE_VIDEO_OVERLAY));
+    }
 
     //set bus callback
     GstBus* bus = gst_element_get_bus(m_pipeline);
@@ -115,10 +121,9 @@ gboolean Pipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
 
     case GST_MESSAGE_EOS:
         GST_DEBUG("EOS");
-        g_print("eos\n");
         obj->m_fpsProb->reset();
-        gst_element_seek_simple(obj->m_pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT ) , 0*GST_SECOND);
-        gst_element_set_state(obj->m_pipeline,GST_STATE_PLAYING);
+        gst_element_seek_simple(obj->m_pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
+        gst_element_set_state(obj->m_pipeline, GST_STATE_PLAYING);
         break;
     default:
         break;

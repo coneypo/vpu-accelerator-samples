@@ -32,8 +32,7 @@ extern "C" {
 #include <string.h>
 #include <unistd.h>
 
-#define pts_sync 0
-#define use_local_result 0
+#define pts_sync 1
 using namespace HddlUnite;
 
 GST_DEBUG_CATEGORY_STATIC(gst_inference_debug);
@@ -68,6 +67,7 @@ static std::map<PTS, BoxWrappers> total_results;
 static std::mutex mutex_total_results;
 static std::mutex mutex_connection;
 static std::condition_variable connection_establised;
+static std::condition_variable infer_data_arrived;
 
 static bool deserialize(const std::string& serialized_data);
 static int receiveRoutine(const char* socket_address);
@@ -219,29 +219,9 @@ static GstFlowReturn
 gst_inference_chain(GstPad* pad, GstObject* parent, GstBuffer* buf)
 {
     GstInference* filter;
-
     filter = GST_INFERENCE(parent);
 
-#if use_local_result //use fake data
-    gint boxNum = 3;
-    InferResultMeta* meta = gst_buffer_add_infer_result_meta(buf, boxNum);
-    static guint i = 300;
-    for (gint j = 0; j < boxNum; j++) {
-        meta->boundingBox[j].x = i % 200 + j * 200;
-        meta->boundingBox[j].y = i % 200 + j * 250;
-        meta->boundingBox[j].width = 200;
-        meta->boundingBox[j].height = 300;
-        meta->boundingBox[j].probability = 0;
-        meta->boundingBox[j].pts = buf->pts;
-        char label[10];
-        i++;
-        snprintf(label, 10, "label %d", j);
-        strcpy(meta->boundingBox[j].label, label);
-    }
-
-#else //use remote data
     addMetaData(buf);
-#endif
     return gst_pad_push(filter->srcpad, buf);
 }
 
@@ -305,9 +285,9 @@ static bool deserialize(const std::string& serialized_data)
         box.probability = stod(fields[begin_index + 6]);
         boxes.push_back(std::move(box));
     }
-    mutex_total_results.lock();
+    std::lock_guard<std::mutex> lock(mutex_total_results);
     total_results.insert(std::make_pair(boxes[0].pts, boxes));
-    mutex_total_results.unlock();
+    infer_data_arrived.notify_all();
     return true;
 }
 
@@ -323,11 +303,14 @@ static int receiveRoutine(const char* socket_address)
     while (true) {
         auto event = poller->waitEvent(100);
         switch (event.type) {
-        case Event::Type::CONNECTION_IN:
+        case Event::Type::CONNECTION_IN: {
             GST_DEBUG("connection in");
             connection->accept();
             connection_establised.notify_one();
+            BoxWrappers box;
+            total_results.insert(std::make_pair(0, box));
             break;
+        }
         case Event::Type::MESSAGE_IN: {
             int length = 0;
             auto& data_connection = event.connection;
@@ -355,12 +338,11 @@ static int receiveRoutine(const char* socket_address)
             }
             break;
         }
-        case Event::Type::CONNECTION_OUT:
-            GST_DEBUG("connection out");
-            mutex_total_results.lock();
+        case Event::Type::CONNECTION_OUT: {
+            std::lock_guard<std::mutex> lock(mutex_total_results);
             total_results.clear();
-            mutex_total_results.unlock();
             break;
+        }
 
         default:
             break;
@@ -370,11 +352,15 @@ static int receiveRoutine(const char* socket_address)
 
 static int addMetaData(GstBuffer* buf)
 {
-    mutex_total_results.lock();
+
+    std::map<PTS, BoxWrappers>::iterator current_frame_result;
 #if pts_sync
-    auto current_frame_result = total_results.find(buf->pts);
+    std::unique_lock<std::mutex> lock(mutex_total_results);
+    infer_data_arrived.wait_for(lock, std::chrono::milliseconds(10), [&]() {
+        current_frame_result = total_results.find(GST_BUFFER_PTS(buf));
+        return current_frame_result != total_results.end(); });
 #else
-    auto current_frame_result = total_results.begin();
+    current_frame_result = total_results.begin();
 #endif
     if (current_frame_result != total_results.end()) {
         size_t boxNums = current_frame_result->second.size();
@@ -387,9 +373,8 @@ static int addMetaData(GstBuffer* buf)
             meta->boundingBox[i].height = current_frame_result->second[i].height;
             strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
         }
-        total_results.erase(current_frame_result);
+        total_results.erase(total_results.upper_bound(0), current_frame_result);
     }
-    mutex_total_results.unlock();
     return 0;
 }
 
