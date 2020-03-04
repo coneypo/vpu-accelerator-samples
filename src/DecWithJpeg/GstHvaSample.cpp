@@ -122,7 +122,7 @@ int main(){
 
                     WIDPromise.set_value(WID);
 
-                    std::this_thread::sleep_for(ms(10000));
+                    std::this_thread::sleep_for(ms(2000));
                     std::cout<<"Dec source start feeding."<<std::endl;
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());

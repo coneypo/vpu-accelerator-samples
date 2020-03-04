@@ -962,8 +962,11 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             ((JpegEncNode*)m_parentNode)->m_pool->moveToUsed(&surface);
             surface = nullptr;
 
+            std::cout<<"Finished submitting a jpeg with fd " << *fd <<std::endl;
+
         }
         else{
+            std::cout<<"No free surfaces available, now try to recycle used surfaces. current fd: "<<*fd<<std::endl;
             SurfacePool::Surface* usedSurface = nullptr;
             ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
             if(!usedSurface){
