@@ -23,6 +23,18 @@ public:
         return ret;
     }
 
+    bool tryTake(T& obj, int timeout)
+    {
+        std::unique_lock<std::mutex> lock(_mutex);
+        if (!_nonEmpty.wait_for(lock, std::chrono::milliseconds(timeout), [this] { return !this->_queue.empty(); })) {
+            return false;
+        } else {
+            obj = std::move(_queue.front());
+            _queue.pop();
+            return true;
+        }
+    }
+
     void put(const T& x)
     {
         std::lock_guard<std::mutex> lock(_mutex);

@@ -24,15 +24,6 @@ HddlChannel::HddlChannel(int channelId, QWidget* parent)
     this->resize(QApplication::primaryScreen()->size());
 
     connect(this, &HddlChannel::roiReady, this, &HddlChannel::sendRoiData);
-    m_roiThread = std::thread(&HddlChannel::fetchRoiData, this);
-}
-
-HddlChannel::~HddlChannel()
-{
-    m_stop.store(true);
-    if (m_roiThread.joinable()) {
-        m_roiThread.join();
-    }
 }
 
 bool HddlChannel::setupPipeline(const QString& pipelineDescription, const QString& displaySinkName)
@@ -54,11 +45,17 @@ bool HddlChannel::initConnection(const QString& serverPath)
     return true;
 }
 
-void HddlChannel::run()
+void HddlChannel::run(int timeout)
 {
     WId xwinid = this->centralWidget()->winId();
     if (!m_pipeline->run(xwinid)) {
         QTimer::singleShot(0, QApplication::activeWindow(), SLOT(quit()));
+    }
+
+    if (timeout > 0) {
+        QTimer::singleShot(std::chrono::seconds(timeout), this, [this]() {
+            QApplication::quit();
+        });
     }
 }
 
@@ -72,6 +69,7 @@ void HddlChannel::timerEvent(QTimerEvent* event)
 {
     auto fps = m_pipeline->getFps();
     m_dispatcher->sendString(QString::number(fps, 'f', 2));
+    fetchRoiData();
 }
 
 void HddlChannel::processAction(PipelineAction action)
@@ -81,8 +79,9 @@ void HddlChannel::processAction(PipelineAction action)
 
 void HddlChannel::fetchRoiData()
 {
-    while (!m_stop) {
-        auto src = BlockingQueue<std::shared_ptr<cv::UMat>>::instance().take();
+
+    std::shared_ptr<cv::UMat> src;
+    if (BlockingQueue<std::shared_ptr<cv::UMat>>::instance().tryTake(src, 100)) {
         cv::Mat image;
         cv::resize(*src, image, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
         QByteArray* ba = new QByteArray((char*)image.data, image.total() * image.elemSize());

@@ -8,7 +8,6 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/videooverlay.h>
-#include <thread>
 
 #include "pipeline.h"
 #include "utils/messagetype.h"
@@ -23,10 +22,10 @@ class HddlChannel : public QMainWindow {
     Q_OBJECT
 public:
     explicit HddlChannel(int channelId, QWidget* parent = 0);
-    virtual ~HddlChannel();
+    virtual ~HddlChannel() = default;
     bool initConnection(const QString& serverPath = "hddldemo");
     bool setupPipeline(const QString& pipelineDescription, const QString& displaySinkName);
-    void run();
+    void run(int timeout = 0);
 
 Q_SIGNALS:
     void roiReady(QByteArray* ba);
@@ -45,8 +44,8 @@ private:
     int m_id;
     MessageDispatcher* m_dispatcher { nullptr };
     std::shared_ptr<Pipeline> m_pipeline { nullptr };
-    std::atomic<bool> m_stop { false };
-    std::thread m_roiThread;
+    //std::atomic<bool> m_stop { false };
+    //std::thread m_roiThread;
 };
 
 #endif // HDDLPIPELINE_H

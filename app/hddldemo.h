@@ -33,6 +33,7 @@ private:
     uint32_t m_cols { 0 }; // channel cols
     uint32_t m_launchedNum { 0 }; // nums of launched hddlpipelines
     uint32_t m_embededNum { 0 }; // nums of launched hddlpipelines which are embeded in GUI
+    uint32_t m_timeout { 0 };
     std::vector<std::string> m_pipeline {}; // channel gstreamer pipeline
 
     QTimer* m_pipelineTimer; // channel launch timer

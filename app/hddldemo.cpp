@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QProcess>
+#include <chrono>
 
 HDDLDemo::HDDLDemo(QWidget* parent)
     : QMainWindow(parent)
@@ -110,6 +111,7 @@ HDDLDemo::HDDLDemo(QWidget* parent)
 
 HDDLDemo::~HDDLDemo()
 {
+    qDebug()<<"delete demo";
     delete ui;
 }
 
@@ -152,6 +154,7 @@ void HDDLDemo::channelRoiReceived(qintptr sp, QByteArray* ba)
 void HDDLDemo::initConfig()
 {
     m_pipeline = ConfigParser::instance()->getPipelines();
+    m_timeout = ConfigParser::instance()->getTimeout();
     m_rows = std::sqrt(m_pipeline.size());
     m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
 }
@@ -164,6 +167,7 @@ void HDDLDemo::runPipeline()
         hddlChannelProcess->setProcessChannelMode(QProcess::ForwardedChannels);
         auto arguments = QString::fromStdString(m_pipeline[m_launchedNum]).split(" ");
         arguments.append(QString::number(m_launchedNum));
+        arguments.append(QString::number(m_timeout));
         hddlChannelProcess->start(hddlChannelCmd, arguments);
         m_launchedNum++;
     } else {
