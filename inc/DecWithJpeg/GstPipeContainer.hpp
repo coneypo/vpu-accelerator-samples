@@ -55,6 +55,8 @@ private:
     const unsigned m_idx;
 
     unsigned m_frameIdx;
+
+    uint64_t m_WID;
 };
 
 #endif //#ifndef GST_PIPE_CONTAINER_HPP

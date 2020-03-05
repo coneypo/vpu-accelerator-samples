@@ -126,11 +126,30 @@ int main(){
                     std::cout<<"Dec source start feeding."<<std::endl;
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                    // unsigned count = 0;
                     while(cont.read(blob)){
                         // pl.sendToPort(blob,"DetectNode",0,ms(0));
                         int* fd = blob->get<int, std::pair<unsigned,unsigned>>(1)->getPtr();
                         std::cout<<"FD received is "<<*fd<<std::endl;
+
+                        // auto context = HddlUnite::queryWorkloadContext(WID);
+                        // HddlUnite::SMM::RemoteMemory temp(*context, *fd);
+                        // char* tempData = new char[768*1088*3/2];
+                        // temp.syncFromDevice(tempData, 768*1088*3/2);
+                        // std::stringstream ss;
+                        // ss << "DumpSurf"<<count++<<".nv12";
+                        // FILE* nv12FP = fopen(ss.str().c_str(), "wb");  
+                        // unsigned w_items = 0;
+                        // do {
+                        //     w_items = fwrite(tempData, 768*1088*3/2, 1, nv12FP);
+                        // } while (w_items != 1);
+
+                        // fclose(nv12FP);
+
+                        // delete[] tempData;
+
                         pl.sendToPort(blob,"JpegEncNode",0,ms(0));
+
                         blob.reset(new hva::hvaBlob_t());
                     }
                     // std::cout<<"Finished"<<std::endl;

@@ -7,6 +7,7 @@
 #include <va/va.h>
 #include <iostream>
 //#include <vpusmm/vpusmm.h>
+#include <RemoteMemory.h>
 
 GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), bypass(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
@@ -122,6 +123,8 @@ int GstPipeContainer::init(std::string filename, uint64_t& WID){
         return -5;
     }
 
+    m_WID = WID;
+
     std::cout<<"WID Received: "<<WID<<std::endl;
 
     gst_query_unref(query);
@@ -212,6 +215,11 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         std::cout<<"Get gstmemory from gstbuffer failed: nullptr!"<<std::endl;
         return false;
     }
+    unsigned long offset = 0;
+    unsigned long maxSize = 0;
+    unsigned long currentSize = gst_memory_get_sizes(mem, &offset, &maxSize);
+    std::cout<<"current size: "<<currentSize<<" max size: "<<maxSize<<" offset: "<<offset<<std::endl;
+
     if (!gst_is_dmabuf_memory(mem)) {
         gst_memory_unref(mem);
         std::cout<<"Get gstmemory from gstbuffer failed: not dmabuf!"<<std::endl;
@@ -224,6 +232,21 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
             std::cout<<"Get fd from gstmemory failed!"<<std::endl;
             return false;
         }
+        auto context = HddlUnite::queryWorkloadContext(m_WID);
+        HddlUnite::SMM::RemoteMemory temp(*context, fd, 768*1088*3/2);
+        char* tempData = new char[768*1088*3/2];
+        temp.syncFromDevice(tempData, 768*1088*3/2);
+        std::stringstream ss;
+        ss << "DumpSurf"<<m_frameIdx<<".nv12";
+        FILE* nv12FP = fopen(ss.str().c_str(), "wb");  
+        unsigned w_items = 0;
+        do {
+            w_items = fwrite(tempData, 768*1088*3/2, 1, nv12FP);
+        } while (w_items != 1);
+
+        fclose(nv12FP);
+
+        delete[] tempData;
     }
 
     // int fd = -1;
@@ -276,6 +299,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 
     blob->emplace<int, std::pair<unsigned, unsigned>>(new int(fd), m_width*m_height*3/2,
             new std::pair<unsigned, unsigned>(m_width,m_height),[mem, sampleRead](int* fd, std::pair<unsigned, unsigned>* meta){
+                std::cout<<"Preparing to destruct fd "<<*fd<<std::endl;
                 gst_memory_unref(mem);
                 gst_sample_unref(sampleRead);
                 delete fd;

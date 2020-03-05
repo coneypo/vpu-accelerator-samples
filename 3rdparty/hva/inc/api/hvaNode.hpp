@@ -201,6 +201,8 @@ public:
     
     void stopBatching();
 
+    void turnOnBatching();
+
     hvaStatus_t registerCallback(hvaEvent_t event, hvaEventHandlerFunc callback);
 
     hvaStatus_t emitEvent(hvaEvent_t event, void* data);

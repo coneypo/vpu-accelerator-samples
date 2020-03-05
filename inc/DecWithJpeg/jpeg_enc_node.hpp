@@ -148,6 +148,12 @@ inline std::size_t alignTo(std::size_t s) { //to-do: adjust alignment here
 #define BITSTREAM_ALLOCATE_STEPPING     4096
 #define MAX_JPEG_COMPONENTS 3 
 
+#define MAX_APP_HDR_SIZE 20
+#define MAX_FRAME_HDR_SIZE 19
+#define MAX_QUANT_TABLE_SIZE 138
+#define MAX_HUFFMAN_TABLE_SIZE 432
+#define MAX_SCAN_HDR_SIZE 14
+
 
 struct __bitstream {
     unsigned int *buffer;

@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 //#include <WorkloadCache.h>
+#include <RemoteMemory.h>
+
+#define PIC_POOL_SIZE 2
 
 Defaults::Defaults(){
     jpeg_luma_quant = new uint8_t[NUM_QUANT_ELEMENTS]{
@@ -433,7 +436,7 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
     unsigned alignedWidth = alignTo(m_config.width);
     unsigned alignedHeight = alignTo(m_config.height);
 
-    extbuf.data_size = alignedWidth*alignedHeight*3/2;
+    extbuf.data_size = 2625536; //alignedWidth*alignedHeight*3/2;
     extbuf.num_planes = 2;
     // for (i = 0; i < extbuf.num_planes; i++) {
     //     extbuf.pitches[i] = GST_VIDEO_INFO_PLANE_STRIDE (vip, i);
@@ -556,8 +559,8 @@ JpegEncNode::JpegEncNode(std::size_t inPortNum, std::size_t outPortNum, std::siz
     // }
     // m_allocator = new VaapiSurfaceAllocator(&m_vaDpy); //not allocated any surfaces yet
     // m_pool = new SurfacePool(&m_vaDpy, m_allocator); //not init yet
-    m_picPool = new JpegEncPicture[16];
-    memset(m_picPool, 0, sizeof(JpegEncPicture)*16);
+    m_picPool = new JpegEncPicture[PIC_POOL_SIZE];
+    memset(m_picPool, 0, sizeof(JpegEncPicture)*PIC_POOL_SIZE);
 }
 
 JpegEncNode::~JpegEncNode(){
@@ -745,7 +748,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             ((JpegEncNode*)m_parentNode)->m_pool->moveToFree(&usedSurface);
 
             ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
-        }while(usedSurface);
+        }while(usedSurface != nullptr);
 
         return;
     }
@@ -758,7 +761,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             return;
         }
         else{
-            SurfacePool::Config config = {VA_RT_FORMAT_YUV420, 0u, 0u, 16u}; //To-do: make surfaces num virable
+            SurfacePool::Config config = {VA_RT_FORMAT_YUV420, 0u, 0u, PIC_POOL_SIZE}; //To-do: make surfaces num virable
             ((JpegEncNode*)m_parentNode)->m_picWidth = config.width = meta->widthImage;
             ((JpegEncNode*)m_parentNode)->m_picHeight = config.height = meta->heightImage;
             if(!((JpegEncNode*)m_parentNode)->m_pool->init(config)){
@@ -779,6 +782,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
     const int* fd = pBuf->getPtr();
     std::cout<<"KL: blob received with FD: "<<*fd<<std::endl;
     do{
+        reApplyFreeSurface = false;
         SurfacePool::Surface* surface = nullptr;
         if(((JpegEncNode*)m_parentNode)->m_pool->tryGetFreeSurface(&surface, *fd, pBuf)){
             // VASurfaceID vaSurf = surface->surfaceId;
@@ -792,6 +796,22 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             //     return;
             // }
 
+            // auto context = HddlUnite::queryWorkloadContext(((JpegEncNode*)m_parentNode)->m_WID);
+            // HddlUnite::SMM::RemoteMemory temp(*context, *fd);
+            // char* tempData = new char[768*1088*3/2];
+            // temp.syncFromDevice(tempData, 768*1088*3/2);
+            // std::stringstream ss;
+            // ss << "DumpSurf"<<surface->surfaceId<<".nv12";
+            // FILE* nv12FP = fopen(ss.str().c_str(), "wb");  
+            // unsigned w_items = 0;
+            // do {
+            //     w_items = fwrite(tempData, 768*1088*3/2, 1, nv12FP);
+            // } while (w_items != 1);
+
+            // fclose(nv12FP);
+
+            // delete[] tempData;
+
             VAStatus va_status;
             unsigned picWidth = ((JpegEncNode*)m_parentNode)->m_picWidth;
             unsigned picHeight = ((JpegEncNode*)m_parentNode)->m_picHeight;
@@ -802,7 +822,10 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             std::size_t index = surface->index;
             // Encoded buffer
             va_status = vaCreateBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, surface->ctxId,
-                    VAEncCodedBufferType, picWidth*picHeight*3/2, 1, NULL, &(picPool[index].codedBufId));
+                    VAEncCodedBufferType, alignTo(picWidth)*alignTo(picHeight)*3/2+MAX_APP_HDR_SIZE + MAX_FRAME_HDR_SIZE +
+                    MAX_QUANT_TABLE_SIZE + MAX_HUFFMAN_TABLE_SIZE + MAX_SCAN_HDR_SIZE, 
+                    1, NULL, &(picPool[index].codedBufId));
+
             if(va_status != VA_STATUS_SUCCESS){
                 std::cout<<"Create coded buffer failed!"<<std::endl;
                 return;
@@ -982,7 +1005,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                 ((JpegEncNode*)m_parentNode)->m_pool->moveToFree(&usedSurface);
 
                 ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
-            }while(usedSurface);
+            }while(usedSurface!=nullptr);
             reApplyFreeSurface = true;
         }
 
