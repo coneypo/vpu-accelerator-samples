@@ -8,6 +8,7 @@ include(ExternalProject)
 find_package(Qt5 COMPONENTS Core Gui Widgets Network REQUIRED)
 find_package(Boost REQUIRED system filesystem)
 find_package(OpenCV 4.0.0 EXACT REQUIRED)
+find_package(OpenCL REQUIRED)
 find_package(Threads)
 
 pkg_check_modules(GLIB2 REQUIRED glib-2.0)

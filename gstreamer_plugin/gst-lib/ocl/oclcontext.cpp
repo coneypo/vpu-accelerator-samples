@@ -32,7 +32,7 @@ using namespace cv::ocl;
 #include <opencv2/core/directx.hpp>
 using namespace cv::directx::ocl;
 #else
-#include <CL/va_ext.h>
+#include <CL/cl_va_api_media_sharing_intel.h>
 #include <opencv2/core/va_intel.hpp>
 using namespace cv::va_intel;
 #endif
