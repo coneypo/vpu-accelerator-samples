@@ -11,6 +11,7 @@
 #include <boost/filesystem.hpp>
 #include <future>
 #include <jpeg_enc_node.hpp>
+#include <RemoteMemory.h>
 
 #define STREAMS 1
 
@@ -133,7 +134,7 @@ int main(){
                         std::cout<<"FD received is "<<*fd<<std::endl;
 
                         // auto context = HddlUnite::queryWorkloadContext(WID);
-                        // HddlUnite::SMM::RemoteMemory temp(*context, *fd);
+                        // HddlUnite::SMM::RemoteMemory temp(*context, *fd, 768*1088*3/2);
                         // char* tempData = new char[768*1088*3/2];
                         // temp.syncFromDevice(tempData, 768*1088*3/2);
                         // std::stringstream ss;

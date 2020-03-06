@@ -203,6 +203,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         return false;
     }
 
+    std::cout<<"current buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(buf)<<std::endl;
+
     // GstMapInfo* info = new GstMapInfo;
     // if (!gst_buffer_map(buf, info, GST_MAP_READ)){
     //     std::cout<<"Buffer map failed!"<<std::endl;
@@ -232,21 +234,23 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
             std::cout<<"Get fd from gstmemory failed!"<<std::endl;
             return false;
         }
-        auto context = HddlUnite::queryWorkloadContext(m_WID);
-        HddlUnite::SMM::RemoteMemory temp(*context, fd, 768*1088*3/2);
-        char* tempData = new char[768*1088*3/2];
-        temp.syncFromDevice(tempData, 768*1088*3/2);
-        std::stringstream ss;
-        ss << "DumpSurf"<<m_frameIdx<<".nv12";
-        FILE* nv12FP = fopen(ss.str().c_str(), "wb");  
-        unsigned w_items = 0;
-        do {
-            w_items = fwrite(tempData, 768*1088*3/2, 1, nv12FP);
-        } while (w_items != 1);
 
-        fclose(nv12FP);
+        std::cout<<"FD from dmabuf is "<<fd<<std::endl;
+        // auto context = HddlUnite::queryWorkloadContext(m_WID);
+        // HddlUnite::SMM::RemoteMemory temp(*context, fd, 768*1088*3/2);
+        // char* tempData = new char[768*1088*3/2];
+        // temp.syncFromDevice(tempData, 768*1088*3/2);
+        // std::stringstream ss;
+        // ss << "DumpSurf"<<m_frameIdx<<".nv12";
+        // FILE* nv12FP = fopen(ss.str().c_str(), "wb");  
+        // unsigned w_items = 0;
+        // do {
+        //     w_items = fwrite(tempData, 768*1088*3/2, 1, nv12FP);
+        // } while (w_items != 1);
 
-        delete[] tempData;
+        // fclose(nv12FP);
+
+        // delete[] tempData;
     }
 
     // int fd = -1;
@@ -300,8 +304,12 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     blob->emplace<int, std::pair<unsigned, unsigned>>(new int(fd), m_width*m_height*3/2,
             new std::pair<unsigned, unsigned>(m_width,m_height),[mem, sampleRead](int* fd, std::pair<unsigned, unsigned>* meta){
                 std::cout<<"Preparing to destruct fd "<<*fd<<std::endl;
+                std::cout<<"current mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
+                std::cout<<"current sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
                 gst_memory_unref(mem);
                 gst_sample_unref(sampleRead);
+                std::cout<<"after mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
+                std::cout<<"after sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
                 delete fd;
                 delete meta;
             });

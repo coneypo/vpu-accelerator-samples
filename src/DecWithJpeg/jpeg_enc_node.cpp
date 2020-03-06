@@ -5,6 +5,7 @@
 #include <sys/syscall.h>
 //#include <WorkloadCache.h>
 #include <RemoteMemory.h>
+#include <fstream>
 
 #define PIC_POOL_SIZE 2
 
@@ -421,6 +422,7 @@ bool SurfacePool::init(SurfacePool::Config& config){
 
     return true;
 }
+// static bool firstImg = true;
 
 bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf){
     *surface = m_freeSurfaces;
@@ -470,6 +472,29 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
         std::cout<<"Failed to allocate surfaces: "<<va_status<<std::endl;
         return false;
     }
+
+    // if(firstImg){
+    //     VAImage vaImg;
+    //     VAStatus status = vaDeriveImage(*m_dpy, (*surface)->surfaceId, &vaImg);
+    //     if(va_status != VA_STATUS_SUCCESS){
+    //         std::cout<<"Fail to derive image."<<std::endl;
+    //         return false;
+    //     }
+    //     void* mappedSurf = nullptr;
+    //     va_status = vaMapBuffer(*m_dpy,vaImg.buf, &mappedSurf);
+    //     if(va_status != VA_STATUS_SUCCESS){
+    //         std::cout<<"Fail to map image."<<std::endl;
+    //         return false;
+    //     }
+
+    //     auto myfile = std::fstream("firstimage.yuv", std::ios::out | std::ios::binary);
+    //     myfile.write(&(((char*)mappedSurf)[0]), 1088*768*3/2);
+    //     myfile.close();
+
+    //     vaUnmapBuffer(*m_dpy, vaImg.buf);
+    //     vaDestroyImage(*m_dpy,vaImg.image_id);
+    //     firstImg = false;
+    // }
 
     return true;
 }
