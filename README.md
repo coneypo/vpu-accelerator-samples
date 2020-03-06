@@ -73,7 +73,7 @@ gst-launch-1.0 filesrc location=<video path>/video.mp4 ! qtdemux  ! h264parse ! 
 
 ``` 
 cd build/output
-./hddldemo -l ../../app/config.txt -r 1 -c 1
+./hddldemo -c ../../app/config.txt 
 ```
 
 ## Run App in install dir
@@ -84,5 +84,5 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libxcb-dri3.so
 export LD_LIBRARY_PATH='<install path>/lib'
 export GST_PLUGIN_PATH='<install path>/lib'
 cd <install path>/bin
-./hddldemo -c ../app/config.txt
+./hddldemo -c ../config.txt
 ```
