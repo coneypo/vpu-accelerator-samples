@@ -6,3 +6,4 @@
 *.jpeg
 *.yuv
 *.nv12
+.*.swp

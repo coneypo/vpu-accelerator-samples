@@ -20,7 +20,7 @@ int GstPipeContainer::init(std::string filename, uint64_t& WID){
     parser = gst_element_factory_make("h264parse", "parser");
     bypass = gst_element_factory_make("bypass","bypass");
     dec = gst_element_factory_make("vaapih264dec", "dec");
-    app_queue = gst_element_factory_make("queue", "app_queue");
+    // app_queue = gst_element_factory_make("queue", "app_queue");
     app_sink = gst_element_factory_make("appsink", "appsink");
 #ifdef ENABLE_DISPLAY
     tee = gst_element_factory_make("tee", "tee");
@@ -31,7 +31,7 @@ int GstPipeContainer::init(std::string filename, uint64_t& WID){
 #endif
     pipeline = gst_pipeline_new("pipeline");
 
-    if(!file_source || !parser || !bypass || !dec || !app_sink || !app_queue || !pipeline
+    if(!file_source || !parser || !bypass || !dec || !app_sink || !pipeline
 #ifdef ENBALE_DISPLAY
             || !vaapi_queue || !vaapi_sink || !tee
 #else
@@ -78,9 +78,9 @@ int GstPipeContainer::init(std::string filename, uint64_t& WID){
     }
 #else
     gst_bin_add_many(GST_BIN(pipeline), file_source, parser, bypass, dec, capsfilter,
-            app_queue, app_sink, NULL);
+            app_sink, NULL);
 
-    if(!gst_element_link_many(file_source, parser, bypass, dec, capsfilter, app_queue, app_sink, NULL)){
+    if(!gst_element_link_many(file_source, parser, bypass, dec, capsfilter, app_sink, NULL)){
         return -2;
     }
 #endif
@@ -189,6 +189,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         std::cout<<"Read sample failed!"<<std::endl;
         return false;
     }
+    // std::cout<<"current sample ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
+    // std::cout<<"current sample address: "<<std::hex<<static_cast<void*>(sampleRead)<<std::dec<<std::endl;
 
     if(m_width == 0 || m_height == 0){
         GstCaps * frame_caps = gst_sample_get_caps(sampleRead);
@@ -203,7 +205,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         return false;
     }
 
-    std::cout<<"current buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(buf)<<std::endl;
+    // std::cout<<"current buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(buf)<<std::endl;
+    // std::cout<<"current buffer address: "<<std::hex<<static_cast<void*>(buf)<<std::dec<<std::endl;
 
     // GstMapInfo* info = new GstMapInfo;
     // if (!gst_buffer_map(buf, info, GST_MAP_READ)){
@@ -217,6 +220,9 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         std::cout<<"Get gstmemory from gstbuffer failed: nullptr!"<<std::endl;
         return false;
     }
+    // std::cout<<"current mem ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
+    // std::cout<<"current mem address: "<<std::hex<<static_cast<void*>(mem)<<std::dec<<std::endl;
+
     unsigned long offset = 0;
     unsigned long maxSize = 0;
     unsigned long currentSize = gst_memory_get_sizes(mem, &offset, &maxSize);
@@ -304,12 +310,14 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     blob->emplace<int, std::pair<unsigned, unsigned>>(new int(fd), m_width*m_height*3/2,
             new std::pair<unsigned, unsigned>(m_width,m_height),[mem, sampleRead](int* fd, std::pair<unsigned, unsigned>* meta){
                 std::cout<<"Preparing to destruct fd "<<*fd<<std::endl;
-                std::cout<<"current mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
-                std::cout<<"current sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
+                // std::cout<<"before mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
+                // std::cout<<"before sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
                 gst_memory_unref(mem);
                 gst_sample_unref(sampleRead);
-                std::cout<<"after mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
-                std::cout<<"after sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
+                // std::cout<<"after mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
+                // std::cout<<"after sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
+                mem = nullptr;
+                sampleRead = nullptr;
                 delete fd;
                 delete meta;
             });

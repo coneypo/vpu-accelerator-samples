@@ -1055,6 +1055,7 @@ bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
         std::cout<<"Query surface status failed!"<<std::endl;
         return false;
     }
+    std::cout<<"vaQuerySurfaceStatus: "<< surface_status<<std::endl;
 
     va_status = vaMapBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, picPool[index].codedBufId, (void **)(&coded_buffer_segment));
     if(va_status != VA_STATUS_SUCCESS){
