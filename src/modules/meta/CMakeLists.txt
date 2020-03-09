@@ -10,6 +10,7 @@ add_library(${TARGET_NAME} STATIC ${HDRS} ${SRCS})
 
 target_include_directories(
     ${TARGET_NAME} PUBLIC
+    ${LIBHARFBUZZ_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
     ${GSTREAMER_INCLUDE_DIRS}
     ${PROJECT_SOURCE_DIR}/src
@@ -20,3 +21,4 @@ target_link_libraries(
     ${TARGET_NAME} PRIVATE
     ${CAIRO_LIBRARIES}
 )
+

@@ -72,6 +72,7 @@ function(mediapipe_library_build)
     #add package find path
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/" "${BASE_MODULES_PATH}/cmake/modules")
 
+    find_package(HarfBuzz REQUIRED)
     find_package(Json-c REQUIRED)
     find_package(Cairo REQUIRED)
     find_package(Glib REQUIRED)
@@ -193,6 +194,7 @@ function(mediapipe_library_build)
     #when link libgstocl.so, so force use CXX link
     set_target_properties(${MEDIAPIPE_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 
+    target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${LIBHARFBUZZ_INCLUDE_DIRS})
     target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${JSON-C_INCLUDE_DIRS})
     target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${CAIRO_INCLUDE_DIRS})
     target_include_directories(${MEDIAPIPE_NAME} PUBLIC ${OPENSSL_INCLUDE_DIRS})

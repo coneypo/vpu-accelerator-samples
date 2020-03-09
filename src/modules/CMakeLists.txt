@@ -35,6 +35,7 @@ add_library(${TARGET_NAME} STATIC ${HDRS} ${SRCS} ${MODULE_COLLECTION})
 
 target_include_directories(
     ${TARGET_NAME} PUBLIC
+    ${LIBHARFBUZZ_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
     ${CAIRO_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIR}
