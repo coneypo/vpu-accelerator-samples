@@ -316,8 +316,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
                 gst_sample_unref(sampleRead);
                 // std::cout<<"after mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
                 // std::cout<<"after sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
-                mem = nullptr;
-                sampleRead = nullptr;
+                // mem = nullptr;
+                // sampleRead = nullptr;
                 delete fd;
                 delete meta;
             });

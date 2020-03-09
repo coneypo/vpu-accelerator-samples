@@ -6,6 +6,7 @@
 //#include <WorkloadCache.h>
 #include <RemoteMemory.h>
 #include <fstream>
+#include <va/va_drmcommon.h>
 
 #define PIC_POOL_SIZE 2
 
@@ -455,7 +456,7 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
     extbuf.flags = 0;
     extbuf.private_data = NULL;
 
-    VASurfaceAttrib attrib[2];
+    VASurfaceAttrib attrib[3];
     attrib[0].type =VASurfaceAttribPixelFormat;
     attrib[0].flags=VA_SURFACE_ATTRIB_SETTABLE;
     attrib[0].value.type=VAGenericValueTypeInteger;
@@ -466,8 +467,13 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
     attrib[1].value.type = VAGenericValueTypePointer;
     attrib[1].value.value.p = &extbuf;
 
+    attrib[2].type = VASurfaceAttribMemoryType;
+    attrib[2].flags= VA_SURFACE_ATTRIB_SETTABLE;
+    attrib[2].value.type = VAGenericValueTypeInteger;
+    attrib[2].value.value.i = VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME;
+
     VAStatus va_status = vaCreateSurfaces(*m_dpy, m_config.surfaceType, m_config.width, m_config.height, 
-                                 &((*surface)->surfaceId), 1, &(attrib[0]), 2);
+                                 &((*surface)->surfaceId), 1, &(attrib[0]), 3);
     if(va_status != VA_STATUS_SUCCESS){
         std::cout<<"Failed to allocate surfaces: "<<va_status<<std::endl;
         return false;
