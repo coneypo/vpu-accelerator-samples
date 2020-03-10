@@ -4,6 +4,7 @@
 #include <hvaPipeline.hpp>
 #include <string>
 #include <infermetasender.hpp>
+#include <common.hpp>
 
 class SenderNode : public hva::hvaNode_t{
 public:

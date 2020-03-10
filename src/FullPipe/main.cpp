@@ -18,6 +18,7 @@ using ms = std::chrono::milliseconds;
 static std::string g_detNetwork;
 static std::string g_clsNetwork;
 static std::string g_videoFile;
+static unsigned g_dropEveryXFrame;
 
 bool checkValidNetFile(std::string filepath){
     std::string::size_type suffix_pos = filepath.find(".xml");
@@ -126,6 +127,10 @@ int main(){
         std::cout<<"Error: No input video file specified in config.json"<<std::endl;
         return -1;
     }
+    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrame)){
+        std::cout<<"Warning: No frame dropping count specified in config.json"<<std::endl;
+        g_dropEveryXFrame = 0;
+    }
 
     if(!jsParser.parse("Detection.Model",g_detNetwork)){
         std::cout<<"No detection model specified in config.json. Use default network path"<<std::endl;
@@ -143,6 +148,9 @@ int main(){
     std::promise<bool> configPromise;
     std::future<bool> configFuture = configPromise.get_future();
     PipelineConfig_t config;
+    GstPipeContainer::Config decConfig;
+    decConfig.filename = g_videoFile;
+    decConfig.dropEveryXFrame = g_dropEveryXFrame;
 
     std::thread t(receiveRoutine, guiSocket.c_str(), configPromise, config);
 
@@ -160,7 +168,7 @@ int main(){
             vTh.push_back(new std::thread([&, i](){
                         GstPipeContainer cont(i);
                         uint64_t WID = 0;
-                        if(cont.init(videoFile, WID) != 0 || WID == 0){
+                        if(cont.init(decConfig, WID) != 0 || WID == 0){
                             std::cout<<"Fail to init cont!"<<std::endl;
                             return;
                         }

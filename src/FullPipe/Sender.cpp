@@ -30,8 +30,11 @@ struct Packet{
 
 void SenderNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
-    Packet* tosend = vInput[0]->get<Packet>(0)->getPtr();
-    m_sender.serializeSave(tosend->x, tosend->y, tosend->width, tosend->height, tosend->label, tosend->pts, tosend->confidence);
+    InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
+    for(unsigned i =0; i< meta->rois.size(); ++i){
+        const auto& rois = meta->rois;
+        m_sender.serializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].label, rois[i].pts, rois[i].confidence);
+    }
     m_sender.send();
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }

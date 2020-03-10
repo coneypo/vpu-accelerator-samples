@@ -6,7 +6,8 @@
         "Model":"ResNet-50_fp32.xml"
     },
     "Decode":{
-        "Video":"./barrier_1080x720.h264"
+        "Video":"./barrier_1080x720.h264",
+        "DropEveryXFrame": 4
     },
     "GUI":{
         "Socket":"/var/tmp/gstreamer_ipc.sock"
