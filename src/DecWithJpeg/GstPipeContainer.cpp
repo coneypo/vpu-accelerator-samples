@@ -289,12 +289,12 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     //         });
 
     InfoROI_t* pInfoROI = new InfoROI_t();
-    pInfoROI->height = 30;
-    pInfoROI->width = 30;
+    pInfoROI->height = 64;
+    pInfoROI->width = 64;
     pInfoROI->widthImage = 1080;
     pInfoROI->heightImage = 720;
-    pInfoROI->x = 66;
-    pInfoROI->y = 99;
+    pInfoROI->x = 128;
+    pInfoROI->y = 128;
     pInfoROI->indexROI = 5;
     pInfoROI->totalROINum = 13;
     pInfoROI->frameId = 2;
