@@ -318,7 +318,7 @@ bool GstPipeContainer::validateConfig(){
     if(m_config.dropEveryXFrame > 8){
         m_config.dropEveryXFrame = 8;
     }
-    return;
+    return true;
 }
 
 /**

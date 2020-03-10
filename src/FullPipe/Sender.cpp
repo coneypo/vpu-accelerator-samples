@@ -42,7 +42,3 @@ void SenderNodeWorker::process(std::size_t batchIdx){
 void SenderNodeWorker::init(){
     m_sender.connectServer(((SenderNode*)m_parentNode)->getUnixSocket());
 }
-
-void SenderNodeWorker::process(std::size_t batchIdx){
-
-}

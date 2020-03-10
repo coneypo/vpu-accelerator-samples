@@ -27,7 +27,7 @@ public:
     virtual void init() override;
 
 private:
-    HddlUnite::InferMetaSender m_sender;  
+    InferMetaSender m_sender;  
 };
 
 

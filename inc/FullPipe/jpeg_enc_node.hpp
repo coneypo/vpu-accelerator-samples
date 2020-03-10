@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <atomic>
 #include <WorkloadContext.h>
+#include <common.hpp>
 
 //#define NEW_HDDL_WCTX
 // #define HANTRO_JPEGENC_ROI_API
@@ -60,7 +61,7 @@ public:
         VASurfaceID surfaceId;
         VAContextID ctxId;
         std::size_t index;
-        std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf;
+        std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf;
         Surface* next;
     };
 
@@ -75,13 +76,13 @@ public:
     SurfacePool(VADisplay* dpy, JpegEncPicture* picPool);
     ~SurfacePool();
     bool init(Config& config);
-    bool getFreeSurface(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf);
-    bool tryGetFreeSurface(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf);
+    bool getFreeSurface(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf);
+    bool tryGetFreeSurface(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf);
     bool moveToUsed(Surface** surface);
     bool getUsedSurface(Surface** surface);
     bool moveToFree(Surface** surface);
 private:
-    bool getFreeSurfaceUnsafe(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, std::pair<unsigned, unsigned>>> pBuf);
+    bool getFreeSurfaceUnsafe(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf);
     bool moveToUsedUnsafe(Surface** surface);
     bool getUsedSurfaceUnsafe(Surface** surface);
     bool moveToFreeUnsafe(Surface** surface);

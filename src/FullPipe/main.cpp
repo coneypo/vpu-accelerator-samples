@@ -1,4 +1,3 @@
-#include <GstHvaSample.hpp>
 #include <iostream>
 #include <memory>
 #include <hvaPipeline.hpp>
@@ -10,7 +9,11 @@
 #include <boost/filesystem.hpp>
 #include <future>
 #include <jpeg_enc_node.hpp>
-#include <RemoteMemory.h>
+#include <FakeDelayNode.hpp>
+#include <FrameControlNode.hpp>
+#include <ipc.h>
+#include <GstPipeContainer.hpp>
+#include <common.hpp>
 
 #define STREAMS 1
 using ms = std::chrono::milliseconds;
@@ -101,7 +104,7 @@ int receiveRoutine(const char* socket_address, std::promise<bool>& promise, Pipe
             }
             break;
         }
-        case Event::Type::CONNECTION_OUT:
+        case HddlUnite::Event::Type::CONNECTION_OUT:
             running = false;
             /* to-do: stop pipeline */
             break;
@@ -141,18 +144,22 @@ int main(){
         g_clsNetwork = "ResNet-50_fp32.xml";
     }
 
-    if(!checkValidNetFile(detNetwork) || !checkValidNetFile(clsNetwork) || !checkValidVideo(videoFile)){
+    if(!checkValidNetFile(g_detNetwork) || !checkValidNetFile(g_clsNetwork) || !checkValidVideo(g_videoFile)){
         return -1;
     }
 
+#ifdef GUI_INTEGRATION
     std::promise<bool> configPromise;
     std::future<bool> configFuture = configPromise.get_future();
     PipelineConfig_t config;
+#endif
     GstPipeContainer::Config decConfig;
     decConfig.filename = g_videoFile;
     decConfig.dropEveryXFrame = g_dropEveryXFrame;
 
+#ifdef GUI_INTEGRATION
     std::thread t(receiveRoutine, guiSocket.c_str(), configPromise, config);
+#endif
 
     std::vector<std::thread*> vTh;
     vTh.reserve(STREAMS);
@@ -160,9 +167,10 @@ int main(){
     std::future<uint64_t> WIDFuture = WIDPromise.get_future();
     hva::hvaPipeline_t pl;
 
+#ifdef GUI_INTEGRATION
     bool ready = configFuture.get();
     if(ready){
-
+#endif
         for(unsigned i = 0; i < STREAMS; ++i){
             // std::cout<<"starting thread "<<i<<std::endl;
             vTh.push_back(new std::thread([&, i](){
@@ -180,10 +188,10 @@ int main(){
 
                         std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                         while(cont.read(blob)){
-                            int* fd = blob->get<int, std::pair<unsigned,unsigned>>(1)->getPtr();
+                            int* fd = blob->get<int, VideoMeta>(0)->getPtr();
                             std::cout<<"FD received is "<<*fd<<std::endl;
 
-                            pl.sendToPort(blob,"JpegEncNode",0,ms(0));
+                            pl.sendToPort(blob,"detNode",0,ms(0));
 
                             blob.reset(new hva::hvaBlob_t());
                         }
@@ -192,14 +200,24 @@ int main(){
                     }));
         }
 
+        auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,1, "detection"), "detNode");
+        auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,8), "FRCNode");
+        auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
+
         uint64_t WID = WIDFuture.get();
-        auto& mynode2 = pl.setSource(std::make_shared<JpegEncNode>(1,0,1, WID), "JpegEncNode");
+        auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,1,WID), "jpegNode");
+
+        pl.linkNode("detNode", 0, "FRCNode", 0);
+        pl.linkNode("FRCNode", 0, "clsNode", 0);
+        pl.linkNode("clsNode", 0, "jpegNode", 0);
 
         pl.prepare();
 
         std::cout<<"\nPipeline Start: "<<std::endl;
         pl.start();
+#ifdef GUI_INTEGRATION
     }
+#endif
 
     for(unsigned i =0; i < STREAMS; ++i){
         vTh[i]->join();
@@ -207,13 +225,15 @@ int main(){
 
     std::cout<<"\nDec source joined "<<std::endl;
 
-    std::this_thread::sleep_for(ms(3000));
+    std::this_thread::sleep_for(ms(5000));
 
     std::cout<<"Going to stop pipeline."<<std::endl;
 
     pl.stop();
 
+#ifdef GUI_INTEGRATION
     t.join();
+#endif
 
     return 0;
 

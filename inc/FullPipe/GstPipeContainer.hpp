@@ -15,7 +15,7 @@ public:
 
     GstPipeContainer(unsigned idx);
 
-    int init(Config config, uint64_t& WID);
+    int init(const Config& config, uint64_t& WID);
 
     int start();
 

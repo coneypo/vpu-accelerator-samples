@@ -4,4 +4,6 @@
 
 # add_subdirectory(KmbPipelineDecOnly)
 
-add_subdirectory(DecWithJpeg)
+# add_subdirectory(DecWithJpeg)
+
+add_subdirectory(FullPipe)
