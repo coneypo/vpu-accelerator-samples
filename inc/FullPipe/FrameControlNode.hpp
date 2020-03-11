@@ -7,26 +7,28 @@
 
 class FrameControlNode : public hva::hvaNode_t{
 public:
-    FrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, unsigned dropEveryXFrame);
+    FrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, unsigned dropXFrame, unsigned dropEveryXFrame);
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
 
 private:
     unsigned m_dropEveryXFrame;
-
+    unsigned m_dropXFrame;
 };
 
 class FrameControlNodeWorker : public hva::hvaNodeWorker_t{
 public:
-    FrameControlNodeWorker(hva::hvaNode_t* parentNode, unsigned dropEveryXFrame);
+    FrameControlNodeWorker(hva::hvaNode_t* parentNode, unsigned dropXFrame, unsigned dropEveryXFrame);
 
     virtual void process(std::size_t batchIdx) override;
 
     virtual void init() override;
 
 private:
+    void incCount();
 
     unsigned m_dropEveryXFrame;
+    unsigned m_dropXFrame;
     unsigned m_cnt;
 };
 

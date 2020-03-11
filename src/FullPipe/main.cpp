@@ -14,6 +14,8 @@
 #include <ipc.h>
 #include <GstPipeContainer.hpp>
 #include <common.hpp>
+#include <mutex>
+#include <condition_variable>
 
 #define STREAMS 1
 #define GUI_INTEGRATION
@@ -21,8 +23,7 @@ using ms = std::chrono::milliseconds;
 
 #ifdef GUI_INTEGRATION
 #include <Sender.hpp>
-#include <mutex>
-#include <condition_variable>
+#endif 
 
 enum ControlMessage{
     EMPTY = 0,
@@ -33,12 +34,11 @@ enum ControlMessage{
 std::mutex g_mutex;
 std::condition_variable g_cv;
 
-#endif 
-
 static std::string g_detNetwork;
 static std::string g_clsNetwork;
 static std::string g_videoFile;
 static unsigned g_dropEveryXFrame;
+static unsigned g_dropXFrame;
 
 bool checkValidNetFile(std::string filepath){
     std::string::size_type suffix_pos = filepath.find(".xml");
@@ -76,7 +76,7 @@ struct PipelineConfig_t{
     std::string unixSocket;
 };
 
-int receiveRoutine(const char* socket_address, PipelineConfig_t* config)
+int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, PipelineConfig_t* config)
 {
     auto poller = HddlUnite::Poller::create();
     auto connection = HddlUnite::Connection::create(poller);
@@ -124,6 +124,7 @@ int receiveRoutine(const char* socket_address, PipelineConfig_t* config)
                 {
                     std::lock_guard<std::mutex> lg(g_mutex);
                     config->unixSocket = message;
+                    *ctrlMsg = ControlMessage::ADDR_RECVED;
                 }
                 g_cv.notify_one();
                 /* start pipeline */
@@ -132,7 +133,12 @@ int receiveRoutine(const char* socket_address, PipelineConfig_t* config)
         }
         case HddlUnite::Event::Type::CONNECTION_OUT:
             running = false;
-            /* to-do: stop pipeline */
+            /* stop pipeline */
+            {
+                std::lock_guard<std::mutex> lg(g_mutex);
+                *ctrlMsg = ControlMessage::STOP_RECVED;
+            }
+            g_cv.notify_one();
             break;
 
         default:
@@ -156,9 +162,12 @@ int main(){
         std::cout<<"Error: No input video file specified in config.json"<<std::endl;
         return -1;
     }
-    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrame)){
+    if(!jsParser.parse("Decode.DropXFrame",g_dropXFrame)){
         std::cout<<"Warning: No frame dropping count specified in config.json"<<std::endl;
-        g_dropEveryXFrame = 0;
+        g_dropXFrame = 0;
+    }
+    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrame)){
+        g_dropEveryXFrame = 1024;
     }
 
     if(!jsParser.parse("Detection.Model",g_detNetwork)){
@@ -177,26 +186,32 @@ int main(){
 #ifdef GUI_INTEGRATION
     PipelineConfig_t config;
     config.unixSocket = "";
+    ControlMessage ctrlMsg = ControlMessage::EMPTY;
 #endif
     GstPipeContainer::Config decConfig;
     decConfig.filename = g_videoFile;
     decConfig.dropEveryXFrame = g_dropEveryXFrame;
 
 #ifdef GUI_INTEGRATION
-    std::thread t(receiveRoutine, guiSocket.c_str(), &config);
+    std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &config);
 #endif
 
     std::vector<std::thread*> vTh;
+    std::vector<GstPipeContainer*> vCont;
     vTh.reserve(STREAMS);
+    vCont.reserve(STREAMS);
     std::promise<uint64_t> WIDPromise;
     std::future<uint64_t> WIDFuture = WIDPromise.get_future();
     hva::hvaPipeline_t pl;
 
 #ifdef GUI_INTEGRATION
     // bool ready = configFuture.get();
-    std::unique_lock<std::mutex> lk(g_mutex);
-    if(config.unixSocket == ""){
-        g_cv.wait(lk,[&](){ return ""!=config.unixSocket;});
+    {
+        std::unique_lock<std::mutex> lk(g_mutex);
+        if(config.unixSocket == ""){
+            g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
+            ctrlMsg = ControlMessage::EMPTY;
+        }
     }
     std::cout<<" Unix Socket addr received is "<<config.unixSocket<<std::endl;
     std::this_thread::sleep_for(ms(5000));
@@ -204,9 +219,10 @@ int main(){
     for(unsigned i = 0; i < STREAMS; ++i){
         // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
-                    GstPipeContainer cont(i);
+                    // GstPipeContainer cont(i);
+                    vCont[i] = new GstPipeContainer(i);
                     uint64_t WID = 0;
-                    if(cont.init(decConfig, WID) != 0 || WID == 0){
+                    if(vCont[i]->init(decConfig, WID) != 0 || WID == 0){
                         std::cout<<"Fail to init cont!"<<std::endl;
                         return;
                     }
@@ -217,7 +233,7 @@ int main(){
                     std::cout<<"Dec source start feeding."<<std::endl;
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
-                    while(cont.read(blob)){
+                    while(vCont[i]->read(blob)){
                         int* fd = blob->get<int, VideoMeta>(0)->getPtr();
                         std::cout<<"FD received is "<<*fd<<std::endl;
 
@@ -225,13 +241,20 @@ int main(){
 
                         blob.reset(new hva::hvaBlob_t());
                     }
+
+                    {
+                    std::lock_guard<std::mutex> lg(g_mutex);
+                    ctrlMsg = ControlMessage::STOP_RECVED;
+                    }
+                    g_cv.notify_all();
+
                     // std::cout<<"Finished"<<std::endl;
                     return;
                 }));
     }
 
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,1, "detection"), "detNode");
-    auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,8), "FRCNode");
+    auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
     
 #ifdef GUI_INTEGRATION
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,1,"classification"), "clsNode");
@@ -254,21 +277,34 @@ int main(){
     std::cout<<"\nPipeline Start: "<<std::endl;
     pl.start();
 
-    for(unsigned i =0; i < STREAMS; ++i){
-        vTh[i]->join();
-    }
+    do{
+        std::unique_lock<std::mutex> lk(g_mutex);
+        g_cv.wait(lk,[&](){ return ControlMessage::STOP_RECVED == ctrlMsg;});
 
-    std::cout<<"\nDec source joined "<<std::endl;
+        ctrlMsg = ControlMessage::EMPTY;
+        for(unsigned i =0; i < STREAMS; ++i){
+            vCont[i]->stop();
+            delete vCont[i];
+        }
 
-    std::this_thread::sleep_for(ms(5000));
+        std::this_thread::sleep_for(ms(1000));
 
-    std::cout<<"Going to stop pipeline."<<std::endl;
+        std::cout<<"Going to stop pipeline."<<std::endl;
 
-    pl.stop();
+        pl.stop();
+
+        for(unsigned i =0; i < STREAMS; ++i){
+            vTh[i]->join();
+        }
+
+        std::cout<<"\nDec source joined "<<std::endl;
 
 #ifdef GUI_INTEGRATION
-    t.join();
+        t.join();
 #endif
+        break;
+
+    }while(true);
 
     return 0;
 

@@ -10,6 +10,7 @@ class GstPipeContainer{
 public:
     struct Config{
         std::string filename;
+        unsigned dropXFrame;
         unsigned dropEveryXFrame;
     };
 
@@ -18,6 +19,8 @@ public:
     int init(const Config& config, uint64_t& WID);
 
     int start();
+
+    void stop();
 
     ~GstPipeContainer();
 
@@ -49,6 +52,7 @@ private:
     bool validateConfig();
 
     bool m_bStart;
+    bool m_bStopped;
 
     GstPad* m_tee_vaapi_pad;
     GstPad* m_tee_app_pad;

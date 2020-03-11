@@ -13,7 +13,7 @@
 GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), bypass(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
             m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr),
-            capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0){
+            capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0), m_bStopped(false){
 }
 
 int GstPipeContainer::init(const Config& config, uint64_t& WID){
@@ -160,6 +160,11 @@ int GstPipeContainer::start(){
     return 0;
 }
 
+void GstPipeContainer::stop(){
+    gst_element_set_state (pipeline, GST_STATE_NULL);
+    m_bStopped = true;
+}
+
 // struct InfoROI_t {
 //     int widthImage = 0;
 //     int heightImage = 0;
@@ -177,6 +182,12 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         std::cout<<"pipeline uninitialized! "<<std::endl;
         return false;
     }
+
+    if(m_bStopped){
+        std::cout<<"Stop Gstreamer signal received"<<std::endl;
+        return false;
+    }
+
     // start the pipeline if it was not in playing state yet
     if (!m_bStart)
         start();
@@ -206,7 +217,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         gst_structure_get_int(structure, "height", &m_height);
     }
 
-    if(m_config.dropEveryXFrame != 0 && m_frameIdx !=0 && m_frameIdx%m_config.dropEveryXFrame ==0){
+    if(m_config.dropXFrame != 0 && m_frameIdx !=0 && m_frameIdx%m_config.dropEveryXFrame < m_config.dropXFrame){
         ++m_frameIdx;
         gst_sample_unref(sampleRead);
         sampleRead = nullptr;
@@ -312,11 +323,23 @@ bool GstPipeContainer::validateConfig(){
         std::cout<<"Filename empty!"<<std::endl;
         return false;
     }
-    if(m_config.dropEveryXFrame == 1){
-        m_config.dropEveryXFrame = 2;
+
+    if(m_config.dropXFrame == 0){
+        m_config.dropEveryXFrame = 1024;
     }
-    if(m_config.dropEveryXFrame > 8){
-        m_config.dropEveryXFrame = 8;
+    else{
+        if(m_config.dropEveryXFrame > 1024){
+            m_config.dropEveryXFrame = 1024;
+        }
+        else{
+            if(m_config.dropEveryXFrame <= 1){
+                m_config.dropEveryXFrame = 2;
+            }
+        }
+        
+        if(m_config.dropXFrame >= m_config.dropEveryXFrame){
+            m_config.dropXFrame = m_config.dropEveryXFrame - 1;
+        }
     }
     return true;
 }
