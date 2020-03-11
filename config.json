@@ -10,6 +10,6 @@
         "DropEveryXFrame": 6
     },
     "GUI":{
-        "Socket":"/var/tmp/gstreamer_ipc.sock"
+        "Socket":"/tmp/gstreamer_ipc.sock"
     }
 }

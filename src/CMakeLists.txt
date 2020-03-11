@@ -7,3 +7,5 @@
 # add_subdirectory(DecWithJpeg)
 
 add_subdirectory(FullPipe)
+
+add_subdirectory(FullPipeGUITest)

@@ -16,7 +16,24 @@
 #include <common.hpp>
 
 #define STREAMS 1
+#define GUI_INTEGRATION
 using ms = std::chrono::milliseconds;
+
+#ifdef GUI_INTEGRATION
+#include <Sender.hpp>
+#include <mutex>
+#include <condition_variable>
+
+enum ControlMessage{
+    EMPTY = 0,
+    ADDR_RECVED,
+    STOP_RECVED
+};
+
+std::mutex g_mutex;
+std::condition_variable g_cv;
+
+#endif 
 
 static std::string g_detNetwork;
 static std::string g_clsNetwork;
@@ -59,10 +76,11 @@ struct PipelineConfig_t{
     std::string unixSocket;
 };
 
-int receiveRoutine(const char* socket_address, std::promise<bool>& promise, PipelineConfig_t& config)
+int receiveRoutine(const char* socket_address, PipelineConfig_t* config)
 {
     auto poller = HddlUnite::Poller::create();
     auto connection = HddlUnite::Connection::create(poller);
+    std::cout<<"Set socket to listening"<<std::endl;
     if (!connection->listen(socket_address)) {
         return -1;
     }
@@ -79,27 +97,35 @@ int receiveRoutine(const char* socket_address, std::promise<bool>& promise, Pipe
 
             int length = 0;
             auto& data_connection = event.connection;
-            std::lock_guard<std::mutex> autoLock(data_connection->getMutex());
+            std::string message;
+            {
+                std::lock_guard<std::mutex> autoLock(data_connection->getMutex());
 
-            if (!data_connection->read(&length, sizeof(length))) {
-                break;
-            }
+                if (!data_connection->read(&length, sizeof(length))) {
+                    break;
+                }
+                std::cout<<"Length received is "<<length<<std::endl;
 
-            if (length <= 0) {
-                break;
-            }
+                if (length <= 0) {
+                    break;
+                }
 
-            std::string message(static_cast<size_t>(length), ' ');
-            if (!data_connection->read(&message[0], length)) {
-                break;
+                message = std::string(static_cast<size_t>(length), ' ');
+                if (!data_connection->read(&message[0], length)) {
+                    break;
+                }
+                std::cout<<"message received is "<<message<<std::endl;
             }
 
             if(message=="STOP"){
                 /* to-do: stop pipeline*/
             }
             else{
-                config.unixSocket = message;
-                promise.set_value(true);
+                {
+                    std::lock_guard<std::mutex> lg(g_mutex);
+                    config->unixSocket = message;
+                }
+                g_cv.notify_one();
                 /* start pipeline */
             }
             break;
@@ -149,16 +175,15 @@ int main(){
     }
 
 #ifdef GUI_INTEGRATION
-    std::promise<bool> configPromise;
-    std::future<bool> configFuture = configPromise.get_future();
     PipelineConfig_t config;
+    config.unixSocket = "";
 #endif
     GstPipeContainer::Config decConfig;
     decConfig.filename = g_videoFile;
     decConfig.dropEveryXFrame = g_dropEveryXFrame;
 
 #ifdef GUI_INTEGRATION
-    std::thread t(receiveRoutine, guiSocket.c_str(), configPromise, config);
+    std::thread t(receiveRoutine, guiSocket.c_str(), &config);
 #endif
 
     std::vector<std::thread*> vTh;
@@ -168,56 +193,66 @@ int main(){
     hva::hvaPipeline_t pl;
 
 #ifdef GUI_INTEGRATION
-    bool ready = configFuture.get();
-    if(ready){
-#endif
-        for(unsigned i = 0; i < STREAMS; ++i){
-            // std::cout<<"starting thread "<<i<<std::endl;
-            vTh.push_back(new std::thread([&, i](){
-                        GstPipeContainer cont(i);
-                        uint64_t WID = 0;
-                        if(cont.init(decConfig, WID) != 0 || WID == 0){
-                            std::cout<<"Fail to init cont!"<<std::endl;
-                            return;
-                        }
-
-                        WIDPromise.set_value(WID);
-
-                        std::this_thread::sleep_for(ms(2000));
-                        std::cout<<"Dec source start feeding."<<std::endl;
-
-                        std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
-                        while(cont.read(blob)){
-                            int* fd = blob->get<int, VideoMeta>(0)->getPtr();
-                            std::cout<<"FD received is "<<*fd<<std::endl;
-
-                            pl.sendToPort(blob,"detNode",0,ms(0));
-
-                            blob.reset(new hva::hvaBlob_t());
-                        }
-                        // std::cout<<"Finished"<<std::endl;
-                        return;
-                    }));
-        }
-
-        auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,1, "detection"), "detNode");
-        auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,8), "FRCNode");
-        auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
-
-        uint64_t WID = WIDFuture.get();
-        auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,1,WID), "jpegNode");
-
-        pl.linkNode("detNode", 0, "FRCNode", 0);
-        pl.linkNode("FRCNode", 0, "clsNode", 0);
-        pl.linkNode("clsNode", 0, "jpegNode", 0);
-
-        pl.prepare();
-
-        std::cout<<"\nPipeline Start: "<<std::endl;
-        pl.start();
-#ifdef GUI_INTEGRATION
+    // bool ready = configFuture.get();
+    std::unique_lock<std::mutex> lk(g_mutex);
+    if(config.unixSocket == ""){
+        g_cv.wait(lk,[&](){ return ""!=config.unixSocket;});
     }
+    std::cout<<" Unix Socket addr received is "<<config.unixSocket<<std::endl;
+    std::this_thread::sleep_for(ms(5000));
 #endif
+    for(unsigned i = 0; i < STREAMS; ++i){
+        // std::cout<<"starting thread "<<i<<std::endl;
+        vTh.push_back(new std::thread([&, i](){
+                    GstPipeContainer cont(i);
+                    uint64_t WID = 0;
+                    if(cont.init(decConfig, WID) != 0 || WID == 0){
+                        std::cout<<"Fail to init cont!"<<std::endl;
+                        return;
+                    }
+
+                    WIDPromise.set_value(WID);
+
+                    std::this_thread::sleep_for(ms(2000));
+                    std::cout<<"Dec source start feeding."<<std::endl;
+
+                    std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                    while(cont.read(blob)){
+                        int* fd = blob->get<int, VideoMeta>(0)->getPtr();
+                        std::cout<<"FD received is "<<*fd<<std::endl;
+
+                        pl.sendToPort(blob,"detNode",0,ms(0));
+
+                        blob.reset(new hva::hvaBlob_t());
+                    }
+                    // std::cout<<"Finished"<<std::endl;
+                    return;
+                }));
+    }
+
+    auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,1, "detection"), "detNode");
+    auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,8), "FRCNode");
+    
+#ifdef GUI_INTEGRATION
+    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,1,"classification"), "clsNode");
+    auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
+#else
+    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
+#endif
+    uint64_t WID = WIDFuture.get();
+    auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,1,WID), "jpegNode");
+
+    pl.linkNode("detNode", 0, "FRCNode", 0);
+    pl.linkNode("FRCNode", 0, "clsNode", 0);
+    pl.linkNode("clsNode", 0, "jpegNode", 0);
+#ifdef GUI_INTEGRATION
+    pl.linkNode("clsNode", 1, "sendNode", 0);
+#endif
+
+    pl.prepare();
+
+    std::cout<<"\nPipeline Start: "<<std::endl;
+    pl.start();
 
     for(unsigned i =0; i < STREAMS; ++i){
         vTh[i]->join();

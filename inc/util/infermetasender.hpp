@@ -55,6 +55,7 @@ public:
         if (!m_connection->write(&to_send_data[0], length)) {
             return false;
         }
+        m_serialized_result.clear();
         return true;
     }
 };
