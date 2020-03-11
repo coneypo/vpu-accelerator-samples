@@ -68,7 +68,7 @@ int receiveRoutine()
             if (fields.size() < 7 || fields.size() % element_nums != 0) {
                 break;
             }
-            for(unsigned i =0; i<fields.size()/7;i+=7){
+            for(unsigned i =0; i<fields.size();i+=7){
                 std::cout<<fields[i]<<"\t\t"<<fields[i+1]<<"\t\t"<<fields[i+2]<<"\t\t"<<fields[i+3]<<"\t\t"<<
                         fields[i+4]<<"\t\t"<<fields[i+5]<<"\t\t"<<fields[i+6]<<std::endl;
             }
