@@ -69,6 +69,7 @@ public:
         int surfaceType;
         unsigned width;
         unsigned height;
+        unsigned fdLength;
         unsigned surfaceNum;
     };
 
@@ -382,6 +383,7 @@ private:
     bool m_vaDisplayReady;
     unsigned m_picWidth;
     unsigned m_picHeight;
+    unsigned m_fdLength;
     JpegEncPicture* m_picPool;
     uint64_t m_WID;
 

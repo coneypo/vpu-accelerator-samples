@@ -33,6 +33,7 @@ void SenderNodeWorker::process(std::size_t batchIdx){
     
     if(vInput.size()!=0){
         InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
+        std::cout<<"Received blob with idx "<<vInput[0]->frameId<<std::endl;
         for(unsigned i =0; i< meta->rois.size(); ++i){
             const auto& rois = meta->rois;
             m_sender.serializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].label, rois[i].pts, rois[i].confidence);

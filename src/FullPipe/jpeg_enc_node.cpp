@@ -439,7 +439,7 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
     unsigned alignedWidth = alignTo(m_config.width);
     unsigned alignedHeight = alignTo(m_config.height);
 
-    extbuf.data_size = 2625536; //alignedWidth*alignedHeight*3/2;
+    extbuf.data_size = m_config.fdLength ;// 2625536; //alignedWidth*alignedHeight*3/2;
     extbuf.num_planes = 2;
     // for (i = 0; i < extbuf.num_planes; i++) {
     //     extbuf.pitches[i] = GST_VIDEO_INFO_PLANE_STRIDE (vip, i);
@@ -586,7 +586,8 @@ bool SurfacePool::moveToFreeUnsafe(Surface** surface){
 
 
 JpegEncNode::JpegEncNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, uint64_t WID):
-        hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_WID(WID), m_vaDisplayReady(false), m_surfaceAndContextReady(false), m_picHeight(0u), m_picWidth(0u){
+        hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_WID(WID), m_vaDisplayReady(false), m_surfaceAndContextReady(false), m_picHeight(0u),
+        m_picWidth(0u), m_fdLength(0){
     // if(!initVaapi()){
     //     std::cout<<"Vaapi init failed"<<std::endl;
     //     return;
@@ -802,9 +803,10 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                 return;
             }
             else{
-                SurfacePool::Config config = {VA_RT_FORMAT_YUV420, 0u, 0u, PIC_POOL_SIZE}; //To-do: make surfaces num virable
+                SurfacePool::Config config = {VA_RT_FORMAT_YUV420, 0u, 0u, 0u, PIC_POOL_SIZE}; //To-do: make surfaces num virable
                 ((JpegEncNode*)m_parentNode)->m_picWidth = config.width = videoMeta->videoWidth;
                 ((JpegEncNode*)m_parentNode)->m_picHeight = config.height = videoMeta->videoHeight;
+                ((JpegEncNode*)m_parentNode)->m_fdLength = config.fdLength = videoMeta->fdActualLength;
                 if(!((JpegEncNode*)m_parentNode)->m_pool->init(config)){
                     std::cout<<"Surface pool init failed!"<<std::endl;
                     return;

@@ -92,6 +92,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
         switch (event.type) {
         case HddlUnite::Event::Type::CONNECTION_IN:
             connection->accept();
+            std::cout<<"Incoming connection accepted"<<std::endl;
             break;
         case HddlUnite::Event::Type::MESSAGE_IN: {
 

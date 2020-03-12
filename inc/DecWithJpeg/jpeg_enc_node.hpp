@@ -381,6 +381,7 @@ private:
     bool m_vaDisplayReady;
     unsigned m_picWidth;
     unsigned m_picHeight;
+    unsigned m_fdLength;
     JpegEncPicture* m_picPool;
     uint64_t m_WID;
 
