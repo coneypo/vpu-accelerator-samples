@@ -7,18 +7,19 @@
 #include <HddlUnite.h>
 #include <Inference.h>
 
-#include <ie_compound_blob.h>
-#include <ie_iextension.h>
+// #include <ie_compound_blob.h>
+// #include <ie_iextension.h>
 
 #include "stdio.h"
 #include <vector>
 #include <memory>
 #include <string>
 #include <iostream>
+#include <fstream>
 
 #include <opencv2/opencv.hpp>
 
-#include "util/detection_helper.hpp"
+#include "detection_helper.hpp"
 #include "tinyYolov2_post.h"
 
 
@@ -28,7 +29,7 @@
 //      class WorkloadContext_Helper Implementation
 //------------------------------------------------------------------------------
 WorkloadContext_Helper::WorkloadContext_Helper(WorkloadID id) {
-    if (-1l == id)
+    if (-1ul == id)
     {
         _workloadId = createAndRegisterWorkloadContext();
     }
@@ -261,7 +262,6 @@ void f16tof32Arrays(float* dst, const short* src, size_t nelem, float scale, flo
         dst[i] = f16tof32(_src[i]) * scale + bias;
     }
 }
-
 std::vector<std::string> readLabelsFromFile(const std::string& labelFileName) {
     std::vector<std::string> labels;
 
@@ -275,6 +275,12 @@ std::vector<std::string> readLabelsFromFile(const std::string& labelFileName) {
         }
     }
     return labels;
+}
+
+template<int N>
+int alignTo(int x)
+{
+    return ((x + N - 1) & ~(N - 1));
 }
 
 }
@@ -392,7 +398,7 @@ namespace hva
 
 
 
-void UniteHelper::SetUp() {
+void UniteHelper::setup() {
 
     HddlUnite::WorkloadContext::Ptr context = _workloadContextHelper.getWorkloadContext();
     _inferDataPtr = HddlUnite::Inference::makeInferData(_auxBlob, context, needPP, 10);
@@ -435,18 +441,18 @@ void UniteHelper::SetUp() {
                 printf("[debug] error!\n");
             }
 
-        if (needPP)
-        {
-            // need pp
-            // set nn input desc to inferData, only need for video workload
-            // we will allocate its RemoteMemory, all parameters can be got from network parser
-            HddlUnite::Inference::NNInputDesc nnInputDesc {
-                precision, isRemoteMem, true, static_cast<uint64_t>(inputSizeNN)};
-            _inferDataPtr->setNNInputDesc(nnInputDesc);
+            if (needPP)
+            {
+                // need pp
+                // set nn input desc to inferData, only need for video workload
+                // we will allocate its RemoteMemory, all parameters can be got from network parser
+                HddlUnite::Inference::NNInputDesc nnInputDesc {
+                    precision, isRemoteMem, true, static_cast<uint64_t>(inputSizeNN)};
+                _inferDataPtr->setNNInputDesc(nnInputDesc);
 
-            // set PP shave.
-            _inferDataPtr->setPPShaveNumber(4);
-        }   
+                // set PP shave.
+                _inferDataPtr->setPPShaveNumber(4);
+            }   
         } catch (const std::exception& ex) {
             THROW_IE_EXCEPTION << "Failed to create default input blob: " << ex.what();
         }
@@ -477,49 +483,15 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
     //     return;
     // }
 
-    if (0 != remoteMemoryFd)
-    {
-        _remoteMemoryFd = remoteMemoryFd;
-
-        auto inputBlob = _inferDataPtr->getInputBlob(inputName);
-
-        const int isInput = true;
-
-        const bool isRemoteMem = true;
-        const bool needAllocate = false;
-
-        HddlUnite::Inference::BlobDesc blobDesc(precision, isRemoteMem, needAllocate);
-        blobDesc.m_fd = _remoteMemoryFd;
-        // blobDesc.m_format = HddlUnite::Inference::NV12;
-        // blobDesc.m_dataSize  = videoWidthStride * videoHeight * 3/2;
-        blobDesc.m_res_width = videoWidth;
-        blobDesc.m_res_height = videoHeight;
-        blobDesc.m_width_stride = videoWidthStride;
-        blobDesc.m_plane_stride = videoWidthStride * videoHeight;
-        if (vecROI.size() > 0)
-        {
-            for (auto& roi : vecROI)
-            {
-                HddlUnite::Inference::Rectangle rect {roi.x, roi.y, roi.width, roi.height};
-                blobDesc.m_rect.push_back(rect);
-            }
-        }
-        else
-        {
-            HddlUnite::Inference::Rectangle rect {0, 0, videoWidth, videoHeight};
-            blobDesc.m_rect.push_back(rect);
-        }
-        
-        inputBlob->updateBlob(blobDesc);
-    }
-
     FILE* fp;
     fp = fopen(inputPath.c_str(), "rb");
 
     void* ptrTemp = malloc(inputSizePP);
     fread(ptrTemp, 1, inputSizePP, fp);
     fclose(fp);
-    _remoteMemoryPtr->syncToDevice(ptrTemp, inputSizePP);
+
+    HddlUnite::SMM::RemoteMemory temp(*_workloadContextHelper.getWorkloadContext(), _remoteMemoryFd, inputSizePP);
+    temp.syncFromDevice(ptrTemp, inputSizePP);
 
     // fp = fopen("input.dat","wb");
     // fwrite(ptrTemp, 1, inputSizePP, fp);
@@ -532,8 +504,11 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
 
     cv::Mat frameGray;
     cv::Mat frameBGR;
-    frameGray = cv::Mat(cv::Size(videoWidth,videoHeight*3/2), CV_8UC1);
-    memcpy(frameGray.data, ptrTemp, videoWidth*videoHeight*3/2);
+
+    printf("[debug] videoHeight: %d, videoWidth: %d, inputSizePP: %d\n", videoHeight, videoWidth, inputSizePP);
+    printf("[debug] align videoHeight: %d, align videoWidth: %d\n", alignTo<64>(videoHeight), alignTo<64>(videoWidth));
+    frameGray = cv::Mat(cv::Size(alignTo<64>(videoWidth),alignTo<64>(videoHeight)*3/2), CV_8UC1);
+    memcpy(frameGray.data, ptrTemp, alignTo<64>(videoWidth)*alignTo<64>(videoHeight)*3/2);
 
     cv::cvtColor(frameGray, frameBGR, cv::COLOR_YUV2BGR_NV12);
 
@@ -560,12 +535,12 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
         auto memoryBuffer = item.second->getData();
         assert(memoryBuffer.size() > 0);
 
-        printf("[debug]dump file\n");
+        // printf("[debug]dump file\n");
 
-        FILE* fp;
-        fp = fopen("output.bin", "wb");
-        fwrite(memoryBuffer.data(), 1, memoryBuffer.size(), fp);            
-        fclose(fp);
+        // FILE* fp;
+        // fp = fopen("output.bin", "wb");
+        // fwrite(memoryBuffer.data(), 1, memoryBuffer.size(), fp);            
+        // fclose(fp);
 
         InferenceEngine::TensorDesc desc(InferenceEngine::Precision::FP32,
             {1, 1, 1, memoryBuffer.size() / 2}, InferenceEngine::Layout::NHWC);
@@ -578,9 +553,11 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
         //post processing
         if ("resnet" == graphName)
         {
-            std::vector<int> vecIdx;
-            std::vector<std::string> vecLabel;
-            for (int i = 0; i < std::min(static_cast<int>(vecROI.size()), 10); i++)
+            std::vector<int>& vecIdx = _vecIdx;
+            std::vector<std::string>& vecLabel = _vecLabel;
+            vecIdx.clear();
+            vecLabel.clear();
+            for (int i = 0; i < std::min(_vecROI.size(), 10ul); i++)
             {
                 float* ptrFP32_ROI = ptrFP32 + outputSize / 2 * i;
                 float max = 0.0f;
@@ -594,23 +571,28 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
                     }
                 }
                 vecIdx.push_back(idx);
-                // std::vector<std::string> labels = readLabelsFromFile("");
-                // vecLabel.push_back(labels[idx]);
+                std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
+                vecLabel.push_back(labels[idx]);
+                printf("[debug] roi label is : %s\n", labels[idx].c_str());
             }
         }
         if ("yolotiny" == graphName)
         {
-            std::vector<DetectedObject_t> vecOjects =  ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(ptrBlob, videoHeight, videoWidth,
+            std::vector<DetectedObject_t>& vecOjects = _vecOjects;
+            vecOjects =  ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(ptrBlob, videoHeight, videoWidth,
                                         .6, YoloV2Tiny::fillRawNetOut);
 
             for (auto& object : vecOjects)
             {
-                printf("object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
+                printf("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
                 cv::rectangle(frameBGR, cv::Rect(object.x, object.y, object.width, object.height), cv::Scalar(0,255,0), 2);
             }
             char filename[256];
             snprintf(filename, inputPath.size() - 4, "%s", inputPath.c_str() );
-            snprintf(filename + strlen(filename), 256, "%s", "-output.jpg");
+            snprintf(filename + strlen(filename), 256, "%s", "output.jpg");
+            static int frameCnt = 0;
+            snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
+            frameCnt++;
             std::cout << filename << std::endl;
             cv::imwrite(filename, frameBGR);
             // cv::imshow("output", frameBGR);
@@ -628,12 +610,73 @@ UniteHelper::UniteHelper(std::string graphName, std::string graphPath, int32_t v
 {
     if (needPP)
     {
-        inputSizePP = videoWidth*videoHeight*3/2;
+        inputSizePP = alignTo<64>(videoWidth)*alignTo<64>(videoHeight)*3/2;
     }
     else
     {
         inputSizePP = videoWidth*videoHeight*3;
     }
-    videoWidthStride = videoWidth;
+    videoWidthStride = alignTo<64>(videoWidth);
+}
+UniteHelper::UniteHelper(WorkloadID id, std::string graphName, std::string graphPath, int32_t inputSizeNN, int32_t outputSize,
+                        RemoteMemoryFd remoteMemoryFd):
+                    _workloadContextHelper(id), graphName(graphName), graphPath(graphPath), _remoteMemoryFd(remoteMemoryFd),
+                     inputSizeNN(inputSizeNN), outputSize(outputSize)
+{
+
+}
+
+void UniteHelper::update(int32_t videoWidth, int32_t videoHeight, uint64_t fd, const std::vector<InfoROI_t>& vecROI)
+{
+    this->videoWidth = videoWidth;
+    this->videoHeight = videoHeight;
+    this->needPP = needPP;
+    if (0ul != fd)
+    {
+        _remoteMemoryFd = fd;
+    }
+
+    if (needPP)
+    {
+        inputSizePP = alignTo<64>(videoWidth)*alignTo<64>(videoHeight)*3/2;
+    }
+    else
+    {
+        inputSizePP = videoWidth*videoHeight*3;
+    }
+    videoWidthStride = alignTo<64>(videoWidth); 
+
+    auto inputBlob = _inferDataPtr->getInputBlob(inputName);
+
+    const int isInput = true;
+
+    const bool isRemoteMem = true;
+    const bool needAllocate = false;
+
+    HddlUnite::Inference::BlobDesc blobDesc(precision, isRemoteMem, needAllocate);
+    blobDesc.m_fd = _remoteMemoryFd;
+    // blobDesc.m_format = HddlUnite::Inference::NV12;
+    // blobDesc.m_dataSize  = videoWidthStride * videoHeight * 3/2;
+    blobDesc.m_res_width = videoWidth;
+    blobDesc.m_res_height = videoHeight;
+    blobDesc.m_width_stride = videoWidthStride;
+    blobDesc.m_plane_stride = alignTo<64>(videoWidth) * alignTo<64>(videoHeight);
+
+
+    if (vecROI.size() > 0)
+    {
+        for (auto& roi : vecROI)
+        {
+            HddlUnite::Inference::Rectangle rect {roi.x, roi.y, roi.width, roi.height};
+            blobDesc.m_rect.push_back(rect);
+        }
+    }
+    else
+    {
+        HddlUnite::Inference::Rectangle rect {0, 0, videoWidth, videoHeight};
+        blobDesc.m_rect.push_back(rect);
+    }
+    
+    inputBlob->updateBlob(blobDesc);   
 }
 }
