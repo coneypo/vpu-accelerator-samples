@@ -45,13 +45,13 @@ void FakeDelayNodeWorker::process(std::size_t batchIdx){
                         delete meta;
                     });
             blob->push(vInput[0]->get<int, VideoMeta>(0));
-            sendOutput(blob, 0);
+            sendOutput(blob, 0, ms(0));
         }
         else if(m_mode == "classification"){
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            sendOutput(vInput[0], 0);
+            sendOutput(vInput[0], 0, ms(0));
 #ifdef GUI_INTEGRATION
-            sendOutput(vInput[0], 1);
+            sendOutput(vInput[0], 1, ms(0));
 #endif
         }
         else{

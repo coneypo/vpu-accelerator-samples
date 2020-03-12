@@ -192,6 +192,7 @@ int main(){
     GstPipeContainer::Config decConfig;
     decConfig.filename = g_videoFile;
     decConfig.dropEveryXFrame = g_dropEveryXFrame;
+    decConfig.dropXFrame = g_dropXFrame;
 
 #ifdef GUI_INTEGRATION
     std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &config);

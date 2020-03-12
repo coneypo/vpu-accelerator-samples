@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+using ms = std::chrono::milliseconds;
+
 struct VideoMeta{
     unsigned videoWidth;
     unsigned videoHeight;

@@ -18,11 +18,11 @@ void FrameControlNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     if(vInput.size() != 0){
         if(m_dropXFrame == 0 || m_cnt ==0){
-            sendOutput(vInput[0], 0);
+            sendOutput(vInput[0], 0, ms(0));
         }
         else{
             if(m_cnt > m_dropXFrame){
-                sendOutput(vInput[0], 0);
+                sendOutput(vInput[0], 0, ms(0));
             }
         }
         incCount();
