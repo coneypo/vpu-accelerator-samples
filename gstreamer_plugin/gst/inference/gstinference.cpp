@@ -271,6 +271,7 @@ static bool deserialize(const std::string& serialized_data)
     }
 
     gint boxNum = static_cast<gint>(fields.size() / element_nums);
+    guint64 pts;
     BoxWrappers boxes;
     for (gint i = 0; i < boxNum; i++) {
         size_t begin_index = static_cast<size_t>(i * element_nums);
@@ -283,10 +284,14 @@ static bool deserialize(const std::string& serialized_data)
         box.label = nullptr;
         box.pts = std::stoul(fields[begin_index + 5]);
         box.probability = stod(fields[begin_index + 6]);
-        boxes.push_back(std::move(box));
+        if (box.height * box.width > 0) {
+            boxes.push_back(std::move(box));
+        }
+        pts = box.pts;
     }
+
     std::lock_guard<std::mutex> lock(mutex_total_results);
-    total_results.insert(std::make_pair(boxes[0].pts, boxes));
+    total_results.insert(std::make_pair(pts, boxes));
     infer_data_arrived.notify_all();
     return true;
 }
@@ -356,7 +361,7 @@ static int addMetaData(GstBuffer* buf)
     std::map<PTS, BoxWrappers>::iterator current_frame_result;
 #if pts_sync
     std::unique_lock<std::mutex> lock(mutex_total_results);
-    infer_data_arrived.wait_for(lock, std::chrono::milliseconds(10), [&]() {
+    infer_data_arrived.wait_for(lock, std::chrono::milliseconds(1000), [&]() {
         current_frame_result = total_results.find(GST_BUFFER_PTS(buf));
         return current_frame_result != total_results.end(); });
 #else
