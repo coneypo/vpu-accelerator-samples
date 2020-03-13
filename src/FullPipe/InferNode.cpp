@@ -64,7 +64,9 @@ void InferNodeWorker::process(std::size_t batchIdx){
                         delete meta;
                     });
             blob->push(m_vecBlobInput[0]->get<int, VideoMeta>(0));
-            sendOutput(blob, 0);
+            blob->frameId = m_vecBlobInput[0]->frameId;
+            blob->streamId = m_vecBlobInput[0]->streamId;
+            sendOutput(blob, 0, ms(0));
         }
         else if(m_uniteHelper.graphName == "resnet"){
 
@@ -91,25 +93,42 @@ void InferNodeWorker::process(std::size_t batchIdx){
                 infoROI.width = roi.width;
                 vecROI.push_back(infoROI);
             }
-            m_uniteHelper.update(input_width, input_height, fd, vecROI);
-            m_uniteHelper.callInferenceOnBlobs();
-
-            auto& vecLabel = m_uniteHelper._vecLabel;
-
-            printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecLabel.size());
-            assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
-
-            for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+            if (vecROI.size() > 0ul)
             {
-                ptrInferMeta->rois[i].label = vecLabel[i];
-                printf("[debug] roi label is : %s\n", vecLabel[i].c_str());
-            }            
+                m_uniteHelper.update(input_width, input_height, fd, vecROI);
+                m_uniteHelper.callInferenceOnBlobs();
+                auto& vecLabel = m_uniteHelper._vecLabel;
+
+                printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecLabel.size());
+                assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
+
+                for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                {
+                    ptrInferMeta->rois[i].label = vecLabel[i];
+                    printf("[debug] roi label is : %s\n", vecLabel[i].c_str());
+                }            
+            }
+            else
+            {
+                ROI roi;
+                roi.x = 0;
+                roi.y = 0;
+                roi.height = 0;
+                roi.width = 0;
+                roi.pts = m_vecBlobInput[0]->frameId;
+                roi.confidence = 0;
+                roi.label = "unknow";
+                ptrInferMeta->rois.push_back(roi);
+                printf("[debug] fake roi\n");
+            }
+            
+
 
             
             // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            sendOutput(m_vecBlobInput[0], 0);
+            sendOutput(m_vecBlobInput[0], 0, ms(0));
 #ifdef GUI_INTEGRATION
-            sendOutput(m_vecBlobInput[0], 1);
+            sendOutput(m_vecBlobInput[0], 1, ms(0));
 #endif
         }
         else{
