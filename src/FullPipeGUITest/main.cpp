@@ -7,7 +7,7 @@
 #include <vector>
 #include <chrono>
 
-static std::string g_recv_socket = "/tmp/test_recv111.sock";
+static std::string g_recv_socket = "/tmp/gstreamer_ipc_test2.sock";
 using ms = std::chrono::milliseconds;
 
 struct Packet{
@@ -66,6 +66,7 @@ int receiveRoutine()
                 fields.pop_back();
             }
             if (fields.size() < 7 || fields.size() % element_nums != 0) {
+                std::cout << serialized << std::endl;
                 break;
             }
             for(unsigned i =0; i<fields.size();i+=7){
