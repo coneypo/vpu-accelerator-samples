@@ -7,7 +7,7 @@
 #include <vector>
 #include <chrono>
 
-static std::string g_recv_socket = "/tmp/test_recv.sock";
+static std::string g_recv_socket = "/tmp/test_recv111.sock";
 using ms = std::chrono::milliseconds;
 
 struct Packet{
@@ -94,7 +94,7 @@ int main()
 
     auto poller = HddlUnite::Poller::create("client");
     auto conn = HddlUnite::Connection::create(poller);
-    while(!conn->connect("/tmp/gstreamer_ipc.sock")){
+    while(!conn->connect("/tmp/gstreamer_ipc111.sock")){
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     int length = sizeof(g_recv_socket);

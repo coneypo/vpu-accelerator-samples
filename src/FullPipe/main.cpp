@@ -88,7 +88,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
     bool running = true;
 
     while (running) {
-        auto event = poller->waitEvent(100);
+        auto event = poller->waitEvent(10);
         switch (event.type) {
         case HddlUnite::Event::Type::CONNECTION_IN:
             connection->accept();
@@ -126,20 +126,23 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
                     std::lock_guard<std::mutex> lg(g_mutex);
                     config->unixSocket = message;
                     *ctrlMsg = ControlMessage::ADDR_RECVED;
+                    std::cout<<"Control message set to addr_recved"<<std::endl;
                 }
-                g_cv.notify_one();
+                g_cv.notify_all();
                 /* start pipeline */
             }
             break;
         }
         case HddlUnite::Event::Type::CONNECTION_OUT:
+            std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
+            std::this_thread::sleep_for(ms(5000));
             running = false;
             /* stop pipeline */
-            {
-                std::lock_guard<std::mutex> lg(g_mutex);
-                *ctrlMsg = ControlMessage::STOP_RECVED;
-            }
-            g_cv.notify_one();
+            // {
+            //     std::lock_guard<std::mutex> lg(g_mutex);
+            //     *ctrlMsg = ControlMessage::STOP_RECVED;
+            // }
+            // g_cv.notify_one();
             break;
 
         default:
@@ -212,11 +215,12 @@ int main(){
         std::unique_lock<std::mutex> lk(g_mutex);
         if(config.unixSocket == ""){
             g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
+            std::cout<<"Control message addr_recved received and cleared"<<std::endl;
             ctrlMsg = ControlMessage::EMPTY;
         }
     }
     std::cout<<" Unix Socket addr received is "<<config.unixSocket<<std::endl;
-    std::this_thread::sleep_for(ms(5000));
+    std::this_thread::sleep_for(ms(1000));
 #endif
     for(unsigned i = 0; i < STREAMS; ++i){
         // std::cout<<"starting thread "<<i<<std::endl;
@@ -282,7 +286,7 @@ int main(){
     do{
         std::unique_lock<std::mutex> lk(g_mutex);
         g_cv.wait(lk,[&](){ return ControlMessage::STOP_RECVED == ctrlMsg;});
-
+        std::cout<<"Control message stop_recved received and cleared"<<std::endl;
         ctrlMsg = ControlMessage::EMPTY;
         for(unsigned i =0; i < STREAMS; ++i){
             vCont[i]->stop();

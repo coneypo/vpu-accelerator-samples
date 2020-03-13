@@ -231,6 +231,9 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
             return false;
         }
 
+        // uint64_t pts = GST_BUFFER_PTS(buf);
+        // std::cout <<"Received decoded frames from gst with pts "<<pts<<std::endl;
+
         // std::cout<<"current buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(buf)<<std::endl;
         // std::cout<<"current buffer address: "<<std::hex<<static_cast<void*>(buf)<<std::dec<<std::endl;
 
@@ -278,6 +281,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 
         blob->streamId = m_idx;
         blob->frameId = m_frameIdx;
+
         //std::cout<<"!!!!!!Decoder set frame id to "<<blob->frameId<<std::endl;
 
         //std::cout<<"Stream "<<blob->streamId<<" frame "<<blob->frameId<<" pushed"<<std::endl;
