@@ -555,15 +555,19 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
         {
             std::vector<int>& vecIdx = _vecIdx;
             std::vector<std::string>& vecLabel = _vecLabel;
+            std::vector<float>& vecConfidence = _vecConfidence;
             vecIdx.clear();
             vecLabel.clear();
+            vecConfidence.clear();
             for (int i = 0; i < std::min(_vecROI.size(), 10ul); i++)
             {
                 float* ptrFP32_ROI = ptrFP32 + outputSize / 2 * i;
                 float max = 0.0f;
+                float sum = 0.0f;
                 int idx = 0;
                 for (int j = 0; j < outputSize / 2; j++)
                 {
+                    sum += exp(ptrFP32_ROI[j]);
                     if (ptrFP32_ROI[j] > max)
                     {
                         idx = j;
@@ -573,6 +577,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
                 vecIdx.push_back(idx);
                 std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
                 vecLabel.push_back(labels[idx]);
+                vecConfidence.push_back(exp(max) / sum);
                 printf("[debug] roi label is : %s\n", labels[idx].c_str());
             }
         }

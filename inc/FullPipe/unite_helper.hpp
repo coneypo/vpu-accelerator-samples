@@ -120,6 +120,7 @@ public:
     std::vector<DetectedObject_t> _vecOjects;
     std::vector<int> _vecIdx;
     std::vector<std::string> _vecLabel;
+    std::vector<float> _vecConfidence;
     std::vector<InfoROI_t> _vecROI;
 
 #if 1
