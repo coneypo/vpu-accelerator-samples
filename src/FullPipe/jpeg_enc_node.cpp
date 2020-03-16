@@ -476,6 +476,13 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
                                  &((*surface)->surfaceId), 1, &(attrib[0]), 3);
     if(va_status != VA_STATUS_SUCCESS){
         std::cout<<"Failed to allocate surfaces: "<<va_status<<std::endl;
+
+        /* in case of an creation failure, return the surface to free pool */
+        (*surface)->next = m_freeSurfaces;
+        (*surface)->pBuf.reset();
+        m_freeSurfaces = *surface;
+
+        // to-do: try re create a surface
         return false;
     }
 
