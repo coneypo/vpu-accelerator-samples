@@ -7,7 +7,7 @@
 #include <vector>
 #include <chrono>
 
-static std::string g_recv_socket = "/tmp/gstreamer_ipc_test2.sock";
+static std::string g_recv_socket = "/tmp/gstreamer_ipc_recv.sock";
 using ms = std::chrono::milliseconds;
 
 struct Packet{
@@ -37,7 +37,7 @@ int receiveRoutine()
         case HddlUnite::Event::Type::CONNECTION_IN:
             connection->accept();
             std::cout<<"Recv Socket incoming connecttion accepted"<<std::endl;
-            std::cout<<"x\t\ty\t\twidth\t\theight\t\tlabel\t\tpts\t\tconfidence"<<std::endl;
+            std::cout<<"x\t\ty\t\twidth\t\theight\t\tlabel\t\t\t\tpts\t\tconfidence"<<std::endl;
             break;
         case HddlUnite::Event::Type::MESSAGE_IN: {
 
@@ -71,7 +71,7 @@ int receiveRoutine()
             }
             for(unsigned i =0; i<fields.size();i+=7){
                 std::cout<<fields[i]<<"\t\t"<<fields[i+1]<<"\t\t"<<fields[i+2]<<"\t\t"<<fields[i+3]<<"\t\t"<<
-                        fields[i+4]<<"\t\t"<<fields[i+5]<<"\t\t"<<fields[i+6]<<std::endl;
+                        fields[i+4]<<"\t\t\t\t"<<fields[i+5]<<"\t\t"<<fields[i+6]<<std::endl;
             }
 
             break;
