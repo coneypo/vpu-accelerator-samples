@@ -9,7 +9,7 @@
 #include <boost/filesystem.hpp>
 #include <future>
 #include <jpeg_enc_node.hpp>
-#include <InferNode.hpp>
+#include <FakeDelayNode.hpp>
 #include <FrameControlNode.hpp>
 #include <ipc.h>
 #include <GstPipeContainer.hpp>
@@ -260,16 +260,14 @@ int main(){
     }
 
     uint64_t WID = WIDFuture.get();
-    auto& detNode = pl.setSource(std::make_shared<InferNode>(1,1,1, 
-    WID, "yolotiny", "/home/kmb/cong/graph/alpha/tiny_yolo_v2_uint8_int8_weights_pertensor.blob", 519168, 42250), "detNode");
+    auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,1, "detection"), "detNode");
     auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
     
 #ifdef GUI_INTEGRATION
-    auto& clsNode = pl.addNode(std::make_shared<InferNode>(1,2,1, 
-    WID, "resnet", "/home/kmb/cong/graph/alpha/resnet50_uint8_int8_weights_pertensor.blob", 150528, 2000), "clsNode");
+    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,1,"classification"), "clsNode");
     auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
 #else
-    auto& clsNode = pl.addNode(std::make_shared<InferNode>(1,1,1, WID, "resnet", "resnet.blob", 150528, 2000), "clsNode");
+    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
 #endif
     auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,1,WID), "jpegNode");
 
