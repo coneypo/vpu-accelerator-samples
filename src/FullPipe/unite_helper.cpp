@@ -490,8 +490,8 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
     fread(ptrTemp, 1, inputSizePP, fp);
     fclose(fp);
 
-    HddlUnite::SMM::RemoteMemory temp(*_workloadContextHelper.getWorkloadContext(), _remoteMemoryFd, inputSizePP);
-    temp.syncFromDevice(ptrTemp, inputSizePP);
+    // HddlUnite::SMM::RemoteMemory temp(*_workloadContextHelper.getWorkloadContext(), _remoteMemoryFd, inputSizePP);
+    // temp.syncFromDevice(ptrTemp, inputSizePP);
 
     // fp = fopen("input.dat","wb");
     // fwrite(ptrTemp, 1, inputSizePP, fp);
@@ -599,7 +599,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
             snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
             frameCnt++;
             std::cout << filename << std::endl;
-            cv::imwrite(filename, frameBGR);
+            // cv::imwrite(filename, frameBGR);
             // cv::imshow("output", frameBGR);
             // cv::waitKey(10);
         }
