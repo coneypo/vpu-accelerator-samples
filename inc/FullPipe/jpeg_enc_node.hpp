@@ -12,7 +12,7 @@
 #include <common.hpp>
 
 //#define NEW_HDDL_WCTX
-// #define HANTRO_JPEGENC_ROI_API
+#define HANTRO_JPEGENC_ROI_API
 
 #ifdef HANTRO_JPEGENC_ROI_API
 

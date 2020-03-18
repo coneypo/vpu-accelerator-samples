@@ -26,10 +26,10 @@ void FakeDelayNodeWorker::process(std::size_t batchIdx){
             InferMeta* meta = new InferMeta;
             for(unsigned i =0; i < TOTAL_ROIS; ++i){
                 ROI roi;
-                roi.x = 64*(i+1);
-                roi.y = 64*(i+1);
-                roi.width = 64;
-                roi.height = 64;
+                roi.x = 100*(i+1);
+                roi.y = 100*(i+1);
+                roi.width = 200;
+                roi.height = 200;
                 roi.label = "unkown";
                 roi.pts = vInput[0]->frameId;
                 roi.confidence = 0.9+i/100.0;

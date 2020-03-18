@@ -965,12 +965,12 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                     return;
                 }
 
-                misc_param->type = HANTROEncMiscParameterTypeEmbeddedPreprocess;
+                misc_param->type =(VAEncMiscParameterType) HANTROEncMiscParameterTypeEmbeddedPreprocess;
                 ROIData= (HANTROEncMiscParameterBufferEmbeddedPreprocess*)misc_param->data;
-                ROIData->cropping_offset_x = meta->rois[i_roi].x;
-                ROIData->cropping_offset_y = meta->rois[i_roi].y;
-                ROIData->cropped_width = meta->rois[i_roi].width;
-                ROIData->cropped_height = meta->rois[i_roi].height;
+                ROIData->cropping_offset_x = alignTo(meta->rois[i_roi].x);
+                ROIData->cropping_offset_y = alignTo(meta->rois[i_roi].y);
+                ROIData->cropped_width = alignTo(meta->rois[i_roi].width);
+                ROIData->cropped_height = alignTo(meta->rois[i_roi].height);
 
                 va_status = vaUnmapBuffer(((JpegEncNode*)m_parentNode)->m_vaDpy, (picPool[index].ROIDataBufId));
                 if(va_status != VA_STATUS_SUCCESS){
