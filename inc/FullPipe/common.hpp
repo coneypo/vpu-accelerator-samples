@@ -28,6 +28,7 @@ struct InferMeta{
     int totalROI;
     int frameId;
     std::vector<ROI> rois;
+    bool drop;
 };
 
 #endif //#ifndef COMMON_HPP
