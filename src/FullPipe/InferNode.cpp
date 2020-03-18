@@ -68,6 +68,7 @@ void InferNodeWorker::process(std::size_t batchIdx){
             blob->frameId = m_vecBlobInput[0]->frameId;
             blob->streamId = m_vecBlobInput[0]->streamId;
             sendOutput(blob, 0, ms(0));
+            m_vecBlobInput.clear();
         }
         else if(m_uniteHelper.graphName == "resnet"){
 
@@ -137,6 +138,7 @@ void InferNodeWorker::process(std::size_t batchIdx){
 #ifdef GUI_INTEGRATION
             sendOutput(m_vecBlobInput[0], 1, ms(0));
 #endif
+            m_vecBlobInput.clear();
         }
         else{
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
