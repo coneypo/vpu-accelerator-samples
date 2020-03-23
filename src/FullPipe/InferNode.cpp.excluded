@@ -97,24 +97,37 @@ void InferNodeWorker::process(std::size_t batchIdx){
             }
             if (vecROI.size() > 0ul)
             {
-                m_uniteHelper.update(input_width, input_height, fd, vecROI);
-                m_uniteHelper.callInferenceOnBlobs();
-                auto& vecLabel = m_uniteHelper._vecLabel;
-                auto& vecConfidence = m_uniteHelper._vecConfidence;
-
-                
-
-                printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecLabel.size());
-                assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
-
-                for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                if (ptrInferMeta->drop)
                 {
-                    std::vector<std::string> fields;
-                    boost::split(fields, vecLabel[i], boost::is_any_of(","));
-                    ptrInferMeta->rois[i].label = fields[0];
-                    ptrInferMeta->rois[i].confidence = vecConfidence[i];
-                    printf("[debug] roi label is : %s\n", vecLabel[i].c_str());
-                }            
+
+                    for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                    {
+                        ptrInferMeta->rois[i].label = "unknown";
+                        printf("[debug] roi label is : unknown\n");
+                    }  
+                }
+                else
+                {
+                    m_uniteHelper.update(input_width, input_height, fd, vecROI);
+                    m_uniteHelper.callInferenceOnBlobs();
+                    auto& vecLabel = m_uniteHelper._vecLabel;
+                    auto& vecConfidence = m_uniteHelper._vecConfidence;
+
+                    
+
+                    printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecLabel.size());
+                    assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
+
+                    for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                    {
+                        std::vector<std::string> fields;
+                        boost::split(fields, vecLabel[i], boost::is_any_of(","));
+                        ptrInferMeta->rois[i].label = fields[0];
+                        ptrInferMeta->rois[i].confidence = vecConfidence[i];
+                        printf("[debug] roi label is : %s\n", vecLabel[i].c_str());
+                    }                    
+                }
+            
             }
             else
             {
