@@ -41,8 +41,8 @@ typedef struct {
     gboolean can_pushed; //flag for pushedable
     void *other_data; //maybe same other data need to be passed to savefile callback function
     guint roi_index; // the index of rectangle region in a buffer
-    ResultPacket Jpeg_pag;
-    gsize jpegmem_size;
+    ResultPacket Jpeg_pag; // the binary packet sent back to IA
+    gsize jpegmem_size; //the total jpeg size of current picture
     guint malloc_max_roi_size;
     guint malloc_max_jpeg_size;
     gint format;
@@ -81,6 +81,9 @@ stop_feed(GstElement *appsrc, gpointer user_data);
 
 static uint8_t
 get_receive_flag_by_send_flag(uint8_t sendFlag);
+
+static gboolean
+send_result_back(jpeg_branch_ctx_t* branch_ctx);
 
 static gboolean
 push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
@@ -184,6 +187,50 @@ typedef struct _params_data {
     uint8_t object_index;
     uint16_t classification_index; // expected GT value for algo validation
 } param_data_t;
+
+static gboolean
+send_result_back(jpeg_branch_ctx_t* branch_ctx)
+{
+    char *pbuffer = NULL;
+    char *pbegin  = NULL;
+    GstBuffer *resultBuf = NULL;
+    GstElement *xlink_appsrc  = NULL;
+    GstFlowReturn ret;
+    //the caller needs to ensure that the branch_ctx is correct.
+    LOG_DEBUG("meta size:%u\n", branch_ctx->Jpeg_pag.header.meta_size);
+    LOG_DEBUG("package size:%u\n", branch_ctx->Jpeg_pag.header.package_size);
+    LOG_DEBUG("num_rois:%d\n", branch_ctx->Jpeg_pag.meta.num_rois);
+    pbuffer = g_new0(char, branch_ctx->Jpeg_pag.header.package_size);
+    pbegin = pbuffer;
+    //copy header
+    memcpy(pbuffer, &branch_ctx->Jpeg_pag.header, sizeof(Header));
+    pbuffer += sizeof(Header);
+    //copy meta
+    memcpy(pbuffer, &branch_ctx->Jpeg_pag.meta, sizeof(Meta));
+    pbuffer += sizeof(Meta);
+    //copy jpeg
+    if(branch_ctx->Jpeg_pag.meta.num_rois){
+        //copy the classification result
+        memcpy(pbuffer, branch_ctx->Jpeg_pag.results,
+            sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois);
+        pbuffer += (sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois);
+        //only copy the jpeg when the jpegmem_size is not 0
+        if(branch_ctx->jpegmem_size)
+            memcpy(pbuffer, branch_ctx->Jpeg_pag.jpegs, branch_ctx->jpegmem_size);
+    }
+    resultBuf = gst_buffer_new_wrapped(pbegin,
+            branch_ctx->Jpeg_pag.header.package_size);
+    xlink_appsrc = (GstElement *)branch_ctx->other_data;
+    g_assert(xlink_appsrc != NULL);
+    g_signal_emit_by_name(xlink_appsrc, "push-buffer", resultBuf, &ret);
+    gst_buffer_unref(resultBuf);
+    if (ret != GST_FLOW_OK) {
+        LOG_ERROR(" push buffer error\n");
+	return false;
+    }
+
+    return true;
+}
 
 
 static gboolean
@@ -291,38 +338,16 @@ static gboolean
 push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
                           GstVideoRegionOfInterestMeta *meta)
 {
-    char *pbuffer = NULL;
-    char *pbegin  = NULL;
-    GstBuffer *bufferTemp = NULL;
-    GstElement *xlink_appsrc  = NULL;
-    GstFlowReturn ret;
     branch_ctx->Jpeg_pag.meta.num_rois = 0;
     branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
         + branch_ctx->Jpeg_pag.header.meta_size;
     branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
-    //set packet_type
-    LOG_DEBUG("meta size:%u\n", branch_ctx->Jpeg_pag.header.meta_size);
-    LOG_DEBUG("package size:%u\n", branch_ctx->Jpeg_pag.header.package_size);
-    LOG_DEBUG("num_rois:%d\n", branch_ctx->Jpeg_pag.meta.num_rois);
-    pbuffer = g_new0(char, branch_ctx->Jpeg_pag.header.package_size);
-    pbegin = pbuffer;
-    //copy
-    memcpy(pbuffer, &branch_ctx->Jpeg_pag.header, sizeof(Header));
-    pbuffer += sizeof(Header);
-    memcpy(pbuffer, &branch_ctx->Jpeg_pag.meta, sizeof(Meta));
-    pbuffer += sizeof(Meta);
 
-    bufferTemp = gst_buffer_new_wrapped(pbegin,
-            branch_ctx->Jpeg_pag.header.package_size);
-    xlink_appsrc = (GstElement *)branch_ctx->other_data;
-    g_assert(xlink_appsrc != NULL);
-    g_signal_emit_by_name(xlink_appsrc, "push-buffer", bufferTemp, &ret);
-    gst_buffer_unref(bufferTemp);
-    if (ret != GST_FLOW_OK) {
-        LOG_ERROR(" push buffer error\n");
-    }
+    gboolean ret = send_result_back(branch_ctx);
     branch_ctx->roi_index++;
-    return TRUE;
+    if(!ret)
+        GST_WARNING("Send result back to IA error %d\n", ret);
+    return ret;
 }
 
 static gboolean
@@ -638,11 +663,6 @@ static GstPadProbeReturn
 Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
     GstMapInfo map;
-    char *pbuffer = NULL;
-    char *pbegin  = NULL;
-    GstBuffer *bufferTemp = NULL;
-    GstElement *xlink_appsrc  = NULL;
-    GstFlowReturn ret;
     gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *)user_data;
     jpeg_branch_ctx_t *branch_ctx = ctx->branch_ctx;
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
@@ -672,12 +692,6 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     memcpy(branch_ctx->Jpeg_pag.jpegs + branch_ctx->jpegmem_size, map.data,
            map.size);
 
-    /* static guint file_index = 0; */
-    /* char file_name[100]; */
-    /* snprintf(file_name, 100,  "%d_%d.jpeg",ctx->channel,  file_index); */
-    /* write_file((gchar *)map.data, map.size, file_name); */
-    /* file_index++; */
-
     branch_ctx->jpegmem_size += map.size;
     if (branch_ctx->roi_index + 1 == branch_ctx->Jpeg_pag.meta.num_rois) {
         branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
@@ -686,31 +700,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
                 + branch_ctx->jpegmem_size;
         branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
         //set packet_type
-        LOG_DEBUG("meta size:%u\n", branch_ctx->Jpeg_pag.header.meta_size);
-        LOG_DEBUG("package size:%u\n", branch_ctx->Jpeg_pag.header.package_size);
-        LOG_DEBUG("num_rois:%d\n", branch_ctx->Jpeg_pag.meta.num_rois);
-        pbuffer = g_new0(char, branch_ctx->Jpeg_pag.header.package_size);
-        pbegin = pbuffer;
-        //copy
-        memcpy(pbuffer, &branch_ctx->Jpeg_pag.header, sizeof(Header));
-        pbuffer += sizeof(Header);
-        memcpy(pbuffer, &branch_ctx->Jpeg_pag.meta, sizeof(Meta));
-        pbuffer += sizeof(Meta);
-        memcpy(pbuffer, branch_ctx->Jpeg_pag.results,
-               sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois);
-        pbuffer += (sizeof(ClassificationResult) *
-                    branch_ctx->Jpeg_pag.meta.num_rois);
-        memcpy(pbuffer, branch_ctx->Jpeg_pag.jpegs, branch_ctx->jpegmem_size);
-        bufferTemp = gst_buffer_new_wrapped(pbegin,
-                                            branch_ctx->Jpeg_pag.header.package_size);
-        xlink_appsrc = (GstElement *)branch_ctx->other_data;
-        g_assert(xlink_appsrc != NULL);
-        GST_WARNING("ROIENC|Send to HDDLSink GstBufferSize %ld\n", gst_buffer_get_size(bufferTemp));
-        g_signal_emit_by_name(xlink_appsrc, "push-buffer", bufferTemp, &ret);
-        gst_buffer_unref(bufferTemp);
-        if (ret != GST_FLOW_OK) {
-            LOG_ERROR(" push buffer error\n");
-        }
+        send_result_back(branch_ctx);
     }
     gst_buffer_unmap(buffer, &map);
     branch_ctx->can_pushed = TRUE;
