@@ -270,7 +270,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
                 return false;
             }
 
-            std::cout<<"FD from dmabuf is "<<fd<<std::endl;
+            std::cout<<"FD from dmabuf is "<<fd<<" with frame id "<<m_frameIdx<<std::endl;
         }
 
         // int fd = -1;

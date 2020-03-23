@@ -404,7 +404,7 @@ public:
 
     virtual void init() override;
 
-    //virtual void deinit() override;
+    virtual void deinit() override;
 
 private:
     bool prepareSurface(VASurfaceID surface, const unsigned char* img);

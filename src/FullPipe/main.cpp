@@ -122,6 +122,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
                 /* to-do: stop pipeline*/
             }
             else{
+                /* start pipeline */
                 {
                     std::lock_guard<std::mutex> lg(g_mutex);
                     config->unixSocket = message;
@@ -129,7 +130,9 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
                     std::cout<<"Control message set to addr_recved"<<std::endl;
                 }
                 g_cv.notify_all();
-                /* start pipeline */
+                std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
+                std::this_thread::sleep_for(ms(5000));
+                running = false;
             }
             break;
         }
@@ -288,16 +291,19 @@ int main(){
         g_cv.wait(lk,[&](){ return ControlMessage::STOP_RECVED == ctrlMsg;});
         std::cout<<"Control message stop_recved received and cleared"<<std::endl;
         ctrlMsg = ControlMessage::EMPTY;
+
+        std::this_thread::sleep_for(ms(2000)); //temp WA to let last decoded framed finish
+
+        std::cout<<"Going to stop pipeline."<<std::endl;
+
+        pl.stop();
+
         for(unsigned i =0; i < STREAMS; ++i){
             vCont[i]->stop();
             delete vCont[i];
         }
 
         std::this_thread::sleep_for(ms(1000));
-
-        std::cout<<"Going to stop pipeline."<<std::endl;
-
-        pl.stop();
 
         for(unsigned i =0; i < STREAMS; ++i){
             vTh[i]->join();

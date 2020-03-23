@@ -771,7 +771,7 @@ void JpegEncNodeWorker::processByFirstRun(std::size_t batchIdx){
 
 void JpegEncNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
-    std::cout<<"KL: start process:"<<std::endl;
+    std::cout<<"KL: jpeg start process:"<<std::endl;
     if(vInput.size()==0u){
         // last time before stop fetches nothing
         SurfacePool::Surface* usedSurface = nullptr;
@@ -827,7 +827,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             }
         }
 
-        std::cout<<"KL: blob received with FD: "<<*fd<<std::endl;
+        std::cout<<"KL: jpeg blob received with FD: "<<*fd<<std::endl;
         do{
             reApplyFreeSurface = false;
             SurfacePool::Surface* surface = nullptr;
@@ -1115,6 +1115,27 @@ bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
         return false;
     }
     return true;
+}
+
+void JpegEncNodeWorker::deinit(){
+    SurfacePool::Surface* usedSurface = nullptr;
+    ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
+    if(!usedSurface){
+        // all used surfaces are synced
+        return;
+    }
+
+    do{
+        if(!saveToFile(usedSurface)){
+            std::cout<<"Failed to save jpeg tagged "<<m_jpegCtr.load()<<std::endl;
+        }
+
+        ((JpegEncNode*)m_parentNode)->m_pool->moveToFree(&usedSurface);
+
+        ((JpegEncNode*)m_parentNode)->m_pool->getUsedSurface(&usedSurface);
+    }while(usedSurface != nullptr);
+
+    return;
 }
 
 int JpegEncNodeWorker::build_packed_jpeg_header_buffer(unsigned char **header_buffer, int picture_width, int picture_height, uint16_t restart_interval, int quality)
