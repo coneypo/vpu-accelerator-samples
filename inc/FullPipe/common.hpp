@@ -11,6 +11,7 @@ struct VideoMeta{
     unsigned videoWidth;
     unsigned videoHeight;
     std::size_t fdActualLength;
+    float decFps;
 };
 
 struct ROI{
@@ -29,6 +30,7 @@ struct InferMeta{
     int frameId;
     std::vector<ROI> rois;
     bool drop;
+    float inferFps;
 };
 
 #endif //#ifndef COMMON_HPP

@@ -38,6 +38,7 @@ void FakeDelayNodeWorker::process(std::size_t batchIdx){
             }
             meta->frameId = vInput[0]->frameId;
             meta->totalROI = TOTAL_ROIS;
+            meta->inferFps = 20.20;
             blob->emplace<int, InferMeta>(nullptr, 0, meta, [](int* payload, InferMeta* meta){
                         if(payload != nullptr){
                             delete payload;

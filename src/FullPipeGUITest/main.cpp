@@ -6,19 +6,10 @@
 #include <boost/algorithm/string.hpp>
 #include <vector>
 #include <chrono>
+#include <iomanip>
 
 static std::string g_recv_socket = "/tmp/gstreamer_ipc_recv.sock";
 using ms = std::chrono::milliseconds;
-
-struct Packet{
-    int16_t x;
-    int16_t y;
-    int16_t width;
-    int16_t height;
-    std::string label;
-    std::size_t pts;
-    double confidence;
-};
 
 int receiveRoutine()
 {
@@ -37,7 +28,7 @@ int receiveRoutine()
         case HddlUnite::Event::Type::CONNECTION_IN:
             connection->accept();
             std::cout<<"Recv Socket incoming connecttion accepted"<<std::endl;
-            std::cout<<"x\t\ty\t\twidth\t\theight\t\tlabel\t\t\t\tpts\t\tconfidence"<<std::endl;
+            std::cout<<"x\t\ty\t\twidth\t\theight\t\tlabel\t\t\t\tpts\t\tconfidence\t\tinferFps\t\tdecFps"<<std::endl;
             break;
         case HddlUnite::Event::Type::MESSAGE_IN: {
 
@@ -59,19 +50,19 @@ int receiveRoutine()
             }
 
             //parse data to elements.
-            const int element_nums = 7;
+            const int element_nums = 9;
             std::vector<std::string> fields;
             boost::split(fields, serialized, boost::is_any_of(","));
             if (!fields.empty()) {
                 fields.pop_back();
             }
-            if (fields.size() < 7 || fields.size() % element_nums != 0) {
+            if (fields.size() < element_nums || fields.size() % element_nums != 0) {
                 std::cout << serialized << std::endl;
                 break;
             }
-            for(unsigned i =0; i<fields.size();i+=7){
-                std::cout<<fields[i]<<"\t\t"<<fields[i+1]<<"\t\t"<<fields[i+2]<<"\t\t"<<fields[i+3]<<"\t\t"<<
-                        fields[i+4]<<"\t\t\t\t"<<fields[i+5]<<"\t\t"<<fields[i+6]<<std::endl;
+            for(unsigned i =0; i<fields.size();i+=element_nums){
+                std::cout<<std::fixed<<std::setprecision(2)<<fields[i]<<"\t\t"<<fields[i+1]<<"\t\t"<<fields[i+2]<<"\t\t"<<fields[i+3]<<"\t\t"<<
+                        fields[i+4]<<"\t\t\t\t"<<fields[i+5]<<"\t\t"<<fields[i+6]<<"\t\t"<<fields[i+7]<<"\t\t"<<fields[i+8]<<std::endl;
             }
 
             break;

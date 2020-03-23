@@ -796,6 +796,10 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
     }
 
     InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
+    if(meta->drop){
+        // drop the frame from doing jpeg enc
+        return;
+    }
     VideoMeta* videoMeta = vInput[0]->get<int, VideoMeta>(1)->getMeta();
     std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf = vInput[0]->get<int, VideoMeta>(1);
     const int* fd = pBuf->getPtr();

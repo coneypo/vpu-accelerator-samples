@@ -155,6 +155,9 @@ GstPipeContainer::~GstPipeContainer(){
 int GstPipeContainer::start(){
     m_height = 0;
     m_width = 0;
+    if(m_config.enableFpsCounting){
+        m_timeStart = std::chrono::high_resolution_clock::now();
+    }
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
     m_bStart = true;
     return 0;
@@ -302,8 +305,14 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         //             delete meta;
         //         });
 
+        float decFps = 0.0;
+        if(m_config.enableFpsCounting){
+            std::chrono::duration<double, std::milli> elapsedMs = std::chrono::high_resolution_clock::now() - m_timeStart;
+            decFps = roundToHundredth((m_frameIdx+1)/elapsedMs.count()*1000.0);
+        }
+
         blob->emplace<int, VideoMeta>(new int(fd), m_width*m_height*3/2,
-                new VideoMeta{m_width,m_height, currentSize},[mem, sampleRead](int* fd, VideoMeta* meta){
+                new VideoMeta{m_width,m_height, currentSize, decFps},[mem, sampleRead](int* fd, VideoMeta* meta){
                     std::cout<<"Preparing to destruct fd "<<*fd<<std::endl;
                     // std::cout<<"before mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
                     // std::cout<<"before sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;

@@ -199,6 +199,7 @@ int main(){
     decConfig.filename = g_videoFile;
     decConfig.dropEveryXFrame = g_dropEveryXFrame;
     decConfig.dropXFrame = g_dropXFrame;
+    decConfig.enableFpsCounting = true;
 
 #ifdef GUI_INTEGRATION
     std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &config);

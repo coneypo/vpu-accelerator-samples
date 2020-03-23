@@ -5,6 +5,11 @@
 #include <string>
 #include <hvaPipeline.hpp>
 #include <cstdint>
+#include <chrono>
+
+inline float roundToHundredth(float x){
+    return float(int(x*100.0+0.5))/100.0;
+}
 
 class GstPipeContainer{
 public:
@@ -12,6 +17,7 @@ public:
         std::string filename;
         unsigned dropXFrame;
         unsigned dropEveryXFrame;
+        bool enableFpsCounting;
     };
 
     GstPipeContainer(unsigned idx);
@@ -69,6 +75,8 @@ private:
     uint64_t m_WID;
 
     Config m_config;
+
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_timeStart;
 };
 
 #endif //#ifndef GST_PIPE_CONTAINER_HPP
