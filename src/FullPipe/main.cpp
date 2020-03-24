@@ -16,8 +16,10 @@
 #include <common.hpp>
 #include <mutex>
 #include <condition_variable>
+#include <boost/algorithm/string.hpp>
 
 #define STREAMS 1
+#define MAX_STREAMS 64
 #define GUI_INTEGRATION
 using ms = std::chrono::milliseconds;
 
@@ -73,7 +75,9 @@ bool checkValidVideo(std::string filepath){
 }
 
 struct PipelineConfig_t{
-    std::string unixSocket;
+    unsigned numOfStreams;
+    // std::string unixSocket[MAX_STREAMS];
+    std::vector<std::string> unixSocket;
 };
 
 int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, PipelineConfig_t* config)
@@ -90,66 +94,72 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
     while (running) {
         auto event = poller->waitEvent(10);
         switch (event.type) {
-        case HddlUnite::Event::Type::CONNECTION_IN:
-            connection->accept();
-            std::cout<<"Incoming connection accepted"<<std::endl;
-            break;
-        case HddlUnite::Event::Type::MESSAGE_IN: {
+            case HddlUnite::Event::Type::CONNECTION_IN:
+                connection->accept();
+                std::cout<<"Incoming connection accepted"<<std::endl;
+                break;
+            case HddlUnite::Event::Type::MESSAGE_IN: {
 
-            int length = 0;
-            auto& data_connection = event.connection;
-            std::string message;
-            {
-                std::lock_guard<std::mutex> autoLock(data_connection->getMutex());
-
-                if (!data_connection->read(&length, sizeof(length))) {
-                    break;
-                }
-                std::cout<<"Length received is "<<length<<std::endl;
-
-                if (length <= 0) {
-                    break;
-                }
-
-                message = std::string(static_cast<size_t>(length), ' ');
-                if (!data_connection->read(&message[0], length)) {
-                    break;
-                }
-                std::cout<<"message received is "<<message<<std::endl;
-            }
-
-            if(message=="STOP"){
-                /* to-do: stop pipeline*/
-            }
-            else{
-                /* start pipeline */
+                int length = 0;
+                auto& data_connection = event.connection;
+                std::string message;
                 {
-                    std::lock_guard<std::mutex> lg(g_mutex);
-                    config->unixSocket = message;
-                    *ctrlMsg = ControlMessage::ADDR_RECVED;
-                    std::cout<<"Control message set to addr_recved"<<std::endl;
+                    std::lock_guard<std::mutex> autoLock(data_connection->getMutex());
+
+                    if (!data_connection->read(&length, sizeof(length))) {
+                        break;
+                    }
+                    std::cout<<"Length received is "<<length<<std::endl;
+
+                    if (length <= 0) {
+                        break;
+                    }
+
+                    message = std::string(static_cast<size_t>(length), ' ');
+                    if (!data_connection->read(&message[0], length)) {
+                        break;
+                    }
+                    std::cout<<"message received is "<<message<<std::endl;
                 }
-                g_cv.notify_all();
+
+                if(message=="STOP"){
+                    /* to-do: stop pipeline*/
+                }
+                else{
+                    /* start pipeline */
+                    // std::vector<std::string> sockets;
+                    // config->unixSocket.reserve();
+                    {
+                        std::lock_guard<std::mutex> lg(g_mutex);
+                        boost::split(config->unixSocket, message, boost::is_any_of(","));
+                        config->numOfStreams = config->unixSocket.size();
+                        // for(unsigned i = 0; i< config->numOfStreams; ++i){
+                        //     config->unixSocket[i] = sockets[i];
+                        // }
+                        *ctrlMsg = ControlMessage::ADDR_RECVED;
+                        std::cout<<"Control message set to addr_recved"<<std::endl;
+                    }
+                    g_cv.notify_all();
+                    std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
+                    std::this_thread::sleep_for(ms(5000));
+                    running = false;
+                }
+                break;
+            }
+            case HddlUnite::Event::Type::CONNECTION_OUT:
                 std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
                 std::this_thread::sleep_for(ms(5000));
                 running = false;
-            }
-            break;
-        }
-        case HddlUnite::Event::Type::CONNECTION_OUT:
-            std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
-            std::this_thread::sleep_for(ms(5000));
-            running = false;
-            /* stop pipeline */
-            // {
-            //     std::lock_guard<std::mutex> lg(g_mutex);
-            //     *ctrlMsg = ControlMessage::STOP_RECVED;
-            // }
-            // g_cv.notify_one();
-            break;
+                /* stop pipeline */
+                // {
+                //     std::lock_guard<std::mutex> lg(g_mutex);
+                //     *ctrlMsg = ControlMessage::STOP_RECVED;
+                // }
+                // g_cv.notify_one();
+                break;
 
-        default:
-            break;
+            default:
+                break;
         }
     }
 }
@@ -192,7 +202,7 @@ int main(){
 
 #ifdef GUI_INTEGRATION
     PipelineConfig_t config;
-    config.unixSocket = "";
+    // config.unixSocket = "";
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
 #endif
     GstPipeContainer::Config decConfig;
@@ -205,28 +215,30 @@ int main(){
     std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &config);
 #endif
 
-    std::vector<std::thread*> vTh;
-    std::vector<GstPipeContainer*> vCont;
-    vTh.reserve(STREAMS);
-    vCont.reserve(STREAMS);
-    std::promise<uint64_t> WIDPromise;
-    std::future<uint64_t> WIDFuture = WIDPromise.get_future();
+    std::mutex WIDMutex;
+    std::condition_variable WIDCv;
+    unsigned WIDReadyCnt = 0;
+    // std::promise<uint64_t> WIDPromise;
+    // std::future<uint64_t> WIDFuture = WIDPromise.get_future();
     hva::hvaPipeline_t pl;
 
 #ifdef GUI_INTEGRATION
     // bool ready = configFuture.get();
     {
         std::unique_lock<std::mutex> lk(g_mutex);
-        if(config.unixSocket == ""){
+        if(config.numOfStreams == 0){
             g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
             std::cout<<"Control message addr_recved received and cleared"<<std::endl;
             ctrlMsg = ControlMessage::EMPTY;
         }
     }
-    std::cout<<" Unix Socket addr received is "<<config.unixSocket<<std::endl;
+    std::vector<std::thread*> vTh(config.numOfStreams);
+    std::vector<GstPipeContainer*> vCont(config.numOfStreams);
+    std::vector<uint64_t> vWID(config.numOfStreams, 0); 
+    // std::cout<<" Unix Socket addr received is "<<config.unixSocket<<std::endl;
     std::this_thread::sleep_for(ms(1000));
 #endif
-    for(unsigned i = 0; i < STREAMS; ++i){
+    for(unsigned i = 0; i < config.numOfStreams; ++i){
         // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
                     // GstPipeContainer cont(i);
@@ -237,7 +249,13 @@ int main(){
                         return;
                     }
 
-                    WIDPromise.set_value(WID);
+                    // WIDPromise.set_value(WID);
+                    vWID[i] = WID;
+                    {
+                        std::lock_guard<std::mutex> WIDLg(WIDMutex);
+                        ++WIDReadyCnt;
+                    }
+                    WIDCv.notify_all();
 
                     std::this_thread::sleep_for(ms(2000));
                     std::cout<<"Dec source start feeding."<<std::endl;
@@ -263,17 +281,31 @@ int main(){
                 }));
     }
 
-    uint64_t WID = WIDFuture.get();
-    auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,1, "detection"), "detNode");
+    // uint64_t WID = WIDFuture.get();
+    std::unique_lock<std::mutex> WIDLock(WIDMutex);
+    WIDCv.wait(WIDLock,[&](){ return WIDReadyCnt == config.numOfStreams;});
+    WIDLock.unlock();
+
+    std::cout<<"All WIDs received. Start pipeline."<<std::endl;
+
+    auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
     auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
     
 #ifdef GUI_INTEGRATION
-    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,1,"classification"), "clsNode");
-    auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
+    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
+    auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
 #else
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
 #endif
-    auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,1,WID), "jpegNode");
+    auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,config.numOfStreams,vWID), "jpegNode");
+
+    hva::hvaBatchingConfig_t batchingConfig;
+    batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+    batchingConfig.batchSize = 1;
+    batchingConfig.streamNum = config.numOfStreams;
+    batchingConfig.threadNumPerBatch = 1;
+
+    jpegNode.configBatch(batchingConfig);
 
     pl.linkNode("detNode", 0, "FRCNode", 0);
     pl.linkNode("FRCNode", 0, "clsNode", 0);

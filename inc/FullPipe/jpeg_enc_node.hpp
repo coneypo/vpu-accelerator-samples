@@ -10,6 +10,7 @@
 #include <atomic>
 #include <WorkloadContext.h>
 #include <common.hpp>
+#include <atomic>
 
 //#define NEW_HDDL_WCTX
 #define HANTRO_JPEGENC_ROI_API
@@ -361,31 +362,31 @@ private:
 class JpegEncNode : public hva::hvaNode_t{
     friend class JpegEncNodeWorker;
 public:
-    JpegEncNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, uint64_t WID);
+    JpegEncNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, const std::vector<uint64_t>& WIDs);
 
     ~JpegEncNode();
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
 
-    bool initVaapi();
+    // bool initVaapi();
 
     // bool initVaJpegCtx();
 
 private:
-    VADisplay m_vaDpy;
-    int m_vaMajorVer;
-    int m_vaMinorVer;
-    VAConfigID m_jpegConfigId;
-    // VAContextID m_jpegCtxId;
-    //VaapiSurfaceAllocator* m_allocator;
-    SurfacePool* m_pool;
-    bool m_surfaceAndContextReady;
-    bool m_vaDisplayReady;
-    unsigned m_picWidth;
-    unsigned m_picHeight;
-    unsigned m_fdLength;
-    JpegEncPicture* m_picPool;
-    uint64_t m_WID;
+    // VADisplay m_vaDpy;
+    // int m_vaMajorVer;
+    // int m_vaMinorVer;
+    // VAConfigID m_jpegConfigId;
+    // SurfacePool* m_pool;
+    // bool m_surfaceAndContextReady;
+    // bool m_vaDisplayReady;
+    // unsigned m_picWidth;
+    // unsigned m_picHeight;
+    // unsigned m_fdLength;
+    // JpegEncPicture* m_picPool;
+    // uint64_t m_WID;
+    std::vector<uint64_t> m_vWID;
+    mutable std::atomic<unsigned> m_workerIdx;
 
 #ifdef NEW_HDDL_WCTX
     HddlUnite::WorkloadContext::Ptr m_hddlWCtx;
@@ -396,7 +397,7 @@ private:
 class JpegEncNodeWorker : public hva::hvaNodeWorker_t{
 public:
 
-    JpegEncNodeWorker(hva::hvaNode_t* parentNode);
+    JpegEncNodeWorker(hva::hvaNode_t* parentNode, uint64_t WID);
 
     virtual void process(std::size_t batchIdx) override;
 
@@ -413,7 +414,23 @@ private:
 
     int build_packed_jpeg_header_buffer(unsigned char **header_buffer, 
             int picture_width, int picture_height, uint16_t restart_interval, int quality);
+
+    bool initVaapi();
+
     std::atomic<int> m_jpegCtr;
+
+    VADisplay m_vaDpy;
+    int m_vaMajorVer;
+    int m_vaMinorVer;
+    VAConfigID m_jpegConfigId;
+    SurfacePool* m_pool;
+    bool m_surfaceAndContextReady;
+    bool m_vaDisplayReady;
+    unsigned m_picWidth;
+    unsigned m_picHeight;
+    unsigned m_fdLength;
+    JpegEncPicture* m_picPool;
+    uint64_t m_WID;
 
 };
 
