@@ -284,10 +284,10 @@ static bool deserialize(const std::string& serialized_data)
         box.label = nullptr;
         box.pts = std::stoul(fields[begin_index + 5]);
         box.probability = stod(fields[begin_index + 6]);
+        pts = box.pts;
         if (box.height * box.width > 0) {
             boxes.push_back(std::move(box));
         }
-        pts = box.pts;
     }
 
     std::lock_guard<std::mutex> lock(mutex_total_results);
