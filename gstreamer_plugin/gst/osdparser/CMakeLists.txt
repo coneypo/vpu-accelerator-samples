@@ -25,8 +25,6 @@ target_include_directories(${pluginname} PRIVATE .
         ${PLUGIN_ROOT_DIR}/gst-lib/algo
         ${PLUGIN_ROOT_DIR}/gst-lib/interface)
 
-target_link_directories(${pluginname} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-
 target_link_libraries(${pluginname}
         ${OpenCV_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
@@ -35,7 +33,7 @@ target_link_libraries(${pluginname}
         gstinference
         OpenCL
         hddldemoutils
-        gstmfx)
+        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libgstmfx.so)
 
 add_dependencies(${pluginname} msdk-gst hddldemoutils)
 

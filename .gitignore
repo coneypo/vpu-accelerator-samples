@@ -1,3 +1,4 @@
 /build
+/auto_build
 /.vscode
 *.o
