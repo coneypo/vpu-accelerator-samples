@@ -146,7 +146,7 @@ insert_metainfo_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, g
         //add a fake roi into buffer to store stream info,the info will be push back to host
         if(meta_num == 0){
             GstVideoRegionOfInterestMeta *meta = gst_buffer_add_video_region_of_interest_meta(
-                    buffer, "label", 0, 0, 0, 0);
+                    buffer, "mediapipe_fake_roi", 0, 0, 0, 0);
             gst_video_region_of_interest_meta_add_param(meta, gst_structure_copy(boxed));
         }
     }
@@ -207,7 +207,7 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
         g_value_init(&tmp_value, GST_TYPE_STRUCTURE);
 
         GstStructure* s = gst_structure_new(
-            "detection",
+            "mediapipe_probe_meta",
             "magic", G_TYPE_UINT, header->magic,
             "version", G_TYPE_UINT, header->version,
             "metaversion", G_TYPE_UINT, meta->version,
@@ -233,7 +233,7 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
         GValue tmp_value0 = { 0 };
         g_value_init(&tmp_value0, GST_TYPE_STRUCTURE);
         GstStructure* s0 = gst_structure_new(
-                "detection",
+                "mediapipe_probe_meta",
                 "magic", G_TYPE_UINT, header->magic,
                 "version", G_TYPE_UINT, header->version,
                 "metaversion", G_TYPE_UINT, meta->version,
@@ -254,7 +254,7 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
         g_value_unset(&tmp_value0);
     }
 
-    GstStructure* s = gst_structure_new_empty("detection");
+    GstStructure* s = gst_structure_new_empty("mediapipe_probe_meta");
     gst_structure_set_value(s, "meta_info", &objectlist);
     g_value_unset(&objectlist);
 

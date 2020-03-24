@@ -35,6 +35,7 @@ typedef struct {
     GstPad *enc_pad;
     guint enc_callback_id;
     GQueue *queue;
+    GAsyncQueue *jpeg_roi_queue;
     guint width;    // origin image resolution width
     guint height;   // origin image resolution height
     guint sourceid;
@@ -89,6 +90,9 @@ static gboolean
 push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
                           GstVideoRegionOfInterestMeta *meta);
 
+static gboolean
+process_roi_only(jpeg_branch_ctx_t *branch_ctx, gint roi_index);
+
 //module define start
 static void
 exit_master(void);
@@ -106,18 +110,6 @@ static mp_command_t  mp_gva_postproc_and_upload_commands[] = {
 };
 
 
-static gboolean
-write_file(const gchar *data, guint size, const gchar *file_name)
-{
-    FILE *fp = fopen(file_name, "w");
-    if (fp == NULL) {
-        g_print("Open file %s failed", file_name);
-        return FALSE;
-    }
-    fwrite(data, 1, size, fp);
-    fclose(fp);
-    return TRUE;
-}
 
 static mp_int_t
 init_callback(mediapipe_t *mp);
@@ -189,11 +181,94 @@ typedef struct _params_data {
 } param_data_t;
 
 static gboolean
+roi_rounding(int* xmin, int* ymin, int* xmax, int* ymax, guint *crop_width, guint *crop_height, guint height, guint width)
+{
+    if (*xmin < 0) {
+        *xmin = 0;
+    }
+    if (*ymin < 0) {
+        *ymin = 0;
+    }
+    if (*xmax < 0) {
+        *xmax = 0;
+    }
+    if (*ymax < 0) {
+        *ymax = 0;
+    }
+    if (*xmax > width) {
+        *xmax = width;
+    }
+    if (*ymax > height) {
+        *ymax = height;
+    }
+    if (*xmin > width) {
+        *xmin = width;
+    }
+    if (*ymin > height) {
+        *ymin = height;
+    }
+    if (*xmax - *xmin < 32) {
+        *xmax = *xmin + 32;
+        if (*xmax > width) {
+            *xmax = width;
+            *xmin = *xmax - 32;
+        }
+    }
+    if (*ymax - *ymin < 32) {
+        *ymax = *ymin + 32;
+        if (*ymax > height) {
+            *ymax = height;
+            *ymin = *ymax - 32;
+        }
+    }
+
+    /*TODO:The coordinates of the crop-roi are restricted by the vaapijpegenc plugin
+        *     The following method must be used.
+        *     The modified crop-roi coordinates will continue to be used in the pipeline.*/
+    //nv12 must width align 16 ,height align 2
+    *crop_width = ALIGN_POW2(*xmax - *xmin, 16);
+    *crop_height = ALIGN_POW2(*ymax - *ymin, 2) ;
+    *xmin = ALIGN_POW2(*xmin, 2);
+    *ymin = ALIGN_POW2(*ymin, 2);
+    if (*crop_width + *xmin > width) {
+        *xmin = width - *crop_width;
+    }
+    if (*crop_height + *ymin > height) {
+        *ymin = height - *crop_height;
+    }
+    if (*xmin < 0 || *ymin < 0) {
+        GST_ERROR("The crop range of rectangle is error,\
+                xmin:%d, ymin:%d, width:%d, height:%d",
+                    (int)*xmin, (int)*ymin, (int)width, (int)height);
+        return false;
+    }
+    return true;
+}
+
+static gboolean 
+is_roi_outdated(GstVideoRegionOfInterestMeta *roi_meta)
+{
+    for (GList *l = roi_meta->params; l; l = g_list_next(l)) {
+        GstStructure *structure = (GstStructure *) l->data;
+        int frames_ago = 0;
+        if (gst_structure_has_field(structure, "frames_ago") &&
+            gst_structure_get_int(structure, "frames_ago", &frames_ago)) {
+            if(frames_ago > 10) {
+                LOG_DEBUG("MEDIAPIPE|ROIENC|DEBUG|Find too old ROIs frames_ago: %d\n", frames_ago);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+
+static gboolean
 send_result_back(jpeg_branch_ctx_t* branch_ctx)
 {
     char *pbuffer = NULL;
     char *pbegin  = NULL;
-    GstBuffer *resultBuf = NULL;
+    GstBuffer *result_buf = NULL;
     GstElement *xlink_appsrc  = NULL;
     GstFlowReturn ret;
     //the caller needs to ensure that the branch_ctx is correct.
@@ -218,12 +293,13 @@ send_result_back(jpeg_branch_ctx_t* branch_ctx)
         if(branch_ctx->jpegmem_size)
             memcpy(pbuffer, branch_ctx->Jpeg_pag.jpegs, branch_ctx->jpegmem_size);
     }
-    resultBuf = gst_buffer_new_wrapped(pbegin,
+    result_buf = gst_buffer_new_wrapped(pbegin,
             branch_ctx->Jpeg_pag.header.package_size);
     xlink_appsrc = (GstElement *)branch_ctx->other_data;
     g_assert(xlink_appsrc != NULL);
-    g_signal_emit_by_name(xlink_appsrc, "push-buffer", resultBuf, &ret);
-    gst_buffer_unref(resultBuf);
+    GST_WARNING("MEDIAPIPE|ROIENC|Send to HDDLSink GstBufferSize %ld\n", gst_buffer_get_size(result_buf));
+    g_signal_emit_by_name(xlink_appsrc, "push-buffer", result_buf, &ret);
+    gst_buffer_unref(result_buf);
     if (ret != GST_FLOW_OK) {
         LOG_ERROR(" push buffer error\n");
 	return false;
@@ -232,6 +308,25 @@ send_result_back(jpeg_branch_ctx_t* branch_ctx)
     return true;
 }
 
+static gboolean
+process_roi_only(jpeg_branch_ctx_t *branch_ctx, gint roi_index)
+{
+    //Format the result packet without JPEG
+    branch_ctx->Jpeg_pag.results[roi_index].jpeg_size =  0;
+    branch_ctx->Jpeg_pag.results[roi_index].starting_offset = 0;
+    branch_ctx->roi_index++;
+    if (branch_ctx->roi_index == branch_ctx->Jpeg_pag.meta.num_rois) {
+        GST_LOG("MEDIAPIPE|ROIENC|DEBUG|Send Result back via process_roi_only");
+        branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
+                + branch_ctx->Jpeg_pag.header.meta_size
+                + sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois
+                + branch_ctx->jpegmem_size;
+        branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
+        //set packet_type
+        send_result_back(branch_ctx);
+    }
+    return true;
+}
 
 static gboolean
 crop_and_push_buffer_BGRA(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
@@ -346,13 +441,13 @@ push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
     gboolean ret = send_result_back(branch_ctx);
     branch_ctx->roi_index++;
     if(!ret)
-        GST_WARNING("Send result back to IA error %d\n", ret);
+        GST_WARNING("MEDIAPIPE|ROIENC|DEBUG|Send result back to IA error %d\n", ret);
     return ret;
 }
 
 static gboolean
 crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
-                          GstVideoRegionOfInterestMeta *meta)
+                          GstVideoRegionOfInterestMeta *meta, gint roi_index)
 {
     GstMapInfo map;
     int xmin, ymin, xmax,  ymax;
@@ -370,97 +465,48 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         ymin = (int)(meta->y);
         xmax = (int)(meta->x + meta->w);
         ymax = (int)(meta->y + meta->h);
-        if (xmin < 0) {
-            xmin = 0;
-        }
-        if (ymin < 0) {
-            ymin = 0;
-        }
-        if (xmax < 0) {
-            xmax = 0;
-        }
-        if (ymax < 0) {
-            ymax = 0;
-        }
-        if (xmax > branch_ctx->width) {
-            xmax = branch_ctx->width;
-        }
-        if (ymax > branch_ctx->height) {
-            ymax = branch_ctx->height;
-        }
-        if (xmin > branch_ctx->width) {
-            xmin = branch_ctx->width;
-        }
-        if (ymin > branch_ctx->height) {
-            ymin = branch_ctx->height;
-        }
-        bFlag = false;
-        if (xmax - xmin < 32) {
-            xmax = xmin + 32;
-            if (xmax > branch_ctx->width) {
-                xmax = branch_ctx->width;
-                xmin = xmax - 32;
-            }
-            bFlag = true;
-        }
-        if (ymax - ymin < 32) {
-            ymax = ymin + 32;
-            if (ymax > branch_ctx->height) {
-                ymax = branch_ctx->height;
-                ymin = ymax - 32;
-            }
-            bFlag = true;
-        }
-        if (bFlag) {
-            LOG_INFO("The range of rectangle is smaller than 32×32, has be increased !");
-        }
-        /*TODO:The coordinates of the crop-roi are restricted by the vaapijpegenc plugin
-         *     The following method must be used.
-         *     The modified crop-roi coordinates will continue to be used in the pipeline.*/
-        //nv12 must width align 16 ,height align 2
-        crop_width = ALIGN_POW2(xmax - xmin, 16);
-        crop_height = ALIGN_POW2(ymax - ymin, 2) ;
-        xmin = ALIGN_POW2(xmin, 2);
-        ymin = ALIGN_POW2(ymin, 2);
-        if (crop_width + xmin > branch_ctx->width) {
-            xmin = branch_ctx->width - crop_width;
-        }
-        if (crop_height + ymin > branch_ctx->height) {
-            ymin = branch_ctx->height - crop_height;
-        }
-        if (xmin < 0 || ymin < 0) {
-            LOG_ERROR("The crop range of rectangle is error,\
-                    xmin:%d, ymin:%d, width:%d, height:%d",
-                      (int)meta->x, (int)meta->y, (int)meta->w, (int)meta->h);
-        }
 
+        gboolean success = roi_rounding(&xmin, &ymin, &xmax, &ymax, &crop_width, &crop_height, branch_ctx->height, branch_ctx->width);
+        //outdated true means too old ROI, false means new ROI
+        gboolean outdated = is_roi_outdated(meta);
         gst_buffer_unmap(buffer, &map);
-        //reset src caps accroding to the cropped image resolution
-        snprintf(caps_string, MAX_BUF_SIZE,
-                 "video/x-raw(memory:DMABuf),format=NV12,width=%u,height=%u,framerate=30/1",
-                 branch_ctx->width, ALIGN_POW2(branch_ctx->height, 16));
-        LOG_DEBUG("caps = [%s]\n", caps_string);
-        src = gst_bin_get_by_name(GST_BIN(pipeline), "mysrc");
-        caps = gst_caps_from_string(caps_string);
-        /* gst_element_set_state(src, GST_STATE_NULL); */
-        g_object_set(src, "caps", caps, NULL);
-        /* gst_element_set_state(src, GST_STATE_PLAYING); */
-        gst_caps_unref(caps);
 
-        g_snprintf(caps_string, MAX_BUF_SIZE, "%u%c%u%c%u%c%u",  xmin, ',', ymin, ',',crop_width, ',', crop_height );
-        g_print("###########crop-roi = [%s]#########\n", caps_string);
-        guint set_ret;
-        MEDIAPIPE_SET_PROPERTY(set_ret, branch_ctx, "enc", "crop-roi", caps_string, NULL);
-        if( set_ret != 0) {
-           LOG_ERROR(" vaapijpegenc set crop-roi error !!\n");
-        }
-        branch_ctx->can_pushed = FALSE;
-        //push buffer to appsrc
-        g_signal_emit_by_name(GST_APP_SRC(src), "push-buffer", buffer, &ret);
-        if (ret != GST_FLOW_OK) {
-            LOG_ERROR(" push buffer error\n");
-        }
-        gst_object_unref(src);
+        if(outdated){
+            LOG_DEBUG("MEDIAPIPE|DEBUG|Find old ROI just fill packet roi_index %d\n", roi_index);
+            process_roi_only(branch_ctx, roi_index);
+        } else {
+            LOG_DEBUG("MEDIAPIPE|DEBUG|Find young ROI do jpegEnc %d\n", roi_index);
+            gint* proi_index = g_new0(gint, 1);
+            *proi_index = roi_index;
+            LOG_DEBUG("MEDIAPIPE|DEBUG|roi_index %d|branch roi_index %d\n", roi_index, branch_ctx->roi_index);
+            g_async_queue_push(branch_ctx->jpeg_roi_queue, proi_index);
+            //reset src caps accroding to the cropped image resolution
+            snprintf(caps_string, MAX_BUF_SIZE,
+                    "video/x-raw(memory:DMABuf),format=NV12,width=%u,height=%u,framerate=30/1",
+                    branch_ctx->width, ALIGN_POW2(branch_ctx->height, 16));
+            LOG_DEBUG("caps = [%s]\n", caps_string);
+            src = gst_bin_get_by_name(GST_BIN(pipeline), "mysrc");
+            caps = gst_caps_from_string(caps_string);
+            /* gst_element_set_state(src, GST_STATE_NULL); */
+            g_object_set(src, "caps", caps, NULL);
+            /* gst_element_set_state(src, GST_STATE_PLAYING); */
+            gst_caps_unref(caps);
+
+            g_snprintf(caps_string, MAX_BUF_SIZE, "%u%c%u%c%u%c%u",  xmin, ',', ymin, ',',crop_width, ',', crop_height);
+            GST_WARNING("###########crop-roi = [%s]#########\n", caps_string);
+            guint set_ret;
+            MEDIAPIPE_SET_PROPERTY(set_ret, branch_ctx, "enc", "crop-roi", caps_string, NULL);
+            if( set_ret != 0) {
+            LOG_ERROR(" vaapijpegenc set crop-roi error !!\n");
+            }
+            branch_ctx->can_pushed = FALSE;
+            //push buffer to appsrc
+            g_signal_emit_by_name(GST_APP_SRC(src), "push-buffer", buffer, &ret);
+            if (ret != GST_FLOW_OK) {
+                LOG_ERROR(" push buffer error\n");
+            }
+            gst_object_unref(src);
+            }
     }
     return TRUE;
 }
@@ -488,10 +534,12 @@ push_data(gpointer user_data)
     param_data_t *params = NULL;
     guint memory_size = branch_ctx->malloc_max_roi_size;
     if (g_queue_is_empty(branch_ctx->queue)) {
+        GST_LOG("MEDIAPIPE|ROIENC|No frame to encode\n");
         g_usleep(30000);
         return TRUE;
     }
     if (!branch_ctx->can_pushed) {
+        GST_LOG("MEDIAPIPE|ROIENC|Wait for jpeg encoder ready\n");
         g_usleep(30000 / (g_queue_get_length(branch_ctx->queue)));
         return TRUE;
     }
@@ -509,7 +557,7 @@ push_data(gpointer user_data)
             continue;
         }
         branch_ctx->Jpeg_pag.meta.num_rois = roi_num;
-        GST_WARNING("ROIENC|ROI Num %d\n", roi_num);
+        GST_WARNING("MEDIAPIPE|ROIENC|ROI Num %d\n", roi_num);
     }
 
     if (branch_ctx->Jpeg_pag.meta.num_rois == 0 ||
@@ -526,10 +574,12 @@ push_data(gpointer user_data)
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
         }
+        //this roi has been processed, proceeds to next
         if (roi_index < branch_ctx->roi_index) {
             roi_index ++;
             continue;
         }
+
         meta = (GstVideoRegionOfInterestMeta *)gst_meta;
 
         for (GList* l = meta->params; l; l = g_list_next(l)) {
@@ -547,7 +597,7 @@ push_data(gpointer user_data)
         branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].width = meta->w;
         branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].height = meta->h;
 
-        structure = gst_video_region_of_interest_meta_get_param(meta, "detection");
+        structure = gst_video_region_of_interest_meta_get_param(meta, "mediapipe_probe_meta");
 
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.header.magic, "magic");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.header.version, "version");
@@ -582,7 +632,7 @@ push_data(gpointer user_data)
                     && branch_ctx->Jpeg_pag.meta.num_rois == 1){
                 push_none_roi_data(buffer, branch_ctx, meta);
             }else if(branch_ctx->format == GST_VIDEO_FORMAT_NV12 ){
-                crop_and_push_buffer_NV12(buffer, branch_ctx, meta);
+                crop_and_push_buffer_NV12(buffer, branch_ctx, meta, roi_index);
             }else if(branch_ctx->format == GST_VIDEO_FORMAT_BGRA ){
                 crop_and_push_buffer_BGRA(buffer, branch_ctx, meta);
             }
@@ -670,8 +720,17 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
         return GST_PAD_PROBE_OK;
     }
-    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].jpeg_size =  map.size;
-    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].starting_offset =
+    gint* proi_index = (gint*)g_async_queue_pop(branch_ctx->jpeg_roi_queue);
+    if (!proi_index) {
+        GST_ERROR("MEDIAPIPE|ERROR|GET ROI Index Error\n");
+        abort();
+    }
+    if(*proi_index >= branch_ctx->Jpeg_pag.meta.num_rois){
+        GST_ERROR("MEDIAPIPE|ERROR|GET ROI Index Overflow roi %d|queue roi %d\n", *proi_index, branch_ctx->Jpeg_pag.meta.num_rois);
+        abort();
+    } 
+    branch_ctx->Jpeg_pag.results[*proi_index].jpeg_size =  map.size;
+    branch_ctx->Jpeg_pag.results[*proi_index].starting_offset =
         sizeof(Header) + branch_ctx->Jpeg_pag.header.meta_size +
         sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois +
         branch_ctx->jpegmem_size;//byte
@@ -699,7 +758,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
                 + sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois
                 + branch_ctx->jpegmem_size;
         branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
-        //set packet_type
+        GST_LOG("MEDIAPIPE|DEBUG|Send REsult back via Get_objectData");
         send_result_back(branch_ctx);
     }
     gst_buffer_unmap(buffer, &map);
@@ -869,6 +928,7 @@ init_module(mediapipe_t *mp)
                                                                                                       "gva_postproc_and_upload");
     ctx->branch_ctx = g_new0(jpeg_branch_ctx_t, 1);
     ctx->branch_ctx->queue = g_queue_new();
+    ctx->branch_ctx->jpeg_roi_queue = g_async_queue_new();
 #ifdef CROP_NV12
     ctx->branch_ctx->pipeline =
         mediapipe_branch_create_pipeline("appsrc name=mysrc ! vaapijpegenc  name=enc  crop-roi=\"100,100,200,200\" ! fakesink name=mysink");
