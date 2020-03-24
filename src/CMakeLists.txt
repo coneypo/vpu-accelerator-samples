@@ -9,3 +9,5 @@
 add_subdirectory(FullPipe)
 
 add_subdirectory(FullPipeGUITest)
+
+add_subdirectory(FullPipeGUITestSock)

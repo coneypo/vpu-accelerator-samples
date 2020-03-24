@@ -15,7 +15,7 @@ int receiveRoutine()
 {
     auto poller = HddlUnite::Poller::create();
     auto connection = HddlUnite::Connection::create(poller);
-    std::cout<<"Received socket sets to listen"<<std::endl;
+    std::cout<<"Received socket "<<g_recv_socket<<" sets to listen"<<std::endl;
     if (!connection->listen(g_recv_socket)) { //add to poller here
         return -1;
     }
@@ -77,35 +77,14 @@ int receiveRoutine()
     }
 }
 
-int main()
+int main(int argc, const char *argv[])
 {
+    g_recv_socket = g_recv_socket + std::string(argv[1]);
 
     std::thread t(receiveRoutine);
 
     std::this_thread::sleep_for(ms(2000));
 
-    auto poller = HddlUnite::Poller::create("client");
-    auto conn = HddlUnite::Connection::create(poller);
-    while(!conn->connect("/tmp/gstreamer_ipc111.sock")){
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    std::string toSend = g_recv_socket + ",/tmp/gstreamer_ipc_recv.sock1";
-    int length = static_cast<int>(toSend.length());
-    {
-        std::lock_guard<std::mutex> lock(conn->getMutex());
-        int result = conn->write((void*)&length, sizeof(length));
-        if(result != sizeof(length)){
-            std::cout<<"Failed to send socket length!"<<std::endl;
-            exit(1);
-        }
-        std::cout<<"Sent length "<<length<<" in "<<sizeof(length)<<" bytes"<<std::endl;
-        result = conn->write(&toSend[0], length);
-        if(result != length){
-            std::cout<<"Failed to send socket addr!"<<std::endl;
-            exit(1);
-        }
-        std::cout<<"Sent addr "<<toSend<<" in "<<length<<" bytes"<<std::endl;
-    }
     t.join();
     return 0;
 }
