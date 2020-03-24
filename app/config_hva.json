@@ -1,0 +1,18 @@
+{
+  "decode": [
+    {
+      "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/home/xiao/hddl/gsthvasample/build/src/FullPipe/barrier_1080x720.h264",
+        "socket_name": "/tmp/gstreamer_ipc_0",
+        "display_sink": "mysink"
+      }
+    }
+  ],
+  "app": {
+    "timeout": 0,
+    "mode": "replay",
+    "hva_cmd": "/home/xiao/hddl/gsthvasample/build/src/FullPipe/FullPipe"
+  }
+}
+

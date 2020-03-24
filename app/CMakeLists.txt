@@ -10,10 +10,12 @@ qt5_wrap_ui(UI_SRC hddldemo.ui)
 
 add_executable(${PROJECT_NAME} ${DIR_SRCS} ${UI_SRC})
 target_include_directories(${PROJECT_NAME} PRIVATE
+        ${Boost_INCLUDE_DIR}
         ${Qt5Widgets_INCLUDE_DIR}
         ${Qt5Network_INCLUDE_DIR})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+        ${Boost_LIBRARIES}
         ${Qt5Widgets_LIBRARIES}
         ${Qt5Network_LIBRARIES}
         hddldemoutils)

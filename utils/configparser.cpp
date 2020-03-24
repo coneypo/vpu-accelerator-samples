@@ -26,6 +26,8 @@ bool ConfigParser::loadConfigFile(const std::string& filePath)
         return false;
     }
 
+    parseHvaCmd();
+
     return true;
 }
 
@@ -78,6 +80,11 @@ int ConfigParser::getTimeout()
 ConfigParser::PlayMode ConfigParser::getPlayMode()
 {
     return m_playMode;
+}
+
+std::string ConfigParser::getHvaCMd()
+{
+    return m_hvaCmd;
 }
 
 template <typename Type>
@@ -148,7 +155,7 @@ void ConfigParser::insertPipelineParams()
             auto found = m_pipelines[index].find(param);
             while (found != std::string::npos) {
                 m_pipelines[index].replace(found, param.length(), item.second);
-                found = m_pipelines[index].find(param, found+1);
+                found = m_pipelines[index].find(param, found + 1);
             }
         }
     }
@@ -166,6 +173,12 @@ bool ConfigParser::parsePlayMode()
         return false;
     }
     m_playMode = strToPlayMode(modeStr);
+    return true;
+}
+
+bool ConfigParser::parseHvaCmd()
+{
+    parse("app.hva_cmd", m_hvaCmd);
     return true;
 }
 

@@ -165,8 +165,12 @@ void HDDLDemo::runPipeline()
         QString hddlChannelCmd = QString("./hddlpipeline");
         QProcess* hddlChannelProcess = new QProcess(this);
         hddlChannelProcess->setProcessChannelMode(QProcess::ForwardedChannels);
-        auto arguments = QString::fromStdString(m_pipeline[m_launchedNum]).split(" ");
-        arguments.append(QString::number(m_launchedNum));
+        QStringList arguments;
+        arguments.push_back("--pipeline");
+        arguments.push_back(QString::fromStdString(m_pipeline[m_launchedNum]));
+        arguments.push_back("--index");
+        arguments.push_back(QString::number(m_launchedNum));
+        arguments.push_back("--timeout");
         arguments.append(QString::number(m_timeout));
         hddlChannelProcess->start(hddlChannelCmd, arguments);
         m_launchedNum++;

@@ -1,69 +1,43 @@
 #include "configparser.h"
 #include "hddldemo.h"
+
 #include <QApplication>
-#include <getopt.h>
+#include <boost/program_options.hpp>
 #include <iostream>
-#include <stdio.h>
 
-static const char* g_launch_file = nullptr;
+using namespace boost::program_options;
 
-static void print_usage(const char* program_name, int exit_code)
+struct Options {
+    std::string configFile;
+};
+
+std::shared_ptr<Options> parse_arguments(int argc, char* argv[])
 {
-    printf("Usage: %s...\n", program_name);
-    printf(
-        " -c --config file to create pipeline.\n"
-        "-h --help Display this usage information.\n");
-    exit(exit_code);
-}
+    variables_map vm;
+    options_description opt_desc("hddl demo options");
+    opt_desc.add_options()("help,h", "This is hddl demo program")(
+        "config,c", value<std::string>(), "[Required] config file path");
 
-static bool parse_cmdline(int argc, char* argv[])
-{
-    const char* const brief = "hc:";
-    const struct option details[] = {
-        {
-            "config",
-            1,
-            nullptr,
-            'c',
-        },
-        {
-            "help",
-            0,
-            nullptr,
-            'h',
-        },
-        { nullptr, 0, nullptr, 0 }
-    };
+    store(parse_command_line(argc, argv, opt_desc), vm);
+    notify(vm);
 
-    int opt = 0;
-    while (opt != -1) {
-        opt = getopt_long(argc, argv, brief, details, nullptr);
-        switch (opt) {
-        case 'c':
-            g_launch_file = optarg;
-            break;
-        case 'h': /* help */
-            print_usage(argv[0], 0);
-            break;
-        case '?': /* an invalid option. */
-            print_usage(argv[0], 1);
-            break;
-        case -1: /* Done with options. */
-            break;
-        default: /* unexpected. */
-            print_usage(argv[0], 1);
-            abort();
-        }
+    if (vm.count("help")) {
+        std::cerr << opt_desc << std::endl;
+        exit(EXIT_FAILURE);
     }
-    return true;
+
+    auto options = std::make_shared<Options>();
+
+    if (vm.count("config")) {
+        options->configFile = vm["config"].as<std::string>();
+    }
+    return options;
 }
 
 int main(int argc, char* argv[])
 {
-
-    parse_cmdline(argc, argv);
-
-    if (!ConfigParser::instance()->loadConfigFile(g_launch_file)) {
+    auto options = parse_arguments(argc, argv);
+    if (!ConfigParser::instance()->loadConfigFile(options->configFile)) {
         return EXIT_FAILURE;
     }
 
