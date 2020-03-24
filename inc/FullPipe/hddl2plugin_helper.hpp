@@ -36,16 +36,13 @@ public:
     inline void setup()
     {
         std::string graphPath = "/home/kmb/cong/graph/resnet-50-dpu/resnet-50-dpu.blob";
-        std::string inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input.bin";
-        std::string outputPath = "./output.bin";
         
-        inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input-cat-1080x1080-nv12.bin";
 
         // graphPath = "/home/kmb/cong/fp16_test/resnet/resnet50_uint8_int8_weights_pertensor.blob";
         // inputPath = "/home/kmb/cong/fp16_test/resnet/input.bin";
         // outputPath = "./output.bin";
 
-
+#if 1 //todo, no need to create unite context
         printf("[debug] start create context\n");
         ptrContext = HddlUnite::createWorkloadContext();
         assert(nullptr != ptrContext.get());
@@ -54,12 +51,46 @@ public:
         assert(workloadId == ptrContext->getWorkloadContextID());
         assert(HddlStatusCode::HDDL_OK == HddlUnite::registerWorkloadContext(ptrContext));
         printf("[debug] end create context\n");
+#endif //todo, no need to create unite context
+
+
+        // ---- Load inference engine instance
+        printf("[debug] start load graph\n");
+        
+
+        // ---- Init context map and create context based on it
+        IE::ParamMap paramMap = {{IE::HDDL2_PARAM_KEY(WORKLOAD_CONTEXT_ID), workloadId}};
+        ptrContextIE = ie.CreateContext("HDDL2", paramMap);
+
+        // ---- Import network providing context as input to bind to context
+        const std::string& modelPath = graphPath;
+
+        std::filebuf blobFile;
+        if (!blobFile.open(modelPath, std::ios::in | std::ios::binary)) {
+            blobFile.close();
+            THROW_IE_EXCEPTION << "Could not open file: " << modelPath;
+        }
+        std::istream graphBlob(&blobFile);
+
+        executableNetwork = ie.ImportNetwork(graphBlob, ptrContextIE);
+        printf("[debug] end load graph\n");
+
+        // ---- Create infer request
+        inferRequest = executableNetwork.CreateInferRequest();
+
+
+    }
+    inline void update()
+    {
+
+        std::string inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input.bin";
+        inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input-cat-1080x1080-nv12.bin";
 
         // ---- Load frame to remote memory (emulate VAAPI result)
         // ----- Load binary input
         printf("[debug] start create input tensor\n");
 
-        //todo, no need to load data from file
+#if 1 //todo, no need to load data from file
         const auto& inputTensor = InferenceEngine::TensorDesc(InferenceEngine::Precision::U8,
                                                                {1, 1, 1, 1080*1080*3/2},
                                                                InferenceEngine::Layout::NCHW);
@@ -85,7 +116,7 @@ public:
         remoteMemoryFd =
             allocateRemoteMemory(ptrContext, inputRefBlob->buffer().as<void*>(), inputRefBlob->byteSize());
 #else
-        HddlUnite::SMM::RemoteMemory::Ptr remoteFrame = HddlUnite::SMM::allocate(*ptrContext, inputRefBlob->byteSize());
+        remoteFrame = HddlUnite::SMM::allocate(*ptrContext, inputRefBlob->byteSize());
 
         if (remoteFrame == nullptr) {
             THROW_IE_EXCEPTION << "Failed to allocate remote memory.";
@@ -96,8 +127,6 @@ public:
         }
         remoteMemoryFd = remoteFrame->getDmaBufFd();
 #endif
-
-        printf("[debug] end create input tensor\n");
 
         HddlUnite::SMM::RemoteMemory memTemp(*ptrContext, remoteMemoryFd, inputRefBlob->byteSize());
 
@@ -111,31 +140,7 @@ public:
         fclose(fp);
 
         free(buf);
-
-        // ---- Load inference engine instance
-        printf("[debug] start load graph\n");
-        
-
-        // ---- Init context map and create context based on it
-        IE::ParamMap paramMap = {{IE::HDDL2_PARAM_KEY(WORKLOAD_CONTEXT_ID), workloadId}};
-        ptrContextIE = ie.CreateContext("HDDL2", paramMap);
-
-        // ---- Import network providing context as input to bind to context
-        const std::string& modelPath = graphPath;
-
-        std::filebuf blobFile;
-        if (!blobFile.open(modelPath, std::ios::in | std::ios::binary)) {
-            blobFile.close();
-            THROW_IE_EXCEPTION << "Could not open file: " << modelPath;
-        }
-        std::istream graphBlob(&blobFile);
-
-        executableNetwork = ie.ImportNetwork(graphBlob, ptrContextIE);
-        printf("[debug] end load graph\n");
-
-        // ---- Create infer request
-        printf("[debug] start inference\n");
-        inferRequest = executableNetwork.CreateInferRequest();
+#endif //todo, no need to load data from file
 
         // ---- Create remote blob by using already exists fd
 #if 0
@@ -177,7 +182,14 @@ public:
         // ---- Set remote NV12 blob with preprocessing information
         inferRequest.SetBlob(inputName, ptrRemoteBlob, preprocInfo);
 #endif
+        printf("[debug] end create input tensor\n");
+    }
+    inline void infer()
+    {
+        std::string outputPath = "./output.bin";
+
         // ---- Run the request synchronously
+        printf("[debug] start inference\n");
         inferRequest.Infer();
         printf("[debug] end inference\n");
 
@@ -199,14 +211,6 @@ public:
 
         assert(ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
     }
-    inline void update()
-    {
-
-    }
-    inline void infer()
-    {
-
-    }
 
 public:
     IE::Core ie;
@@ -220,6 +224,9 @@ public:
     HddlUnite::WorkloadContext::Ptr ptrContext;
     WorkloadID workloadId;
     uint64_t remoteMemoryFd;
+
+
+    HddlUnite::SMM::RemoteMemory::Ptr remoteFrame;
 };
 
 #endif //#ifndef HDDL2PLUGIN_HELPER_HPP
