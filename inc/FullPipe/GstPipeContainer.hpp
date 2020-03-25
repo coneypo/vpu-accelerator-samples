@@ -70,7 +70,8 @@ private:
 
     const unsigned m_idx;
 
-    unsigned m_frameIdx;
+    unsigned m_frameIdx; // exported frame index. Continuously increment
+    unsigned m_frameCnt; // internal frame counter used for frame dropping, fps etc.
 
     uint64_t m_WID;
 
