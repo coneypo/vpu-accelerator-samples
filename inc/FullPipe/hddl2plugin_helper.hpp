@@ -38,10 +38,12 @@ public:
     HDDL2pluginHelper_t(const HDDL2pluginHelper_t &) = delete;
     HDDL2pluginHelper_t &operator=(const HDDL2pluginHelper_t &) = delete;
 
-    HDDL2pluginHelper_t(std::string graphPath, size_t heightInput = 0, size_t widthInput = 0, PostprocPtr_t ptrPostproc = nullptr)
+    HDDL2pluginHelper_t(std::string graphPath, WorkloadID id = 0, size_t heightInput = 0, size_t widthInput = 0, PostprocPtr_t ptrPostproc = nullptr)
         : _graphPath{graphPath},
+          _workloadId{id},
           _heightInput{heightInput},
-          _widthInput{widthInput}
+          _widthInput{widthInput},
+          _ptrPostproc{ptrPostproc}
     {
     }
 
@@ -53,7 +55,8 @@ public:
         // _inputPath = "/home/kmb/cong/fp16_test/resnet/input.bin";
         // outputPath = "./output.bin";
 
-#if 1 //todo, no need to create unite context
+//todo, no need to create unite context
+#if 1 
         printf("[debug] start create context\n");
         _ptrContext = HddlUnite::createWorkloadContext();
         assert(nullptr != _ptrContext.get());
@@ -89,10 +92,10 @@ public:
         _inferRequest = _executableNetwork.CreateInferRequest();
     }
 
-    inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0)
+    inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<InfoROI_t> &vecROI = std::vector<InfoROI_t>())
     {
-
-#if 1 //todo, no need to load data from file
+//todo, no need to load data from file
+#if 1 
         _inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input.bin";
         _inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input-cat-1080x1080-nv12.bin";
 
@@ -168,7 +171,7 @@ public:
         }
 
         // ---- Create remote blob by using already exists fd
-        assert(fd >= 0);
+        assert(_remoteMemoryFd >= 0);
 #if 0
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)}};
 #else
@@ -242,9 +245,9 @@ public:
 
     inline void postproc()
     {
-        if (nullptr != ptrPostproc)
+        if (nullptr != _ptrPostproc)
         {
-            ptrPostproc(this);
+            _ptrPostproc(this);
         }
     }
 
@@ -543,7 +546,7 @@ private:
     size_t _heightInput{0};
     size_t _widthInput{0};
 
-    PostprocPtr_t ptrPostproc{nullptr};
+    PostprocPtr_t _ptrPostproc{nullptr};
 
 public:
     std::vector<DetectedObject_t> _vecObjects;
