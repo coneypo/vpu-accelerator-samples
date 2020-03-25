@@ -28,9 +28,15 @@ public:
 
     int getTimeout();
     PlayMode getPlayMode();
-    std::string getHvaCMd();
     std::vector<std::string> getPipelines();
     std::vector<std::map<std::string, std::string>> getPipelineParams();
+
+#ifdef ENABLE_HVA
+    std::string getHvaCMd();
+    std::string getHvaWorkDirectory();
+    std::string getHvaSocketPath();
+    std::map<std::string, std::string> getHvaEnvironmentVariables();
+#endif
 
 private:
     ConfigParser() = default;
@@ -44,14 +50,26 @@ private:
     bool parsePipelines();
     bool parseTimeout();
     bool parsePlayMode();
-    bool parseHvaCmd();
     void insertPipelineParams();
 
-    std::vector<std::string> m_pipelines {};
-    std::vector<std::map<std::string, std::string>> m_params{};
-    std::string m_hvaCmd {};
+#ifdef ENABLE_HVA
+    bool parseHvaCmd();
+    bool parseHvaWorkDirectory();
+    bool parseHvaSocketPath();
+    bool parseHvaEnvironmentVariables();
+#endif
+
     int m_timeout { 0 };
     PlayMode m_playMode { PlayMode::REPLAY };
+    std::vector<std::string> m_pipelines {};
+    std::vector<std::map<std::string, std::string>> m_params {};
+
+#ifdef ENABLE_HVA
+    std::string m_hvaCmd {};
+    std::string m_hvaWorkDirectory {};
+    std::string m_hvaSocketPath {};
+    std::map<std::string, std::string> m_hvaEnvironmentVariables {};
+#endif
 
     boost::property_tree::ptree m_ptree;
 };

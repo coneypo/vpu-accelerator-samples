@@ -11,8 +11,26 @@
   ],
   "app": {
     "timeout": 0,
-    "mode": "replay",
-    "hva_cmd": "/home/xiao/hddl/gsthvasample/build/src/FullPipe/FullPipe"
+    "mode": "replay"
+  },
+  "hva": {
+    "cmd": "./FullPipe",
+    "work_directory": "/home/xiao/hddl/gsthvasample/build/src/FullPipe",
+    "socket_name": "/tmp/gstreamer_ipc.sock",
+    "environment": [
+      {
+        "key": "INSTALL_DIR",
+        "value": "/home/kmb/kezhen/install"
+      },
+      {
+        "key": "LIBVA_DRIVERS_PATH",
+        "value": "${INSTALL_DIR}/lib"
+      },
+      {
+        "key": "LD_LIBRARY_PATH",
+        "value": "/home/xiao/hddl/hddlunite/cmake-build-debug/thirdparty/xlink_simulator_mdk/"
+      }
+    ]
   }
 }
 

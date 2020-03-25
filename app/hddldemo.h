@@ -29,6 +29,11 @@ private:
     void runPipeline();
     void initConfig();
 
+#ifdef ENABLE_HVA
+    void setupHvaProcess();
+    void sendSignalToHvaPipeline();
+#endif
+
     uint32_t m_rows { 0 }; // channel rows
     uint32_t m_cols { 0 }; // channel cols
     uint32_t m_launchedNum { 0 }; // nums of launched hddlpipelines

@@ -2,8 +2,8 @@
 #include "configparser.h"
 #include "cropdefs.h"
 #include "dispatcher.h"
-#include "messagetype.h"
 #include "ui_hddldemo.h"
+#include "utils/ipc.h"
 
 #include <QLabel>
 #include <QPixmap>
@@ -111,7 +111,7 @@ HDDLDemo::HDDLDemo(QWidget* parent)
 
 HDDLDemo::~HDDLDemo()
 {
-    qDebug()<<"delete demo";
+    qDebug() << "delete demo";
     delete ui;
 }
 
@@ -157,6 +157,11 @@ void HDDLDemo::initConfig()
     m_timeout = ConfigParser::instance()->getTimeout();
     m_rows = std::sqrt(m_pipeline.size());
     m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
+#ifdef ENABLE_HVA
+    //launch hva process and send channel socket address to it
+    setupHvaProcess();
+    sendSignalToHvaPipeline();
+#endif
 }
 
 void HDDLDemo::runPipeline()
@@ -191,3 +196,64 @@ void HDDLDemo::updateTotalFps()
     }
     ui->label_decode_fps->setText(QString::number(total, 'f', 2));
 }
+
+#ifdef ENABLE_HVA
+void HDDLDemo::setupHvaProcess()
+{
+    QString hvaCmd = QString::fromStdString(ConfigParser::instance()->getHvaCMd());
+    QString hvaWorkDirectory = QString::fromStdString(ConfigParser::instance()->getHvaWorkDirectory());
+    auto hvaEnvironmentVariables = ConfigParser::instance()->getHvaEnvironmentVariables();
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    for(auto&entry: hvaEnvironmentVariables){
+        env.insert(QString::fromStdString(entry.first), QString::fromStdString(entry.second));
+    }
+    QProcess* hvaProcess = new QProcess(this);
+    hvaProcess->setProcessEnvironment(env);
+    hvaProcess->setWorkingDirectory(hvaWorkDirectory);
+    hvaProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+    hvaProcess->start(hvaCmd);
+}
+
+void HDDLDemo::sendSignalToHvaPipeline()
+{
+    auto hvaServerAddr = ConfigParser::instance()->getHvaSocketPath();
+
+    auto poller = HddlUnite::Poller::create("hva_client");
+    auto conn = HddlUnite::Connection::create(poller);
+
+    while (!conn->connect(hvaServerAddr)) {
+        qDebug() << "try to connect " << QString::fromStdString(hvaServerAddr);
+        QThread::sleep(1);
+    }
+
+    std::lock_guard<std::mutex> lock(conn->getMutex());
+
+    // send channel number to hva
+    //int channelSize = static_cast<int>(m_pipeline.size());
+    //if (conn->write(&channelSize, sizeof(channelSize)) != sizeof(channelSize)) {
+    //    qDebug() << "Failed to send channel number!";
+    //    exit(EXIT_FAILURE);
+    //}
+
+    for (auto& pipeParam : ConfigParser::instance()->getPipelineParams()) {
+        auto channelSocket = pipeParam["socket_name"];
+        int length = static_cast<int>(channelSocket.length());
+
+        //send socket length to hva
+        int result = conn->write((void*)&length, sizeof(length));
+        if (result != sizeof(length)) {
+            qDebug() << "Failed to send socket length!";
+            exit(EXIT_FAILURE);
+        }
+        qDebug() << "Sent length " << length << " in " << sizeof(length) << " bytes";
+
+        //send socket name to hva
+        result = conn->write(&channelSocket[0], length);
+        if (result != length) {
+            qDebug() << "Failed to send socket addr!";
+            exit(EXIT_FAILURE);
+        }
+        qDebug() << "Sent addr " << QString::fromStdString(channelSocket) << " in " << length << " bytes";
+    }
+}
+#endif

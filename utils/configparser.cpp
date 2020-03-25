@@ -26,8 +26,23 @@ bool ConfigParser::loadConfigFile(const std::string& filePath)
         return false;
     }
 
-    parseHvaCmd();
+#ifdef ENABLE_HVA
+    if (!parseHvaCmd()) {
+        return false;
+    }
 
+    if (!parseHvaWorkDirectory()) {
+        return false;
+    }
+
+    if (!parseHvaSocketPath()) {
+        return false;
+    }
+
+    if (!parseHvaEnvironmentVariables()){
+        return false;
+    }
+#endif
     return true;
 }
 
@@ -82,11 +97,6 @@ ConfigParser::PlayMode ConfigParser::getPlayMode()
     return m_playMode;
 }
 
-std::string ConfigParser::getHvaCMd()
-{
-    return m_hvaCmd;
-}
-
 template <typename Type>
 bool ConfigParser::parse(const std::string& path, Type& result)
 {
@@ -134,6 +144,7 @@ bool ConfigParser::parseList(const std::string& path, const std::string& subPath
     }
 }
 
+
 bool ConfigParser::parsePipelines()
 {
     if (!parseList("decode", "pipe", m_pipelines)) {
@@ -176,11 +187,58 @@ bool ConfigParser::parsePlayMode()
     return true;
 }
 
+#ifdef ENABLE_HVA
+std::string ConfigParser::getHvaCMd()
+{
+    return m_hvaCmd;
+}
+
+std::string ConfigParser::getHvaWorkDirectory()
+{
+    return m_hvaWorkDirectory;
+}
+
+std::string ConfigParser::getHvaSocketPath()
+{
+    return m_hvaSocketPath;
+}
+
+std::map<std::string, std::string> ConfigParser::getHvaEnvironmentVariables()
+{
+    return m_hvaEnvironmentVariables;
+}
+
 bool ConfigParser::parseHvaCmd()
 {
-    parse("app.hva_cmd", m_hvaCmd);
-    return true;
+    return parse("hva.cmd", m_hvaCmd);
 }
+
+bool ConfigParser::parseHvaWorkDirectory()
+{
+    return parse("hva.work_directory", m_hvaWorkDirectory);
+}
+
+bool ConfigParser::parseHvaSocketPath()
+{
+    return parse("hva.socket_name", m_hvaSocketPath);
+}
+
+bool ConfigParser::parseHvaEnvironmentVariables()
+{
+    try {
+        auto listNode = m_ptree.get_child("hva.environment");
+        for (auto& entry : listNode) {
+            auto environmentVariableName = entry.second.get<std::string>("key");
+            auto environmentVariableValue = entry.second.get<std::string>("value");
+            m_hvaEnvironmentVariables.insert(std::make_pair(environmentVariableName, environmentVariableValue));
+        }
+        return true;
+    } catch (...) {
+        printf("parse error");
+        return false;
+    }
+}
+#endif
 
 static ConfigParser::PlayMode strToPlayMode(const std::string& str)
 {

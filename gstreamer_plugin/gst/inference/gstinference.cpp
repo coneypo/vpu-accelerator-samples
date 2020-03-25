@@ -369,16 +369,20 @@ static int addMetaData(GstBuffer* buf)
 #endif
     if (current_frame_result != total_results.end()) {
         size_t boxNums = current_frame_result->second.size();
-        InferResultMeta* meta = gst_buffer_add_infer_result_meta(buf, boxNums);
-        for (size_t i = 0; i < boxNums; i++) {
-            meta->boundingBox[i].x = current_frame_result->second[i].x;
-            meta->boundingBox[i].y = current_frame_result->second[i].y;
-            meta->boundingBox[i].pts = current_frame_result->second[i].pts;
-            meta->boundingBox[i].width = current_frame_result->second[i].width;
-            meta->boundingBox[i].height = current_frame_result->second[i].height;
-            strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
+        if (boxNums > 0) {
+            InferResultMeta* meta = gst_buffer_add_infer_result_meta(buf, boxNums);
+            for (size_t i = 0; i < boxNums; i++) {
+                meta->boundingBox[i].x = current_frame_result->second[i].x;
+                meta->boundingBox[i].y = current_frame_result->second[i].y;
+                meta->boundingBox[i].pts = current_frame_result->second[i].pts;
+                meta->boundingBox[i].width = current_frame_result->second[i].width;
+                meta->boundingBox[i].height = current_frame_result->second[i].height;
+                strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
+            }
         }
-        total_results.erase(total_results.upper_bound(0), current_frame_result);
+        if (current_frame_result->first > 0) {
+            total_results.erase(total_results.upper_bound(0), current_frame_result);
+        }
     }
     return 0;
 }

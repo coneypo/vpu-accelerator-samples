@@ -121,9 +121,7 @@ gboolean Pipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
 
     case GST_MESSAGE_EOS:
         GST_DEBUG("EOS");
-        obj->m_fpsProb->reset();
         gst_element_seek_simple(obj->m_pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
-        gst_element_set_state(obj->m_pipeline, GST_STATE_PLAYING);
         break;
     default:
         break;
