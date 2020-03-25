@@ -13,7 +13,7 @@
 GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), bypass(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
             m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr),
-            capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0), m_bStopped(false){
+            capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0), m_frameCnt(0), m_bStopped(false){
 }
 
 int GstPipeContainer::init(const Config& config, uint64_t& WID){
@@ -195,6 +195,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     // bail out if EOS
     if (gst_app_sink_is_eos(GST_APP_SINK(app_sink))){
         std::cout<<"EOS reached"<<std::endl;
+        // gst_element_seek_simple(pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
         return false;
     }
 
@@ -217,8 +218,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         gst_structure_get_int(structure, "height", &m_height);
     }
 
-    if(m_config.dropXFrame != 0 && m_frameIdx !=0 && m_frameIdx%m_config.dropEveryXFrame < m_config.dropXFrame){
-        ++m_frameIdx;
+    if(m_config.dropXFrame != 0 && m_frameCnt !=0 && m_frameCnt%m_config.dropEveryXFrame < m_config.dropXFrame){
+        ++m_frameCnt;
         gst_sample_unref(sampleRead);
         sampleRead = nullptr;
         return read(blob);
@@ -316,6 +317,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
                 });
 
         ++m_frameIdx;
+        ++m_frameCnt;
 
         return true;
     }
