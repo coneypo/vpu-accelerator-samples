@@ -50,8 +50,10 @@ add_executable(FullPipe "${FULL_PIPE_SRC}" "${FULL_PIPE_SRC_c}")
 target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:${FULL_PIPE_INC_DIR}>")
 
 target_include_directories(FullPipe PUBLIC "${HDDLUNITE_INCLUDE_DIR}")
-# target_include_directories(FullPipe PUBLIC "${InferenceEngine_INCLUDE_DIRS}")
-# target_include_directories(FullPipe PUBLIC "${OpenCV_INCLUDE_DIRS}")
+target_include_directories(FullPipe PUBLIC "${InferenceEngine_INCLUDE_DIRS}")
+target_include_directories(FullPipe PUBLIC "${OpenCV_INCLUDE_DIRS}")
+target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/include/hddl2>")
+target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/src/hddl2_plugin/include>")
 
 target_link_libraries(FullPipe "${HDDLUNITE_LIB}")
 # target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")

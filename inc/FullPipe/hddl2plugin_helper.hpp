@@ -38,7 +38,7 @@ public:
     HDDL2pluginHelper_t(const HDDL2pluginHelper_t &) = delete;
     HDDL2pluginHelper_t &operator=(const HDDL2pluginHelper_t &) = delete;
 
-    HDDL2pluginHelper_t(std::string graphPath, WorkloadID id = 0, size_t heightInput = 0, size_t widthInput = 0, PostprocPtr_t ptrPostproc = nullptr)
+    HDDL2pluginHelper_t(std::string graphPath, WorkloadID id = 0, PostprocPtr_t ptrPostproc = nullptr, size_t heightInput = 0, size_t widthInput = 0)
         : _graphPath{graphPath},
           _workloadId{id},
           _heightInput{heightInput},
@@ -56,7 +56,7 @@ public:
         // outputPath = "./output.bin";
 
 //todo, no need to create unite context
-#if 1 
+#if 0
         printf("[debug] start create context\n");
         _ptrContext = HddlUnite::createWorkloadContext();
         assert(nullptr != _ptrContext.get());
@@ -95,7 +95,7 @@ public:
     inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<InfoROI_t> &vecROI = std::vector<InfoROI_t>())
     {
 //todo, no need to load data from file
-#if 1 
+#if 0
         _inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input.bin";
         _inputPath = "/home/kmb/cong/graph/resnet-50-dpu/input-cat-1080x1080-nv12.bin";
 
@@ -170,6 +170,18 @@ public:
             _widthInput = widthInput;
         }
 
+//todo, only for test
+#if 1
+        _ptrContext = HddlUnite::queryWorkloadContext(_workloadId);
+        HddlUnite::SMM::RemoteMemory memTemp(*_ptrContext, _remoteMemoryFd, _heightInput * _widthInput * 3 / 2);
+
+        char *buf = (char *)malloc(_heightInput * _widthInput * 3 / 2);
+        memTemp.syncFromDevice(buf, _heightInput * _widthInput * 3 / 2);
+
+        cv::Mat matTemp{_heightInput * 3 / 2, _widthInput, CV_8UC1, buf};
+        cv::cvtColor(matTemp, _frameBGR, cv::COLOR_YUV2BGR_NV12);
+
+#endif
         // ---- Create remote blob by using already exists fd
         assert(_remoteMemoryFd >= 0);
 #if 0
@@ -442,13 +454,13 @@ public:
         // vecLabel.clear();
         // vecConfidence.clear();
 
-        auto blobDequant = deQuantize(_ptrOutputBlob, 0.271045, 210);
+        auto blobDequant = deQuantize(_ptrOutputBlob, 0.151837, 67);
         size_t outputSize = 1000;
         
         //todo, fix me single roi
         if (_vecROI.size() > 0)
         {
-            float *ptrFP32_ROI = blobDequant->buffer().as<float*>() + outputSize;
+            float *ptrFP32_ROI = blobDequant->buffer().as<float*>();
             float max = 0.0f;
             float sum = 0.0f;
             int idx = 0;
@@ -467,6 +479,12 @@ public:
             _vecROI[0].confidence = exp(max) / sum;
             printf("[debug] roi label is : %s\n", labels[idx].c_str());
         }
+    }
+
+    template <int N>
+    inline static int alignTo(int x)
+    {
+        return ((x + N - 1) & ~(N - 1));
     }
 
 private:
@@ -536,13 +554,13 @@ private:
     IE::InferRequest _inferRequest;
     IE::RemoteBlob::Ptr _ptrRemoteBlob;
     IE::Blob::Ptr _ptrOutputBlob;
-    std::string _inputName{""};
+    std::string _inputName;
 
     HddlUnite::WorkloadContext::Ptr _ptrContext;
     WorkloadID _workloadId{0ul};
     int _remoteMemoryFd{0};
 
-    std::string _graphPath{""};
+    std::string _graphPath;
     size_t _heightInput{0};
     size_t _widthInput{0};
 
@@ -555,7 +573,7 @@ public:
     //todo, only for test
     cv::Mat _frameBGR;
     HddlUnite::SMM::RemoteMemory::Ptr _remoteFrame;
-    std::string _inputPath{""};
+    std::string _inputPath;
 };
 
 #endif //#ifndef HDDL2PLUGIN_HELPER_HPP

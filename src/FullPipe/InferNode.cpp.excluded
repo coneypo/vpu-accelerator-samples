@@ -5,28 +5,29 @@
 #define GUI_INTEGRATION
 
 InferNode::InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
-            WorkloadID id, std::string graphName, std::string graphPath, int32_t inputSizeNN, int32_t outputSize):
-        hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), 
-        graphName(graphName), graphPath(graphPath), inputSizeNN(inputSizeNN), outputSize(outputSize), id(id){
-
+                     WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) : 
+                     hva::hvaNode_t{inPortNum, outPortNum, totalThreadNum},
+                     m_id{id}, m_graphPath{graphPath}, m_mode{mode}, m_postproc(postproc)
+{
 }
 
-std::shared_ptr<hva::hvaNodeWorker_t> InferNode::createNodeWorker() const{
-    return std::shared_ptr<hva::hvaNodeWorker_t>(new InferNodeWorker((InferNode*)this, 
-    id, graphName, graphPath, inputSizeNN, outputSize));
+std::shared_ptr<hva::hvaNodeWorker_t> InferNode::createNodeWorker() const
+{
+    return std::shared_ptr<hva::hvaNodeWorker_t>{new InferNodeWorker{const_cast<InferNode*>(this), m_id, m_graphPath, m_mode, m_postproc}};
 }
 
 InferNodeWorker::InferNodeWorker(hva::hvaNode_t* parentNode, 
-            WorkloadID id, std::string graphName, std::string graphPath, int32_t inputSizeNN, int32_t outputSize):
-hva::hvaNodeWorker_t(parentNode), m_uniteHelper(id, graphName, graphPath, inputSizeNN, outputSize){
-
+                                WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc):
+                                hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc}, m_mode{mode} 
+{
 }
 
 void InferNodeWorker::process(std::size_t batchIdx){
     m_vecBlobInput = hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     if(m_vecBlobInput.size() != 0){
-        printf("[debug] frameId is %d, graphName is %s\n", m_vecBlobInput[0]->frameId, m_uniteHelper.graphName.c_str());
-        if(m_uniteHelper.graphName == "yolotiny"){
+        printf("[debug] frameId is %d, graphName is %s\n", m_vecBlobInput[0]->frameId, m_mode.c_str());
+        if (m_mode == "detection")
+        {
             // const auto& pbuf = vInput[0]->get<int,VideoMeta>(0)->getPtr();
             // std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -37,13 +38,17 @@ void InferNodeWorker::process(std::size_t batchIdx){
             VideoMeta* ptrVideoMeta = ptrVideoBuf->getMeta();
             int input_height = ptrVideoMeta->videoHeight;
             int input_width = ptrVideoMeta->videoWidth;
-            
-            m_uniteHelper.update(input_width, input_height, fd);
-            m_uniteHelper.callInferenceOnBlobs();
+
+            input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
+            input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
+
+            m_helperHDDL2.update(fd, input_height, input_width);
+            m_helperHDDL2.infer();
+            m_helperHDDL2.postproc();
 
             std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
             InferMeta* ptrInferMeta = new InferMeta;
-            auto& vecObjects = m_uniteHelper._vecOjects;
+            auto &vecObjects = m_helperHDDL2._vecObjects;
             for(unsigned i =0; i < vecObjects.size(); ++i){
                 ROI roi;
                 roi.x = vecObjects[i].x;
@@ -70,7 +75,8 @@ void InferNodeWorker::process(std::size_t batchIdx){
             sendOutput(blob, 0, ms(0));
             m_vecBlobInput.clear();
         }
-        else if(m_uniteHelper.graphName == "resnet"){
+        else if (m_mode == "classification")
+        {
 
             auto ptrBufInfer = m_vecBlobInput[0]->get<int, InferMeta>(0);
             auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
@@ -81,10 +87,13 @@ void InferNodeWorker::process(std::size_t batchIdx){
             VideoMeta* ptrVideoMeta = ptrBufVideo->getMeta();
             int input_height = ptrVideoMeta->videoHeight;
             int input_width = ptrVideoMeta->videoWidth;
-            
+
+            input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
+            input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
+
             InferMeta* ptrInferMeta = ptrBufInfer->getMeta();
 
-            std::vector<InfoROI_t>& vecROI = m_uniteHelper._vecROI;
+            std::vector<InfoROI_t> &vecROI = m_helperHDDL2._vecROI;
             vecROI.clear();
             for (auto& roi : ptrInferMeta->rois)
             {
@@ -95,7 +104,7 @@ void InferNodeWorker::process(std::size_t batchIdx){
                 infoROI.width = roi.width;
                 vecROI.push_back(infoROI);
             }
-            if (vecROI.size() > 0ul)
+            if (vecROI.size() > 0)
             {
                 if (ptrInferMeta->drop)
                 {
@@ -108,23 +117,21 @@ void InferNodeWorker::process(std::size_t batchIdx){
                 }
                 else
                 {
-                    m_uniteHelper.update(input_width, input_height, fd, vecROI);
-                    m_uniteHelper.callInferenceOnBlobs();
-                    auto& vecLabel = m_uniteHelper._vecLabel;
-                    auto& vecConfidence = m_uniteHelper._vecConfidence;
+                    m_helperHDDL2.update(fd, input_height, input_width, vecROI);
+                    m_helperHDDL2.infer();
+                    m_helperHDDL2.postproc();
+                    auto &vecROI = m_helperHDDL2._vecROI;
 
-                    
-
-                    printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecLabel.size());
-                    assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
+                    printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROI.size());
+                    assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecROI.size());
 
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
                         std::vector<std::string> fields;
-                        boost::split(fields, vecLabel[i], boost::is_any_of(","));
+                        boost::split(fields, vecROI[i].label, boost::is_any_of(","));
                         ptrInferMeta->rois[i].label = fields[0];
-                        ptrInferMeta->rois[i].confidence = vecConfidence[i];
-                        printf("[debug] roi label is : %s\n", vecLabel[i].c_str());
+                        ptrInferMeta->rois[i].confidence = vecROI[i].confidence;
+                        printf("[debug] roi label is : %s\n", vecROI[i].label.c_str());
                     }                    
                 }
             
@@ -160,5 +167,5 @@ void InferNodeWorker::process(std::size_t batchIdx){
 }
 
 void InferNodeWorker::init(){
-    m_uniteHelper.setup();
+    m_helperHDDL2.setup();
 }

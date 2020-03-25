@@ -11,6 +11,6 @@
         "DropXFrame": 1
     },
     "GUI":{
-        "Socket":"/tmp/gstreamer_ipc111.sock"
+        "Socket":"/tmp/gstreamer_ipc_second.sock"
     }
 }

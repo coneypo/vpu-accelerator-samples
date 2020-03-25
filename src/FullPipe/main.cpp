@@ -16,6 +16,7 @@
 #include <common.hpp>
 #include <mutex>
 #include <condition_variable>
+#include "hddl2plugin_helper.hpp"
 
 #define STREAMS 1
 #define GUI_INTEGRATION
@@ -263,11 +264,13 @@ int main(){
     }
 
     uint64_t WID = WIDFuture.get();
-    auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,1, "detection"), "detNode");
+    auto& detNode = pl.setSource(std::make_shared<InferNode>(1,1,1, 
+    WID, "/home/kmb/cong/graph/opt/yolotiny/yolotiny.blob", "detection",&HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
     auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
     
 #ifdef GUI_INTEGRATION
-    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,1,"classification"), "clsNode");
+    auto& clsNode = pl.addNode(std::make_shared<InferNode>(1,2,1, 
+    WID, "/home/kmb/cong/graph/opt/resnet/resnet.blob", "classification", &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
     auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
 #else
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
