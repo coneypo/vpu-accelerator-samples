@@ -33,6 +33,10 @@ struct InfoROI_t {
     int indexROI = 0;
     int totalROINum = 0;
     int frameId = 0;
+
+    int idx = 0;
+    float confidence = 0.0f;
+    std::string label = "";
 };
 
 #endif //#ifndef __HVA_DETECTION_HELPER__
