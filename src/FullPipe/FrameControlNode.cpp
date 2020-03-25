@@ -1,4 +1,6 @@
 #include <FrameControlNode.hpp>
+#include <unistd.h>
+#include <sys/syscall.h>
 
 FrameControlNode::FrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, unsigned dropXFrame, unsigned dropEveryXFrame):
         hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_dropEveryXFrame(dropEveryXFrame), m_dropXFrame(dropXFrame){
@@ -18,6 +20,7 @@ void FrameControlNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
 
     if(vInput.size() != 0){
+        std::cout<<"FRC with tid "<<syscall(SYS_gettid)<<" received blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
         auto ptrBufInfer = vInput[0]->get<int, InferMeta>(0);
         InferMeta* ptrInferMeta = ptrBufInfer->getMeta();
         bool drop = true;
@@ -34,6 +37,7 @@ void FrameControlNodeWorker::process(std::size_t batchIdx){
         ptrInferMeta->drop = drop;
         sendOutput(vInput[0], 0, ms(0));
         incCount();
+        std::cout<<"FRC sent blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
     }
 }
 

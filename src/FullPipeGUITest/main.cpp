@@ -77,7 +77,7 @@ int receiveRoutine()
     }
 }
 
-int main()
+int main(int argc, const char* argv[])
 {
 
     std::thread t(receiveRoutine);
@@ -89,7 +89,10 @@ int main()
     while(!conn->connect("/tmp/gstreamer_ipc111.sock")){
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    std::string toSend = g_recv_socket + ",/tmp/gstreamer_ipc_recv.sock1";
+    std::string toSend = g_recv_socket;
+    if(argc > 1){
+        toSend = g_recv_socket + ",/tmp/gstreamer_ipc_recv.sock"+std::string(argv[1]);
+    }
     int length = static_cast<int>(toSend.length());
     {
         std::lock_guard<std::mutex> lock(conn->getMutex());

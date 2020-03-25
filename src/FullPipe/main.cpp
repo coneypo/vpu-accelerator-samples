@@ -202,6 +202,7 @@ int main(){
 
 #ifdef GUI_INTEGRATION
     PipelineConfig_t config;
+    config.numOfStreams = 0;
     // config.unixSocket = "";
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
 #endif
@@ -232,7 +233,8 @@ int main(){
             ctrlMsg = ControlMessage::EMPTY;
         }
     }
-    std::vector<std::thread*> vTh(config.numOfStreams);
+    std::vector<std::thread*> vTh;
+    vTh.reserve(config.numOfStreams);
     std::vector<GstPipeContainer*> vCont(config.numOfStreams);
     std::vector<uint64_t> vWID(config.numOfStreams, 0); 
     // std::cout<<" Unix Socket addr received is "<<config.unixSocket<<std::endl;
@@ -263,11 +265,12 @@ int main(){
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(vCont[i]->read(blob)){
                         int* fd = blob->get<int, VideoMeta>(0)->getPtr();
-                        std::cout<<"FD received is "<<*fd<<std::endl;
+                        std::cout<<"FD received is "<<*fd<<"with streamid "<<blob->streamId<<" and frameid "<<blob->frameId<<std::endl;
 
                         pl.sendToPort(blob,"detNode",0,ms(0));
 
                         blob.reset(new hva::hvaBlob_t());
+                        std::cout<<"Sent fd "<<*fd<<" completed"<<std::endl;
                     }
 
                     {
@@ -276,7 +279,7 @@ int main(){
                     }
                     g_cv.notify_all();
 
-                    // std::cout<<"Finished"<<std::endl;
+                    std::cout<<"Finished"<<std::endl;
                     return;
                 }));
     }
@@ -286,26 +289,34 @@ int main(){
     WIDCv.wait(WIDLock,[&](){ return WIDReadyCnt == config.numOfStreams;});
     WIDLock.unlock();
 
-    std::cout<<"All WIDs received. Start pipeline."<<std::endl;
+    std::cout<<"All WIDs received. Start pipeline with "<<config.numOfStreams<<" streams."<<std::endl;
 
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
     auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
     
 #ifdef GUI_INTEGRATION
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
-    auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
+    if(config.numOfStreams > 1){
+        pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
+    }
+    else{
+        pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
+    }
+    // auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
 #else
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
 #endif
     auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,config.numOfStreams,vWID), "jpegNode");
 
-    hva::hvaBatchingConfig_t batchingConfig;
-    batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
-    batchingConfig.batchSize = 1;
-    batchingConfig.streamNum = config.numOfStreams;
-    batchingConfig.threadNumPerBatch = 1;
+    if(config.numOfStreams > 1){
+        hva::hvaBatchingConfig_t batchingConfig;
+        batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+        batchingConfig.batchSize = 1;
+        batchingConfig.streamNum = config.numOfStreams;
+        batchingConfig.threadNumPerBatch = 1;
 
-    jpegNode.configBatch(batchingConfig);
+        jpegNode.configBatch(batchingConfig);
+    }
 
     pl.linkNode("detNode", 0, "FRCNode", 0);
     pl.linkNode("FRCNode", 0, "clsNode", 0);
@@ -331,14 +342,15 @@ int main(){
 
         pl.stop();
 
-        for(unsigned i =0; i < STREAMS; ++i){
+        for(unsigned i =0; i < config.numOfStreams; ++i){
             vCont[i]->stop();
             delete vCont[i];
         }
 
         std::this_thread::sleep_for(ms(1000));
 
-        for(unsigned i =0; i < STREAMS; ++i){
+        for(unsigned i =0; i < config.numOfStreams; ++i){
+            std::cout<<"Going to join "<<i<<"th dec source"<<std::endl;
             vTh[i]->join();
         }
 

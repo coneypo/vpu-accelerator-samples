@@ -775,7 +775,7 @@ void JpegEncNodeWorker::processByFirstRun(std::size_t batchIdx){
 
 void JpegEncNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
-    std::cout<<"KL: jpeg start process:"<<std::endl;
+    std::cout<<"KL: jpeg with batchidx"<<batchIdx<<" start process:"<<std::endl;
     if(vInput.size()==0u){
         // last time before stop fetches nothing
         SurfacePool::Surface* usedSurface = nullptr;
@@ -802,6 +802,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
     InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
     if(meta->drop){
         // drop the frame from doing jpeg enc
+        std::cout<<"KL: jpeg blob dropped frame with streamid "<<vInput[0]->streamId<<" and frame id "<<vInput[0]->frameId<<std::endl;
         return;
     }
     VideoMeta* videoMeta = vInput[0]->get<int, VideoMeta>(1)->getMeta();
@@ -835,7 +836,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             }
         }
 
-        std::cout<<"KL: jpeg blob received with FD: "<<*fd<<std::endl;
+        std::cout<<"KL: jpeg blob received with FD: "<<*fd<<" with streamid "<<vInput[0]->streamId<<" and frame id "<<vInput[0]->frameId<<std::endl;
         do{
             reApplyFreeSurface = false;
             SurfacePool::Surface* surface = nullptr;
@@ -1109,7 +1110,7 @@ bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
     int slice_data_length = coded_buffer_segment->size;
     std::size_t w_items = 0;
     std::stringstream ss;
-    ss << "jpegenc"<< m_jpegCtr.fetch_add(1)<<".jpg";
+    ss << "jpegenc-"<<std::to_string(m_WID)<<"-"<< m_jpegCtr.fetch_add(1)<<".jpg";
     FILE* jpeg_fp = fopen(ss.str().c_str(), "wb");  
     do {
         w_items = fwrite(coded_buffer_segment->buf, slice_data_length, 1, jpeg_fp);

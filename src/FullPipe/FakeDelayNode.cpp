@@ -21,6 +21,7 @@ void FakeDelayNodeWorker::process(std::size_t batchIdx){
     if(vInput.size() != 0){
         if(m_mode == "detection"){
             // const auto& pbuf = vInput[0]->get<int,VideoMeta>(0)->getPtr();
+            std::cout<<"Det received blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
             InferMeta* meta = new InferMeta;
@@ -39,6 +40,8 @@ void FakeDelayNodeWorker::process(std::size_t batchIdx){
             meta->frameId = vInput[0]->frameId;
             meta->totalROI = TOTAL_ROIS;
             meta->inferFps = 20.20;
+            blob->streamId = vInput[0]->streamId;
+            blob->frameId = vInput[0]->frameId;
             blob->emplace<int, InferMeta>(nullptr, 0, meta, [](int* payload, InferMeta* meta){
                         if(payload != nullptr){
                             delete payload;
@@ -47,13 +50,16 @@ void FakeDelayNodeWorker::process(std::size_t batchIdx){
                     });
             blob->push(vInput[0]->get<int, VideoMeta>(0));
             sendOutput(blob, 0, ms(0));
+            std::cout<<"Det Sent blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
         }
         else if(m_mode == "classification"){
+            std::cout<<"Cls received blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             sendOutput(vInput[0], 0, ms(0));
 #ifdef GUI_INTEGRATION
             sendOutput(vInput[0], 1, ms(0));
 #endif
+            std::cout<<"Cls Sent blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
         }
         else{
             std::this_thread::sleep_for(std::chrono::milliseconds(50));

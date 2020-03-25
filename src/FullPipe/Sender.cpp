@@ -1,9 +1,19 @@
 #include <Sender.hpp>
+#include <cmath>
 
 SenderNode::SenderNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, const std::vector<std::string>& unixSocket):
         hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_unixSocket(unixSocket), m_numOfWorkers(totalThreadNum),
         m_numOfSockets(unixSocket.size()){
 
+    if(m_numOfWorkers > 1){
+        hva::hvaBatchingConfig_t batchingConfig;
+        batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+        batchingConfig.batchSize = std::ceil(m_numOfSockets/m_numOfWorkers);
+        batchingConfig.streamNum = m_numOfSockets;
+        batchingConfig.threadNumPerBatch = 1;
+
+        this->configBatch(batchingConfig);
+    }
 }
 
 std::shared_ptr<hva::hvaNodeWorker_t> SenderNode::createNodeWorker() const{
@@ -33,6 +43,7 @@ void SenderNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     
     if(vInput.size()!=0){
+        std::cout<<"Sender received blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
         unsigned streamIdx = vInput[0]->streamId;
         InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
         std::cout<<"Sender Received blob with idx "<<vInput[0]->frameId<<std::endl;
@@ -45,6 +56,7 @@ void SenderNodeWorker::process(std::size_t batchIdx){
         }
         m_sender[streamIdx]->send();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::cout<<"Sender complete blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
     }
 }
 

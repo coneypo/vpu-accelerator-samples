@@ -57,14 +57,13 @@ struct _GstBypass
   GstElement element;
   GstPad *sinkpad;
   GstPad *srcpad;
+  // to store WorkloadContextID throughout plugin
+  WorkloadID wID;
 };
 
 struct _GstBypassClass
 {
   GstElementClass parent_class;
-  
-  // to store WorkloadContextID throughout plugin
-  WorkloadID wID;
 };
 
 GType gst_bypass_get_type (void);

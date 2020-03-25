@@ -75,7 +75,7 @@ static gboolean gst_bypass_sink_query (GstPad    *pad,
 
             const gchar *q_type = gst_structure_get_string (s, "BypassQueryType");
             if (q_type != NULL && g_str_equal (q_type, "WorkloadContextQuery")){
-                WorkloadID wID = GST_BYPASS_GET_CLASS(obj)->wID;
+                WorkloadID wID = obj->wID;
                 if(wID == NULL){
                     GST_ERROR("Fail to get workload id in query\n");
                 }
@@ -163,10 +163,10 @@ static WorkloadID gst_bypass_workload_init ()
 static void gst_bypass_class_init (GstBypassClass *klass)
 {
     GST_DEBUG ("pid %u tid %lu\n", getpid(), syscall (SYS_gettid));
-    klass->wID = gst_bypass_workload_init ();
-    if(klass->wID == NULL){
-        GST_ERROR ("Failed to get workload context in class init\n");
-    }
+    // klass->wID = gst_bypass_workload_init ();
+    // if(klass->wID == NULL){
+    //     GST_ERROR ("Failed to get workload context in class init\n");
+    // }
 
     GObjectClass *const gobjectClass = G_OBJECT_CLASS (klass);
     GstElementClass *const elementClass = GST_ELEMENT_CLASS (klass);
@@ -187,7 +187,10 @@ static void gst_bypass_class_init (GstBypassClass *klass)
 static void gst_bypass_init (GstBypass *bypass)
 {
     GST_DEBUG ("pid %u tid %lu\n", getpid(), syscall (SYS_gettid));
-    // gst_bypass_workload_init ();
+    bypass->wID = gst_bypass_workload_init ();
+    if(bypass->wID == NULL){
+        GST_ERROR ("Failed to get workload context in class init\n");
+    }
 
     bypass->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
     gst_pad_set_chain_function (bypass->sinkpad, gst_bypass_chain);
