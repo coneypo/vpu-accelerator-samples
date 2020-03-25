@@ -47,6 +47,7 @@ typedef struct {
     guint malloc_max_roi_size;
     guint malloc_max_jpeg_size;
     gint format;
+    gint roi_threshold;
 } jpeg_branch_ctx_t;
 
 typedef struct {
@@ -246,15 +247,15 @@ roi_rounding(int* xmin, int* ymin, int* xmax, int* ymax, guint *crop_width, guin
 }
 
 static gboolean 
-is_roi_outdated(GstVideoRegionOfInterestMeta *roi_meta)
+is_roi_outdated(GstVideoRegionOfInterestMeta *roi_meta, jpeg_branch_ctx_t *branch_ctx)
 {
     for (GList *l = roi_meta->params; l; l = g_list_next(l)) {
         GstStructure *structure = (GstStructure *) l->data;
         int frames_ago = 0;
         if (gst_structure_has_field(structure, "frames_ago") &&
             gst_structure_get_int(structure, "frames_ago", &frames_ago)) {
-            if(frames_ago > 10) {
-                LOG_DEBUG("MEDIAPIPE|ROIENC|DEBUG|Find too old ROIs frames_ago: %d\n", frames_ago);
+            if(frames_ago > branch_ctx->roi_threshold) {
+                LOG_DEBUG("MEDIAPIPE|ROIENC|DEBUG|Find too old ROIs frames_ago: %d threshold %d\n", frames_ago, branch_ctx->roi_threshold);
                 return true;
             }
         }
@@ -468,7 +469,7 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
 
         gboolean success = roi_rounding(&xmin, &ymin, &xmax, &ymax, &crop_width, &crop_height, branch_ctx->height, branch_ctx->width);
         //outdated true means too old ROI, false means new ROI
-        gboolean outdated = is_roi_outdated(meta);
+        gboolean outdated = is_roi_outdated(meta, branch_ctx);
         gst_buffer_unmap(buffer, &map);
 
         if(outdated){
@@ -1005,8 +1006,19 @@ static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
         return MP_CONF_OK;
     }
 
-    gva_postproc_and_upload_ctx_t* ctx =
-        (gva_postproc_and_upload_ctx_t*) mp_modules_find_module_ctx(mp, "gva_postproc_and_upload");
+    struct json_object *parent;
+    struct json_object *root = mp->config;
+    gva_postproc_and_upload_ctx_t* ctx = (gva_postproc_and_upload_ctx_t*) mp_modules_find_module_ctx(mp, "gva_postproc_and_upload");
+    // set the defaul roi_threshold to 30
+    ctx->branch_ctx->roi_threshold = 5;
+    if (json_object_object_get_ex(root, "gva_postproc_and_upload", &parent)){
+        struct json_object *roi_config = NULL;
+        if(json_object_object_get_ex(parent, "roi_threshold", &roi_config)) {
+            gint roi_threshold = json_object_get_int(roi_config);
+            GST_WARNING("MEDIAPIPE|DEBUG|set roi_threshold %d\n",roi_threshold);
+            ctx->branch_ctx->roi_threshold = roi_threshold;
+        }
+    }
 
 
     GstElement* sink = gst_bin_get_by_name(GST_BIN(ctx->xlink_pipeline), "sink");
