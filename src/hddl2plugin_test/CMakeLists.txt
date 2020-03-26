@@ -14,7 +14,7 @@ find_package(Threads REQUIRED)
 set(TARGET_NAME hddl2_plugin_test)
 
 add_executable(${TARGET_NAME} "${HDDL2_TEST_SRC}" "${HDDL2_TEST_SRC_c}"
-                ../FullPipe/hddl2plugin_helper.cpp ../FullPipe/tinyYolov2_post.cpp)
+                ../FullPipe/hddl2plugin_helper.cpp ../FullPipe/tinyYolov2_post.cpp ../FullPipe/ImageNetLabels.cpp)
 target_include_directories(${TARGET_NAME} PUBLIC "$<BUILD_INTERFACE:${HDDL2_TEST_INC_DIR}>")
 
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../inc/FullPipe")

@@ -42,12 +42,12 @@ static unsigned g_dropEveryXFrame;
 static unsigned g_dropXFrame;
 
 bool checkValidNetFile(std::string filepath){
-    std::string::size_type suffix_pos = filepath.find(".xml");
+    std::string::size_type suffix_pos = filepath.find(".blob");
     if(suffix_pos == std::string::npos){
         std::cout<<"Invalid network suffix. Expect *.xml"<<std::endl;
         return false;
     }
-    std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
+    // std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
 
     auto p = boost::filesystem::path(filepath);
     if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
@@ -55,11 +55,11 @@ bool checkValidNetFile(std::string filepath){
         return false;
     }
 
-    auto p_bin = boost::filesystem::path(binFilepath);
-    if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
-        std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
-        return false;
-    }
+    // auto p_bin = boost::filesystem::path(binFilepath);
+    // if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
+    //     std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
+    //     return false;
+    // }
 
     return true;
 }
@@ -180,11 +180,11 @@ int main(){
 
     if(!jsParser.parse("Detection.Model",g_detNetwork)){
         std::cout<<"No detection model specified in config.json. Use default network path"<<std::endl;
-        g_detNetwork = "yolov2_tiny_od_yolo_IR_fp32.xml";
+        g_detNetwork = "/home/kmb/cong/graph/opt/yolotiny/yolotiny.blob";
     }
     if(!jsParser.parse("Classification.Model",g_clsNetwork)){
         std::cout<<"No classification model specified in config.json. Use default network path"<<std::endl;
-        g_clsNetwork = "ResNet-50_fp32.xml";
+        g_clsNetwork = "/home/kmb/cong/graph/opt/resnet/resnet.blob";
     }
 
     if(!checkValidNetFile(g_detNetwork) || !checkValidNetFile(g_clsNetwork) || !checkValidVideo(g_videoFile)){
@@ -265,12 +265,12 @@ int main(){
 
     uint64_t WID = WIDFuture.get();
     auto& detNode = pl.setSource(std::make_shared<InferNode>(1,1,1, 
-    WID, "/home/kmb/cong/graph/opt/yolotiny/yolotiny.blob", "detection",&HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
+    WID, g_detNetwork, "detection",&HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
     auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
     
 #ifdef GUI_INTEGRATION
     auto& clsNode = pl.addNode(std::make_shared<InferNode>(1,2,1, 
-    WID, "/home/kmb/cong/graph/opt/resnet/resnet.blob", "classification", &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+    WID, g_clsNetwork, "classification", &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
     auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
 #else
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");

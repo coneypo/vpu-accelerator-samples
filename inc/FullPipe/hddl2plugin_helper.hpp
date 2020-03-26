@@ -22,6 +22,7 @@
 #include "tinyYolov2_post.h"
 #include "region_yolov2tiny.h"
 #include "detection_helper.hpp"
+#include "ImageNetLabels.hpp"
 
 #include <fstream>
 
@@ -473,12 +474,17 @@ public:
                     max = ptrFP32_ROI[j];
                 }
             }
-            _vecROI[0].idx = idx;
-            std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
-            _vecROI[0].label = labels[idx];
-            _vecROI[0].confidence = exp(max) / sum;
-            printf("[debug] roi label is : %s\n", labels[idx].c_str());
+            for (int i = 0; i < _vecROI.size(); i++)
+            {
+                _vecROI[i].idx = idx;
+                // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
+                // _vecROI[i].label = labels[idx];
+                _vecROI[i].label = m_labels.imagenet_labelstring(idx);
+                _vecROI[i].confidence = exp(max) / sum;
+                printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
+            }
         }
+
     }
 
     template <int N>
@@ -566,10 +572,12 @@ private:
 
     PostprocPtr_t _ptrPostproc{nullptr};
 
+
 public:
     std::vector<DetectedObject_t> _vecObjects;
     std::vector<InfoROI_t> _vecROI;
 
+    static ImageNetLabels m_labels;
     //todo, only for test
     cv::Mat _frameBGR;
     HddlUnite::SMM::RemoteMemory::Ptr _remoteFrame;
