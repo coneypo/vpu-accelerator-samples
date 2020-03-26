@@ -9,6 +9,7 @@
 #include <QPixmap>
 #include <QProcess>
 #include <chrono>
+#include <thread>
 
 HDDLDemo::HDDLDemo(QWidget* parent)
     : QMainWindow(parent)
@@ -160,6 +161,7 @@ void HDDLDemo::initConfig()
 #ifdef ENABLE_HVA
     //launch hva process and send channel socket address to it
     setupHvaProcess();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     sendSignalToHvaPipeline();
 #endif
 }
