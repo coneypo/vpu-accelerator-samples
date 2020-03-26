@@ -198,8 +198,8 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     // bail out if EOS
     if (gst_app_sink_is_eos(GST_APP_SINK(app_sink))){
         std::cout<<"EOS reached"<<std::endl;
-        // gst_element_seek_simple(pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
-        return false;
+        gst_element_seek_simple(pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
+        return read(blob);
     }
 
     // if(!m_sampleRead){
