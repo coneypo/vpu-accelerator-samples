@@ -357,16 +357,12 @@ static int receiveRoutine(const char* socket_address)
 
 static int addMetaData(GstBuffer* buf)
 {
-
-    std::map<PTS, BoxWrappers>::iterator current_frame_result;
 #if pts_sync
+    std::map<PTS, BoxWrappers>::iterator current_frame_result;
     std::unique_lock<std::mutex> lock(mutex_total_results);
     infer_data_arrived.wait_for(lock, std::chrono::milliseconds(1000), [&]() {
         current_frame_result = total_results.find(GST_BUFFER_PTS(buf));
         return current_frame_result != total_results.end(); });
-#else
-    current_frame_result = total_results.begin();
-#endif
     if (current_frame_result != total_results.end()) {
         size_t boxNums = current_frame_result->second.size();
         if (boxNums > 0) {
@@ -384,6 +380,26 @@ static int addMetaData(GstBuffer* buf)
             total_results.erase(total_results.upper_bound(0), current_frame_result);
         }
     }
+#else
+    std::unique_lock<std::mutex> lock(mutex_total_results);
+    auto current_frame_result = total_results.rbegin();
+    if (current_frame_result != total_results.rend()) {
+        size_t boxNums = current_frame_result->second.size();
+        if (boxNums > 0) {
+            InferResultMeta* meta = gst_buffer_add_infer_result_meta(buf, boxNums);
+            for (size_t i = 0; i < boxNums; i++) {
+                meta->boundingBox[i].x = current_frame_result->second[i].x;
+                meta->boundingBox[i].y = current_frame_result->second[i].y;
+                meta->boundingBox[i].pts = current_frame_result->second[i].pts;
+                meta->boundingBox[i].width = current_frame_result->second[i].width;
+                meta->boundingBox[i].height = current_frame_result->second[i].height;
+                strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
+            }
+        }
+        total_results.erase(std::next(current_frame_result).base());
+    }
+#endif
+
     return 0;
 }
 
