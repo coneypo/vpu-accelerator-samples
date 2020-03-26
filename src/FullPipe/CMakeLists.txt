@@ -42,9 +42,9 @@ find_package(Threads REQUIRED)
 
 find_package(HddlUnite REQUIRED)
 
-# find_package(InferenceEngine REQUIRED)
+find_package(InferenceEngine REQUIRED)
 
-# find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED)
 
 add_executable(FullPipe "${FULL_PIPE_SRC}" "${FULL_PIPE_SRC_c}")
 target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:${FULL_PIPE_INC_DIR}>")
@@ -56,9 +56,9 @@ target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/rep
 target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/src/hddl2_plugin/include>")
 
 target_link_libraries(FullPipe "${HDDLUNITE_LIB}")
-# target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")
-# target_link_libraries(FullPipe "${InferenceEngine_LIBRARIES}")
-# target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
+target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")
+target_link_libraries(FullPipe "${InferenceEngine_LIBRARIES}")
+target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
 
 # message("InferenceEngine_LIB: ${InferenceEngine_LIBRARIES}")
 

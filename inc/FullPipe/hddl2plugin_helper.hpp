@@ -172,7 +172,7 @@ public:
         }
 
 //todo, only for test
-#if 1
+#if 0
         _ptrContext = HddlUnite::queryWorkloadContext(_workloadId);
         HddlUnite::SMM::RemoteMemory memTemp(*_ptrContext, _remoteMemoryFd, _heightInput * _widthInput * 3 / 2);
 
@@ -241,6 +241,7 @@ public:
         auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
         _ptrOutputBlob = _inferRequest.GetBlob(outputBlobName);
 
+#if 0 //only for debug
         std::ofstream file(outputPath, std::ios_base::out | std::ios_base::binary);
         if (!file.good() || !file.is_open())
         {
@@ -252,7 +253,7 @@ public:
         const size_t outputSize = _ptrOutputBlob->byteSize();
         file.write(_ptrOutputBlob->buffer(), outputSize);
         printf("[debug] end dump output file\n");
-
+#endif
         assert(_ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
     }
 
@@ -397,6 +398,7 @@ public:
             printf("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
             cv::rectangle(_frameBGR, cv::Rect(object.x, object.y, object.width, object.height), cv::Scalar(0, 255, 0), 2);
         }
+#if 0 //only for debug
         char filename[256];
         snprintf(filename, _inputPath.size() - 4, "%s", _inputPath.c_str());
         snprintf(filename + strlen(filename), 256, "%s", "output.jpg");
@@ -407,6 +409,7 @@ public:
         cv::imwrite(filename, _frameBGR);
         // cv::imshow("output", frameBGR);
         // cv::waitKey(10);
+#endif
     }
 
     //todo, fix me

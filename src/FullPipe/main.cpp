@@ -17,6 +17,7 @@
 #include <mutex>
 #include <condition_variable>
 #include "hddl2plugin_helper.hpp"
+#include "InferNode.hpp"
 
 #define STREAMS 1
 #define GUI_INTEGRATION
