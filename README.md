@@ -1,28 +1,57 @@
 # KMB sample (gstream decoding + HVA detection/classifcation on ARM)
+
 ### Update on 2019 Dec 11th
+
 A sample Bypass Pipeline 
 
-This sample runs on IA host, with decoding offloaded to KMB and IE (detection + classification) on CPU. Due to the fact that VAAPI Shim only supports single thread, single process and single pipeline at the moment. The number of Streams can only be configured to 1 (refer to the hash define in main). 
+This sample runs on IA host, with decoding offloaded to KMB and IE (detection + classification) on VPU. Single process and single pipeline at the moment. The number of Streams can only be configured to 1 (refer to the hash define in main). 
 
 #### External dependencies
+
 Gstreamer (for decoding)
 Boost
 VAAPI Shim
-OpenVino
+[OpenVino](#openvino-dependency)
 
 #### Configuration
+
 Configure model path, video file in config.json, which will be found by applicaiton on ${pwd}
 
 #### Run
+
 ```shell
 ./build/src/GstHvaSample
 ```
 
 ------
 
-This is a initial version for hva/gstream based KMB sample on KMB ARM.
+###### OpenVINO dependency
 
-Gstreamer is used for decoding. Then NV12 video frame(output of decoding) is sent to HVA pipeline(detection+classifcation).
+HDDL2 plugin was not part of OpenVINO regular build. A separate binary need to be installed manually.
+
+How to install OpenVINO with HDDL2 plugin:
+
+1. Untar OpenVINO package for x86
+       http://nnt-srv01.inn.intel.com/builds/openvino_kmb/openvino-kmb.beta-20200313/builds/l_openvino_toolkit_private_ubuntu18_kmb_x86_p_0.0.0-2813-g509e8d4a56.tar.gz
+
+2. Clone dldt repo
+
+   `git clone git@gitlab-icv.inn.intel.com:inference-engine/dldt.git`
+
+3. build dldt
+
+   `cd ${dldt}; bash build-after-clone.sh `
+
+4. copy(do not overwrite libraries in target path) libraries from `${dldt}/bin/intel64/Release/lib/*` to untared OpenVINO package `${openvino}/deployment_tools/inference_engine/lib/intel64/`
+
+5. Untar HDDL2 plugin into `plugins.xml` path (`${openvino}/deployment_tools/inference_engine/lib/intel64/`)
+       http://nnt-srv01.inn.intel.com/builds/openvino_kmb/openvino-kmb.beta-20200313/builds/HDDL2Plugin.tar.xz
+
+6. Add HDDL2 plugin file name into plugins XML file `plugins.xml`.
+
+7. Setup OpenVINO environment variable before use `source ${openvino}/bin/setupvars.sh`
+
+
 
 
 
@@ -31,25 +60,9 @@ Gstreamer is used for decoding. Then NV12 video frame(output of decoding) is sen
 ```shell
 git clone ssh://git@gitlab.devtools.intel.com:29418/IOTG_ICO_Video_Optimization/gsthvasample.git
 cd gsthvasample
-git checkout Kezhen/dev_on_kmb_multi
+git checkout ${branch/commit}
 mkdir build
 cd build
 cmake ..
 make
 ```
-
-###### Run:
-
-1. copy "barrier_1080x720.h264", "resnet.labels", "build/src/GstHvaSample", "libhva.so" to KMB ARM, put in same directory
-
-2. ```shell
-   export LD_LIBRARY_PATH:$LD_LIBRARY_PATH:`pwd`
-   ```
-
-3. ```shell
-   ./GstHvaSample
-   ```
-
-###### Todo:
-
-In this version, there are many limitations such as parameter hard coding and lack of error handling. Besides, large stream number(8/16) is not tested, performance need to be optimized and tracking need to be added into pipeline.

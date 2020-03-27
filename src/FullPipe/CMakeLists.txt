@@ -52,13 +52,15 @@ target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:${FULL_PIPE_INC_DI
 target_include_directories(FullPipe PUBLIC "${HDDLUNITE_INCLUDE_DIR}")
 target_include_directories(FullPipe PUBLIC "${InferenceEngine_INCLUDE_DIRS}")
 target_include_directories(FullPipe PUBLIC "${OpenCV_INCLUDE_DIRS}")
-target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/include/hddl2>")
-target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/src/hddl2_plugin/include>")
+target_include_directories(FullPipe PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../inc/FullPipe/hddl2plugin")
+# target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/include/hddl2>")
+# target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/src/hddl2_plugin/include>")
 
 target_link_libraries(FullPipe "${HDDLUNITE_LIB}")
 target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")
 target_link_libraries(FullPipe "${InferenceEngine_LIBRARIES}")
-target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
+# target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
+target_link_libraries(FullPipe "libXLink.so")
 
 # message("InferenceEngine_LIB: ${InferenceEngine_LIBRARIES}")
 
