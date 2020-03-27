@@ -106,7 +106,7 @@ queue_message_from_observer(const char *message_name, const char *subscribe_name
                             mediapipe_t *mp, GstMessage *message)
 {
     mix2_ctx *ctx = (mix2_ctx *) mp_modules_find_module_ctx(mp, "mix2");
-    for (int i = 0; i < ctx->msg_ctx_num; i++) {
+    for (guint i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(message_name, ctx->msg_ctxs[i].message_name)
             && 0 == g_strcmp0(subscribe_name, ctx->msg_ctxs[i].elem_name)) {
             g_mutex_lock(&ctx->msg_ctxs[i].lock);
@@ -149,6 +149,7 @@ mp_mix2_block(mediapipe_t *mp, mp_command_t *cmd)
         return (char *) MP_CONF_ERROR;
     };
     json_object_object_foreach(mp->config, key, val) {
+	    UNUSED(val);
         if (NULL != strstr(key, "mix2")) {
             json_analyse_and_post_message(mp, key);
         }
@@ -205,7 +206,7 @@ nv12_border(GstBuffer *buffer, guint pic_w, guint pic_h, guint rect_x,
     U = -0.1687 * R + 0.3313 * G + 0.5    * B + 128;
     V =  0.5    * R - 0.4187 * G - 0.0813 * B + 128;
     /* Locking the scope of rectangle border range */
-    int j, k;
+    guint j, k;
     for (j = rect_y; j < rect_y + rect_h; j++) {
         for (k = rect_x; k < rect_x + rect_w; k++) {
             if (k < (rect_x + border) || k > (rect_x + rect_w - border) ||
@@ -231,6 +232,7 @@ draw_buffer_by_message(mediapipe_t *mp, mix2_message_ctx *msg_ctx,
 {
     GstMessage *walk;
     guint mp_ret = 0;
+    UNUSED(mp_ret);
     GstClockTime msg_pts;
     GstClockTime offset = 300000000;
     GstClockTime desired = GST_BUFFER_PTS(buffer);
@@ -435,10 +437,12 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
         }
         if (json_object_object_get_ex(mix_root, "draw_color", &array)) {
             struct json_object *color_chanel_array = NULL;
+            UNUSED(color_chanel_array);
             guint color_num_values = json_object_array_length(array);
             for (guint i = 0; i < num_values && i < color_num_values; i++) {
                 message_obj = json_object_array_get_idx(array, i);
-                for (int y = 0; y < 3 && y < json_object_array_length(message_obj); y++) {
+                int json_length = json_object_array_length(message_obj);
+                for (int y = 0; y < 3 && y < json_length; y++) {
                     ctx->msg_ctxs[i].draw_color_channel[y] =
                         json_object_get_int(json_object_array_get_idx(message_obj, y));
                 }
@@ -461,7 +465,7 @@ mix2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
 {
     const char *name = (const char *) user_data;
     mix2_ctx *ctx = (mix2_ctx *) mp_modules_find_module_ctx(mp, "mix2");
-    gint i;
+    guint i;
     for (i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(ctx->msg_ctxs[i].elem_name, name)) {
             draw_buffer_by_message(mp, &ctx->msg_ctxs[i],
@@ -537,7 +541,7 @@ static void *create_ctx(mediapipe_t *mp)
 static void destroy_ctx(void *_ctx)
 {
     mix2_ctx *ctx = (mix2_ctx *)_ctx;
-    for (int i = 0; i < ctx->msg_ctx_num; i++) {
+    for (guint i = 0; i < ctx->msg_ctx_num; i++) {
         g_queue_free_full(ctx->msg_ctxs[i].message_queue,
                           (GDestroyNotify)gst_message_unref);
         g_mutex_clear(&ctx->msg_ctxs[i].lock);

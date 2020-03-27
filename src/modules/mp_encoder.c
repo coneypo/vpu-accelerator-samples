@@ -4,7 +4,9 @@
  */
 #include "mediapipe_com.h"
 
+#if SWITCHON
 static int mediapipe_set_key_frame(mediapipe_t *mp, const gchar *element_name);
+#endif
 
 static char *json_setup_encoders(mediapipe_t *mp);
 

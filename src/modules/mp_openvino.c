@@ -258,9 +258,11 @@ branch_init(mediapipe_branch_t *mp_branch)
 {
     g_assert(mp_branch != NULL);
     const gchar *desc_format = NULL;
+    UNUSED(desc_format);
     gchar description[MAX_BUF_SIZE];
     branch_t *branch = (branch_t *) mp_branch;
     openvino_ctx *ctx = (openvino_ctx *) mp_modules_find_module_ctx(mp_branch->mp, "openvino");
+    UNUSED(ctx);
     create_description_from_string_and_params(branch, description);
 
     printf("description:[%s]\n", description);
@@ -294,6 +296,7 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     struct json_object *detect;
     gboolean load_success = FALSE;
     int i = 0;
+    UNUSED(i);
     RETURN_IF_FAIL(mp != NULL);
     RETURN_IF_FAIL(mp->state != STATE_NOT_CREATE);
     RETURN_IF_FAIL(json_object_object_get_ex(root, "openvino_detection", &object));
@@ -503,7 +506,7 @@ get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer,
         return FALSE;
     }
     gst_caps_unref(caps);
-    while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
+    while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE)
             continue ;
 
@@ -523,6 +526,8 @@ get_value_from_buffer_new_version(GstPad *pad, GstBuffer *buffer,
         gst_structure_get_double(meta_struct, "y_max", &y_max);
         const char *model_name = gst_structure_get_string(meta_struct, "model_name");
         const char *layer_name = gst_structure_get_string(meta_struct, "layer_name");
+        UNUSED(model_name);
+        UNUSED(layer_name);
         double xmin = x_min * info.width;
         double ymin = y_min * info.height;
         double xmax = x_max * info.width;

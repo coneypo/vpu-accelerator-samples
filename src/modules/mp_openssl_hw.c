@@ -14,6 +14,7 @@
 
 mp_int_t mp_openssl_hw_init_module(mediapipe_t *mp);
 
+#if SWITCHON
 static mp_command_t  mp_idr_commands[] = {
     {
         mp_string("openssl_hw"),
@@ -25,6 +26,7 @@ static mp_command_t  mp_idr_commands[] = {
     },
     mp_null_command
 };
+#endif
 
 static mp_module_ctx_t  mp_openssl_hw_module_ctx = {
     mp_string("openssl_hw"),
@@ -51,7 +53,9 @@ mp_module_t  mp_openssl_hw_module = {
 mp_int_t mp_openssl_hw_init_module(mediapipe_t *mp)
 {
     const EVP_CIPHER *cipher;
+    UNUSED(cipher);
     int m;
+    UNUSED(m);
     ENGINE_load_builtin_engines();
     ENGINE *afalg = NULL;
     const char *engine_id = "afalg";

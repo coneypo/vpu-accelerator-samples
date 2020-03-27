@@ -46,6 +46,7 @@ gst_probe_list_destroy(GList *list)
     list = NULL;
 }
 
+#if SWITCHON
 static gboolean
 pipeline_is_usable(GstElement *pipeline)
 {
@@ -69,6 +70,7 @@ pipeline_is_usable(GstElement *pipeline)
 
     return TRUE;
 }
+#endif
 
 /* --------------------------------------------------------------------------*/
 /**

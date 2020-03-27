@@ -11,6 +11,7 @@ typedef struct {
     slice_type_t    slice_type;
 } encode_meta_t;
 
+#if SWITCHON
 static mp_int_t
 init_callback(mediapipe_t *mp);
 
@@ -21,6 +22,7 @@ enc2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
 static gboolean
 enc0_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data);
+#endif
 
 
 
@@ -58,6 +60,7 @@ mp_module_t  mp_slice_module = {
     MP_MODULE_V1_PADDING
 };
 
+#if SWITCHON
 static mp_int_t
 init_callback(mediapipe_t *mp)
 {
@@ -65,7 +68,7 @@ init_callback(mediapipe_t *mp)
     mediapipe_set_user_callback(mp, "enc2", "src", enc2_src_callback, NULL);
     return MP_OK;
 }
-
+#endif
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -80,6 +83,7 @@ init_callback(mediapipe_t *mp)
  * @Returns
  */
 /* ----------------------------------------------------------------------------*/
+#if SWITCHON
 static gboolean
 enc0_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data)
@@ -115,6 +119,7 @@ enc0_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
 
     return TRUE;
 }
+#endif
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -129,6 +134,7 @@ enc0_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
  * @Returns
  */
 /* ----------------------------------------------------------------------------*/
+#if SWITCHON
 static gboolean
 enc2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data)
@@ -164,5 +170,5 @@ enc2_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
 
     return TRUE;
 }
-
+#endif
 

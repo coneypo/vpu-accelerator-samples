@@ -313,10 +313,12 @@ branch_init(mediapipe_branch_t *mp_branch)
 {
     g_assert(mp_branch != NULL);
     const gchar *desc_format = NULL;
+    UNUSED(desc_format);
     gchar description[MAX_BUF_SIZE];
     branch_t *branch = (branch_t *) mp_branch;
     openvino_tracking_ctx *ctx = (openvino_tracking_ctx *)
                                  mp_modules_find_module_ctx(mp_branch->mp, "openvino_tracking");
+    UNUSED(ctx);
     create_description_from_string_and_params(branch, description);
     printf("description:[%s]\n", description);
     GstElement *new_pipeline = mediapipe_branch_create_pipeline(description);
@@ -349,6 +351,7 @@ json_setup_branch(mediapipe_t *mp, struct json_object *root)
     struct json_object *detect;
     gboolean load_success = FALSE;
     int i = 0;
+    UNUSED(i);
     RETURN_IF_FAIL(mp != NULL);
     RETURN_IF_FAIL(mp->state != STATE_NOT_CREATE);
     RETURN_IF_FAIL(json_object_object_get_ex(root, "openvino_detection", &object));
@@ -543,7 +546,7 @@ static gboolean if_contain_roi_meta(GstBuffer *buffer)
 {
     GstMeta *gst_meta = NULL;
     gpointer state = NULL;
-    while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
+    while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api == GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             return TRUE;
         }
@@ -559,6 +562,7 @@ static gboolean if_contain_roi_meta(GstBuffer *buffer)
  * @Param objectlist store the data
  */
 /* ----------------------------------------------------------------------------*/
+#if SWITCHON
 static gboolean
 get_value_from_buffer_tracking(GstPad *pad, GstBuffer *buffer,
                                GValue *objectlist)
@@ -573,7 +577,7 @@ get_value_from_buffer_tracking(GstPad *pad, GstBuffer *buffer,
         return FALSE;
     }
     gst_caps_unref(caps);
-    while (gst_meta = gst_buffer_iterate_meta(buffer, &state)) {
+    while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
         }
@@ -611,7 +615,7 @@ get_value_from_buffer_tracking(GstPad *pad, GstBuffer *buffer,
     }
     return TRUE;
 }
-
+#endif
 
 /* --------------------------------------------------------------------------*/
 /**

@@ -69,8 +69,10 @@ mp_parse_config(mediapipe_t *mp, mp_command_t *cmd);
 static gboolean
 push_data(gpointer user_data);
 
+#if SWITCHON
 static GstPadProbeReturn
 save_as_file(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
+#endif
 
 static GstPadProbeReturn
 Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);
@@ -196,28 +198,28 @@ roi_rounding(int* xmin, int* ymin, int* xmax, int* ymax, guint *crop_width, guin
     if (*ymax < 0) {
         *ymax = 0;
     }
-    if (*xmax > width) {
+    if (*xmax > (int)width) {
         *xmax = width;
     }
-    if (*ymax > height) {
+    if (*ymax > (int)height) {
         *ymax = height;
     }
-    if (*xmin > width) {
+    if (*xmin > (int)width) {
         *xmin = width;
     }
-    if (*ymin > height) {
+    if (*ymin > (int)height) {
         *ymin = height;
     }
     if (*xmax - *xmin < 32) {
         *xmax = *xmin + 32;
-        if (*xmax > width) {
+        if (*xmax > (int)width) {
             *xmax = width;
             *xmin = *xmax - 32;
         }
     }
     if (*ymax - *ymin < 32) {
         *ymax = *ymin + 32;
-        if (*ymax > height) {
+        if (*ymax > (int)height) {
             *ymax = height;
             *ymin = *ymax - 32;
         }
@@ -365,23 +367,23 @@ crop_and_push_buffer_BGRA(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         if (ymax < 0) {
             ymax = 0;
         }
-        if (xmax > branch_ctx->width) {
+        if (xmax > (int)(branch_ctx->width)) {
             xmax = branch_ctx->width;
         }
-        if (ymax > branch_ctx->height) {
+        if (ymax > (int)(branch_ctx->height)) {
             ymax = branch_ctx->height;
         }
-        if (xmin > branch_ctx->width) {
+        if (xmin > (int)(branch_ctx->width)) {
             xmin = branch_ctx->width;
         }
-        if (ymin > branch_ctx->height) {
+        if (ymin > (int)(branch_ctx->height)) {
             ymin = branch_ctx->height;
         }
         //only image size is bigger than 32*32, the jpgenc will encode image.
         bFlag = false;
         if (xmax - xmin < 32) {
             xmax = xmin + 32;
-            if(xmax > branch_ctx->width) {
+            if(xmax > (int)(branch_ctx->width)) {
                 xmax = branch_ctx->width;
                 xmin = xmax - 32;
             }
@@ -389,7 +391,7 @@ crop_and_push_buffer_BGRA(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         }
         if (ymax - ymin < 32) {
             ymax = ymin + 32;
-            if(ymax > branch_ctx->height) {
+            if(ymax > (int)(branch_ctx->height)) {
                 ymax = branch_ctx->height;
                 ymin = ymax - 32;
             }
@@ -459,6 +461,7 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
     GstElement *pipeline = branch_ctx->pipeline;
     gchar caps_string[MAX_BUF_SIZE];
     gboolean bFlag = false;
+    UNUSED(bFlag);
     GstFlowReturn ret;
     if (gst_buffer_map(buffer, &map, GST_MAP_READ))
     {
@@ -468,6 +471,7 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
         ymax = (int)(meta->y + meta->h);
 
         gboolean success = roi_rounding(&xmin, &ymin, &xmax, &ymax, &crop_width, &crop_height, branch_ctx->height, branch_ctx->width);
+        UNUSED(success);
         //outdated true means too old ROI, false means new ROI
         gboolean outdated = is_roi_outdated(meta, branch_ctx);
         gst_buffer_unmap(buffer, &map);
@@ -532,7 +536,9 @@ push_data(gpointer user_data)
     GstVideoRegionOfInterestMeta *meta = NULL;
     GstStructure *structure = NULL;
     const GValue *struct_tmp = NULL;
+    UNUSED(struct_tmp);
     param_data_t *params = NULL;
+    UNUSED(params);
     guint memory_size = branch_ctx->malloc_max_roi_size;
     if (g_queue_is_empty(branch_ctx->queue)) {
         GST_LOG("MEDIAPIPE|ROIENC|No frame to encode\n");
@@ -576,7 +582,7 @@ push_data(gpointer user_data)
             continue ;
         }
         //this roi has been processed, proceeds to next
-        if (roi_index < branch_ctx->roi_index) {
+        if (roi_index < (int)(branch_ctx->roi_index)) {
             roi_index ++;
             continue;
         }
@@ -922,8 +928,11 @@ init_module(mediapipe_t *mp)
     GstElement *jpeg_appsrc = NULL;
     GstElement  *jpeg_enc = NULL;
     GstCaps *caps = NULL;
+    UNUSED(caps);
     GstVideoInfo video_info;
+    UNUSED(video_info);
     gchar caps_string[MAX_BUF_SIZE];
+    UNUSED(caps_string);
     GstStateChangeReturn ret =  GST_STATE_CHANGE_FAILURE;
     gva_postproc_and_upload_ctx_t *ctx = (gva_postproc_and_upload_ctx_t *) mp_modules_find_module_ctx(mp,
                                                                                                       "gva_postproc_and_upload");
@@ -1035,6 +1044,7 @@ static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
         //TODO: fix hard-coded pid 0x6240
         int ret = xlink_get_device_list(sw_device_id_list, &num_devices, 0x6240);
         assert(ret == 0);
+        ret++;
         context->hddl_xlink->xlink_handler->sw_device_id = sw_device_id_list[0];
         context->hddl_xlink->channelId = channelId;
         //use xlink_connect to get correct link_id

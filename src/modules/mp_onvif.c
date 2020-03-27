@@ -210,6 +210,7 @@ static const char *get_element_name_from_mp_config(mediapipe_t *mp, const char *
      return value;
 }
 
+#if SWITCHON
 static int get_enc_num(char *str, char *delim)
 {
     char s[20] = {'\0'};
@@ -220,7 +221,9 @@ static int get_enc_num(char *str, char *delim)
     num = atoi(p);
     return num;
 }
+#endif
 
+#if SWITCHON
 static int _read_file(char *linebuffer, char *element, char  *elem_name)
 {
     if(strstr(linebuffer, "mfxh264enc")) {
@@ -246,7 +249,9 @@ static int _read_file(char *linebuffer, char *element, char  *elem_name)
     }
     return 0;
 }
+#endif
 
+#if SWITCHON
 // rw 1 write,0 read
 static int _read_write_file(char *file_path, char *element, char *elem_name,
                             int rw)
@@ -296,6 +301,7 @@ static int _read_write_file(char *file_path, char *element, char *elem_name,
     fclose(fp);
     return 0;
 }
+#endif
 /* --------------------------------------------------------------------------*/
 /**
  * @Synopsis it's a example of  extra function for change current encoder to 264
@@ -307,6 +313,7 @@ static int _read_write_file(char *file_path, char *element, char *elem_name,
  * @Returns
  */
 /* ----------------------------------------------------------------------------*/
+#if SWITCHON
 static gboolean
 change_to264(gpointer user_data)
 {
@@ -330,7 +337,7 @@ change_to264(gpointer user_data)
 
     return (ret == 0);
 }
-
+#endif
 /* --------------------------------------------------------------------------*/
 /**
  * @Synopsis it's a example of  extra function for change current encoder to 265
@@ -342,6 +349,7 @@ change_to264(gpointer user_data)
  * @Returns
  */
 /* ----------------------------------------------------------------------------*/
+#if SWITCHON
 static gboolean
 change_to265(gpointer user_data)
 {
@@ -366,6 +374,7 @@ change_to265(gpointer user_data)
 
     return (ret == 0);
 }
+#endif
 
 static gboolean
 change_format_in_channel(gpointer user_data)
@@ -393,6 +402,7 @@ change_format_in_channel(gpointer user_data)
     GstCaps *caps = NULL;
     GstCaps *new_caps = NULL;
     GstStructure *structure = NULL;
+    UNUSED(structure);
     int ret = 0;
     gst_element_set_state(enc_caps_element, GST_STATE_NULL);
     if (!strcmp(format_s, "h265") || !strcmp(format_s, "H265")) {
@@ -488,6 +498,7 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
     param[GOVLEN].type = PARAM_INT_TYPE;
     param[GOVLEN].name = "govlen";
     int ret = 0;
+    UNUSED(ret);
     *res_status = RET_SUCESS;
 
     //check param exist
@@ -860,6 +871,7 @@ static void _set_image_config(struct json_object *obj, int *res_status,
     json_object_put(res_json_obj);
 }
 
+#if SWITCHON
 static int str_to_k(char *str, char *width, char *height, char *framerate)
 {
     char delim[] = " ,;!/";
@@ -881,6 +893,7 @@ static int str_to_k(char *str, char *width, char *height, char *framerate)
     }
     return 0;
 }
+#endif
 
 static void _get_videoenc_config(struct json_object *obj, int *res_status,
                                  gchar *res_msg, gpointer data)
@@ -1051,7 +1064,7 @@ static void _get_image_config(struct json_object *obj, int *res_status,
     int irismode = 0;
     int irislevel = 0;
     int ret = 0;
-
+    UNUSED(ret);
     if(ctx->image_element !=NULL ){
         MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "brightness", &brightness, NULL);
         MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->image_element, "contrast", &contrast, NULL);
@@ -1614,6 +1627,7 @@ static void onvif_server_start(mediapipe_t *mp)
 {
 	GThread *p_thread;
 	p_thread = g_thread_new("Unused String", onvif_server_thread_run, mp);
+	UNUSED(p_thread);
 }
 
 
@@ -1639,8 +1653,10 @@ static void check_param(Param *param, struct json_object *obj,
     g_assert(obj != NULL);
     g_assert(debug_str != NULL);
     struct json_object *param_obj = NULL;
+    UNUSED(param_obj);
     const char *str = NULL;
     char *end = NULL;
+    UNUSED(end);
     param->status = TRUE;
     if (param->type == PARAM_INT_TYPE) {
         if (!json_get_int(obj, param->name, &param->value_int)) {

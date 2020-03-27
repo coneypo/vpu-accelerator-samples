@@ -62,7 +62,7 @@ typedef struct {
 } rtsp_ctx_t;
 
 static rtsp_ctx_t rtsp_ctx = {
-    0, 0, NULL
+	{ 0 }, 0, NULL
 };
 
 static mp_command_t  mp_rtsp_commands[] = {
@@ -141,6 +141,7 @@ json_new_rtsp_server(mediapipe_t *mp, struct json_object *rtsp_server)
     int fps1 = -1;
     srtp_key srtp_conf[2] = { {NULL, 0}, {NULL, 0} };
     const char *element, *caps, *srtp_enable, *key=NULL, *mount_path = "/test0";
+    UNUSED(srtp_enable);
     const char *element1, *caps1, *key1;
     RETURN_IF_FAIL(json_check_enable_state(rtsp_server, "enable"));
     RETURN_IF_FAIL(json_get_string(rtsp_server, "element", &element));
@@ -203,7 +204,7 @@ media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     gst_object_unref(element);
     if (NULL != srtpenc) {
         char *key = (char *)ctx->user_data;
-        convert_from_hex_to_byte(key, srtp_buff, strlen(key));
+        convert_from_hex_to_byte(key, (unsigned char*)srtp_buff, strlen(key));
         key_buf = gst_buffer_new_wrapped(srtp_buff, strlen(srtp_buff));
         rtsp_ctx.key_list = g_list_append(rtsp_ctx.key_list, key_buf);
         g_object_set(G_OBJECT(srtpenc), "key", key_buf, NULL);
@@ -251,7 +252,7 @@ merge_av_media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     gst_object_unref(element);
     if (NULL != srtpenc) {
         char *key = (char *)ctx[0]->user_data;
-        convert_from_hex_to_byte(key, srtp_buff, strlen(key));
+        convert_from_hex_to_byte(key, (unsigned char*)srtp_buff, strlen(key));
         key_buf = gst_buffer_new_wrapped(srtp_buff, strlen(srtp_buff));
         rtsp_ctx.key_list = g_list_append(rtsp_ctx.key_list, key_buf);
         g_object_set(G_OBJECT(srtpenc), "key", key_buf, NULL);
@@ -278,7 +279,7 @@ merge_av_media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
     gst_object_unref(element);
     if (NULL != srtpenc1) {
         char *key = (char *)ctx[1]->user_data;
-        convert_from_hex_to_byte(key, srtp_buff1, strlen(key));
+        convert_from_hex_to_byte(key, (unsigned char*)srtp_buff1, strlen(key));
         key_buf = gst_buffer_new_wrapped(srtp_buff1, strlen(srtp_buff1));
         rtsp_ctx.key_list = g_list_append(rtsp_ctx.key_list, key_buf);
         g_object_set(G_OBJECT(srtpenc1), "key", key_buf, NULL);

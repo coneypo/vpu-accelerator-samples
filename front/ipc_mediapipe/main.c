@@ -16,10 +16,11 @@ handle_keyboard(GIOChannel *source, GIOCondition cond, gpointer data)
 {
     mediapipe_t *mp = data;
     GstCaps *caps;
+    UNUSED(caps);
     char *str = NULL;
     int ret = 0;
     GValueArray *pLtArray = NULL;
-
+    UNUSED(pLtArray);
     if (g_io_channel_read_line(source, &str, NULL, NULL,
                                NULL) == G_IO_STATUS_NORMAL) {
         if (str[0] == 'q') {

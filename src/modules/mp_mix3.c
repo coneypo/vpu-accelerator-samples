@@ -35,9 +35,11 @@ typedef struct {
 static gboolean
 mix3_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
                   gpointer user_data);
+#if SWITCHON
 static gboolean
 mix3_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
                int width, int height, const gchar *text);
+#endif
 
 static char *
 mp_mix3_block(mediapipe_t *mp, mp_command_t *cmd);
@@ -105,7 +107,7 @@ queue_message_from_observer(const char *message_name,
                             mediapipe_t *mp, GstMessage *message)
 {
     mix3_ctx *ctx = (mix3_ctx *) mp_modules_find_module_ctx(mp, "mix3");
-    for (int i = 0; i < ctx->msg_ctx_num; i++) {
+    for (guint i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(message_name, ctx->msg_ctxs[i].message_name)
             && 0 == g_strcmp0(subscribe_name, ctx->msg_ctxs[i].elem_name)) {
             g_mutex_lock(&ctx->msg_ctxs[i].lock);
@@ -133,6 +135,7 @@ mp_mix3_block(mediapipe_t *mp, mp_command_t *cmd)
         return (char *) MP_CONF_ERROR;
     };
     json_object_object_foreach(mp->config, key, val) {
+	UNUSED(val);
         if (NULL != strstr(key, "mix3")) {
             json_analyse_and_post_message(mp, key);
         }
@@ -158,6 +161,7 @@ mp_mix3_block(mediapipe_t *mp, mp_command_t *cmd)
  * @Returns 0 is success, -1 is map error.
  */
 /* ----------------------------------------------------------------------------*/
+#if SWITCHON
 static gint
 nv12_border(GstBuffer *buffer, guint pic_w, guint pic_h, guint rect_x,
             guint rect_y, guint rect_w, guint rect_h, int R, int G, int B)
@@ -191,7 +195,7 @@ nv12_border(GstBuffer *buffer, guint pic_w, guint pic_h, guint rect_x,
     U = -(0.148 * R) - (0.291 * G) + (0.439 * B) + 128;
 
     /* Locking the scope of rectangle border range */
-    int j, k;
+    guint j, k;
     for (j = rect_y; j < rect_y + rect_h; j++) {
         for (k = rect_x; k < rect_x + rect_w; k++) {
             if (k < (rect_x + border) || k > (rect_x + rect_w - border) ||
@@ -210,6 +214,7 @@ nv12_border(GstBuffer *buffer, guint pic_w, guint pic_h, guint rect_x,
     gst_buffer_unmap(buffer, &info);
     return 0;
 }
+#endif
 
 static gboolean
 draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
@@ -217,6 +222,7 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
 {
     GstMessage *walk;
     guint mp_ret = 0;
+    UNUSED(mp_ret);
     GstClockTime msg_pts;
     GstClockTime offset = 300000000;
     GstClockTime desired = GST_BUFFER_PTS(buffer);
@@ -224,8 +230,14 @@ draw_buffer_by_message(mediapipe_t *mp, mix3_message_ctx *msg_ctx,
     const GstStructure *root;
     GstBuffer *branchBuffer = NULL;
     GstMeta *gst_meta = NULL;
+    UNUSED(gst_meta);
     gpointer state = NULL;
+    UNUSED(state);
     guint x, y, width, height;
+    UNUSED(x);
+    UNUSED(y);
+    UNUSED(width);
+    UNUSED(height);
     GstElement *enc_element = NULL;
     GstPad *src_pad = NULL;
     GstCaps *src_caps = NULL;
@@ -328,7 +340,7 @@ change_metainfo_by_width_height(GstBuffer *currentBuffer, guint currentBufferWid
     }
     GstMeta *gst_meta = NULL;
     gpointer state = NULL;
-    while (gst_meta = gst_buffer_iterate_meta(currentBuffer, &state)) {
+    while ((gst_meta = gst_buffer_iterate_meta(currentBuffer, &state)) != NULL) {
         if (gst_meta->info->api == GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             GstVideoRegionOfInterestMeta *meta = (GstVideoRegionOfInterestMeta *)gst_meta;
             meta->x = (guint)(meta->x*((gdouble)(currentBufferWidth)/branchBufferWidth));
@@ -415,7 +427,8 @@ json_analyse_and_post_message(mediapipe_t *mp, const gchar *elem_name)
                 guint color_num_values = json_object_array_length(color_array);
                 for (guint i = 0; i < num_values && i < color_num_values; i++) {
                     color_chanel_array = json_object_array_get_idx(color_array, i);
-                    for (int y = 0; y < 3 && y < json_object_array_length(color_chanel_array); y++) {
+                    int json_length = json_object_array_length(color_chanel_array);
+                    for (int y = 0; y < 3 && y < json_length; y++) {
                         ctx->msg_ctxs[z*num_values + i].draw_color_channel[y] =
                             json_object_get_int(json_object_array_get_idx(color_chanel_array, y));
                     }
@@ -438,7 +451,7 @@ mix3_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
 {
     const char *name = (const char *) user_data;
     mix3_ctx *ctx = (mix3_ctx *) mp_modules_find_module_ctx(mp, "mix3");
-    gint i;
+    guint i;
     for (i = 0; i < ctx->msg_ctx_num; i++) {
         if (0 == g_strcmp0(ctx->msg_ctxs[i].elem_name, name)) {
             draw_buffer_by_message(mp, &ctx->msg_ctxs[i],
@@ -464,6 +477,7 @@ mix3_src_callback(mediapipe_t *mp, GstBuffer *buf, guint8 *data, gsize size,
  * @Returns   if success return true
  */
 /* ----------------------------------------------------------------------------*/
+#if SWITCHON
 static gboolean
 mix3_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
                int width, int height, const gchar *text)
@@ -498,6 +512,7 @@ mix3_draw_text(GstBuffer *buffer, GstVideoInfo *info, int x, int y,
     gst_buffer_unref(text_buf);
     return ret;
 }
+#endif
 
 static void *create_ctx(mediapipe_t *mp)
 {
@@ -513,7 +528,7 @@ static void *create_ctx(mediapipe_t *mp)
 static void destroy_ctx(void *_ctx)
 {
     mix3_ctx *ctx = (mix3_ctx *)_ctx;
-    for (int i = 0; i < ctx->msg_ctx_num; i++) {
+    for (guint i = 0; i < ctx->msg_ctx_num; i++) {
         g_queue_free_full(ctx->msg_ctxs[i].message_queue,
                           (GDestroyNotify)gst_message_unref);
         g_mutex_clear(&ctx->msg_ctxs[i].lock);

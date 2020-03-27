@@ -22,6 +22,17 @@ if(MULTI_THREAD_MODE)
     add_definitions(-DMULTI_THREAD_MODE)
 endif()
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+endif()
+
+if(MSVC)
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall)
+    add_compile_options(-Wall -Wformat -Wformat-security -Werror=format-security -fstack-protector-strong -fno-strict-overflow -fno-delete-null-pointer-checks -fwrapv -fPIE -pie -z noexecstack -z,now -z,relro -D_FORTIFY_SOURCE=2 )
+endif()
+
 if(${BUILD_APP} STREQUAL ipc)
     message(STATUS "will build ipc")
     add_subdirectory(front/ipc_mediapipe)

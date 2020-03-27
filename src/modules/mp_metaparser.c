@@ -71,7 +71,7 @@ mp_module_t
         MP_MODULE_V1_PADDING
       };
 
-
+#if SWITCHON
 static gboolean
 myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
 {
@@ -108,6 +108,7 @@ myconvert_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize s
 
     return TRUE;
 }
+#endif
 
 static gboolean
 insert_metainfo_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, gpointer user_data)
@@ -198,6 +199,7 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
     auto roi = reinterpret_cast<ROI*>(pData + sizeof(Header) + sizeof(Meta));
 
     auto frameId = meta->frame_number;
+    UNUSED(frameId);
     auto headerSize = header->meta_size + sizeof(header) + (meta->num_rois * sizeof(ROI));
 
     for (int i = 0; i < meta->num_rois; i++) {
@@ -297,6 +299,7 @@ static char* load_config(mediapipe_t* mp, mp_command_t* cmd)
         //TODO: fix hard-coded pid 0x6240
         int ret = xlink_get_device_list(sw_device_id_list, &num_devices, 0x6240);
         assert(ret == 0);
+	    ret++;
         context->hddl_xlink->xlink_handler->sw_device_id = sw_device_id_list[0];
         context->hddl_xlink->channelId = channelId;
         //use xlink_connect to get correct link_id

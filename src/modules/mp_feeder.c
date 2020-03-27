@@ -160,7 +160,7 @@ static gboolean push_data(feeder_ctx_t* ctx)
         LOG_ERROR("feeder: feed buffer failed");
     } else {
         ++ctx->index;
-        if (ctx->index >= ctx->packets.size()) {
+        if (ctx->index >= (int)(ctx->packets.size())) {
             ctx->index = 0;
         }
     }

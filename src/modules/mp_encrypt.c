@@ -76,6 +76,7 @@ static  mp_int_t
 gva_write_hex_to_file_from_uint8_array(const char *file_path, const uint8_t *byte_field, unsigned int bytefield_length) {
     FILE *outfile;
     gchar *field;
+    UNUSED(field);
     uint16_t zero = 0;
     if (file_path) {
         outfile = fopen(file_path, "wb");
@@ -152,7 +153,9 @@ static void destroy_ctx(void *_ctx)
 static void
 dump_crypto_context(GstElement *gvaencrypt, guchar *iv, guchar *tag, encrypt_message_ctx *msg_ctxs) {
     int ret;
+    UNUSED(ret);
     gchar *location;
+    UNUSED(location);
     g_print("Dumping IV and tag\n");
 
     /*specify file to save iv value*/

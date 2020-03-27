@@ -59,7 +59,8 @@ typedef intptr_t        mp_flag_t;
 #define mp_string(str)     { sizeof(str) - 1, (const char *) str }
 #define mp_null_string     { 0, NULL }
 
-
+#define UNUSED(x) ((void)(x))
+#define SWITCHON 0
 
 #include "../utils/mp_utils.h"
 #include "../utils/local_debug.h"

@@ -87,12 +87,14 @@ exit_master(void);
 static  mp_int_t
 message_process(mediapipe_t *mp, void *message);
 
+#if SWITCHON
 static gboolean
 mix_sink_callback(mediapipe_t *mp, GstBuffer *buffer, guint8 *data, gsize size,
                   gpointer user_data);
 
 static GList *
 query_cvsdk_udpate_branch_result(cvsdk_branch_t *branch, GstBuffer *buffer);
+#endif
 
 static cvsdk_ctx_t ctx= {0};
 
@@ -310,6 +312,7 @@ branch_init(mediapipe_branch_t *mp_branch)
 {
     g_assert(mp_branch!=NULL);
     const gchar *desc_format = NULL;
+    UNUSED(desc_format);
     gchar description[MAX_BUF_SIZE];
     cvsdk_branch_t *branch = (cvsdk_branch_t *) mp_branch;
     g_snprintf(description, MAX_BUF_SIZE, branch->format, branch->scale_w,

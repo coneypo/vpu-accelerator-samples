@@ -6,8 +6,6 @@
 #include "mp_mbqpmeta.h"
 
 
-static int MB_SIZE = 0;
-
 GstVideoMBQP *
 gst_video_mbqp_create(gint x, gint y, gint width, gint height, gint value)
 {
