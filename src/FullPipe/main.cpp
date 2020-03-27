@@ -39,8 +39,10 @@ std::condition_variable g_cv;
 static std::string g_detNetwork;
 static std::string g_clsNetwork;
 static std::string g_videoFile;
-static unsigned g_dropEveryXFrame;
-static unsigned g_dropXFrame;
+static unsigned g_dropEveryXFrameDec;
+static unsigned g_dropXFrameDec;
+static unsigned g_dropEveryXFrameFRC;
+static unsigned g_dropXFrameFRC;
 
 bool checkValidNetFile(std::string filepath){
     std::string::size_type suffix_pos = filepath.find(".blob");
@@ -171,12 +173,19 @@ int main(){
         std::cout<<"Error: No input video file specified in config.json"<<std::endl;
         return -1;
     }
-    if(!jsParser.parse("Decode.DropXFrame",g_dropXFrame)){
-        std::cout<<"Warning: No frame dropping count specified in config.json"<<std::endl;
-        g_dropXFrame = 0;
+    if(!jsParser.parse("Decode.DropXFrame",g_dropXFrameDec)){
+        std::cout<<"Warning: No frame dropping count for decoder specified in config.json"<<std::endl;
+        g_dropXFrameDec = 0;
     }
-    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrame)){
-        g_dropEveryXFrame = 1024;
+    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrameDec)){
+        g_dropEveryXFrameDec = 1024;
+    }
+    if(!jsParser.parse("FRC.DropXFrame",g_dropXFrameFRC)){
+        std::cout<<"Warning: No frame dropping count for FRC Node specified in config.json"<<std::endl;
+        g_dropXFrameFRC = 0;
+    }
+    if(!jsParser.parse("FRC.DropEveryXFrame",g_dropEveryXFrameFRC)){
+        g_dropEveryXFrameFRC = 1024;
     }
 
     if(!jsParser.parse("Detection.Model",g_detNetwork)){
@@ -199,8 +208,8 @@ int main(){
 #endif
     GstPipeContainer::Config decConfig;
     decConfig.filename = g_videoFile;
-    decConfig.dropEveryXFrame = g_dropEveryXFrame;
-    decConfig.dropXFrame = g_dropXFrame;
+    decConfig.dropEveryXFrame = g_dropEveryXFrameDec;
+    decConfig.dropXFrame = g_dropXFrameDec;
 
 #ifdef GUI_INTEGRATION
     std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &config);
@@ -267,7 +276,7 @@ int main(){
     uint64_t WID = WIDFuture.get();
     auto& detNode = pl.setSource(std::make_shared<InferNode>(1,1,1, 
     WID, g_detNetwork, "detection",&HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
-    auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
+    auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,g_dropXFrameFRC,g_dropEveryXFrameFRC), "FRCNode");
     
 #ifdef GUI_INTEGRATION
     auto& clsNode = pl.addNode(std::make_shared<InferNode>(1,2,1, 

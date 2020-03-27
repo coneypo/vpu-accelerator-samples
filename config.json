@@ -8,9 +8,13 @@
     "Decode":{
         "Video":"./barrier_1080x720.h264",
         "DropEveryXFrame": 6,
-        "DropXFrame": 1
+        "DropXFrame": 0
     },
     "GUI":{
         "Socket":"/tmp/gstreamer_ipc_second.sock"
+    },
+    "FRC":{
+        "DropEveryXFrame":4,
+        "DropXFrame":1
     }
 }
