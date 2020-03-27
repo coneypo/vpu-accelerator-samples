@@ -1,5 +1,5 @@
 # KMB sample (gstream decoding + HVA detection/classifcation on ARM)
-### Update on 2019 Dec 11th
+
 A sample Bypass Pipeline 
 
 This sample runs on IA host, with decoding offloaded to KMB and IE (detection + classification) on VPU. Single process and single pipeline at the moment. The number of Streams can only be configured to 1 (refer to the hash define in main). 
@@ -14,7 +14,7 @@ This sample runs on IA host, with decoding offloaded to KMB and IE (detection + 
 #### Build:
 
 ```shell
-git clone ssh://git@gitlab.devtools.intel.com:29418/IOTG_ICO_Video_Optimization/gsthvasample.git
+git clone https://gitlab.devtools.intel.com/kmb_integration/gsthvasample.git 
 cd gsthvasample
 git checkout feature/WW13.5
 mkdir build
@@ -41,7 +41,7 @@ Users can configure HVA pipeline through a config file, which will be searched b
 
 #### Run
 ##### if testing with Fake GUI Testcase
-1. Navigate to the directory where the config.json is located
+1. Prepare the same envrionemnt as Hddlunite and vaapi shim required and navigate to the directory where the config.json is located
 2. Start HVA pipeline, e.g.
 ` ./build/src/FullPipe/FullPipe`
 3. Wait until the application prints out "Set socket to listening"
@@ -50,7 +50,7 @@ Users can configure HVA pipeline through a config file, which will be searched b
 5. The fake GUI testcase will print out the detected ROI infos and labels etc.
 
 ##### if testing with GUI application
-The GUI application will start HVA pipeline automatically. In order to make the GUI locate and boot HVA pipeline, a few configurations and environment variable should be set in GUI application's config file. An example GUI config file is provided under '`external/`
+The GUI application will start HVA pipeline automatically. In order to make the GUI locate and boot HVA pipeline, a few configurations and environment variable should be set in GUI application's config file. An example GUI config file is provided under `external/`
 
 #### Known Issue
 
