@@ -189,12 +189,12 @@ int main(){
     }
 
     if(!jsParser.parse("Detection.Model",g_detNetwork)){
-        std::cout<<"No detection model specified in config.json. Use default network path"<<std::endl;
-        g_detNetwork = "/home/kmb/cong/graph/opt/yolotiny/yolotiny.blob";
+        std::cout<<"Error: No detection model specified in config.json. Use default network path"<<std::endl;
+        return 0;
     }
     if(!jsParser.parse("Classification.Model",g_clsNetwork)){
-        std::cout<<"No classification model specified in config.json. Use default network path"<<std::endl;
-        g_clsNetwork = "/home/kmb/cong/graph/opt/resnet/resnet.blob";
+        std::cout<<"Error: No classification model specified in config.json. Use default network path"<<std::endl;
+        return 0;
     }
 
     if(!checkValidNetFile(g_detNetwork) || !checkValidNetFile(g_clsNetwork) || !checkValidVideo(g_videoFile)){
