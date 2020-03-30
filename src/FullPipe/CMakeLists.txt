@@ -60,7 +60,7 @@ target_link_libraries(FullPipe "${HDDLUNITE_LIB}")
 target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")
 target_link_libraries(FullPipe "${InferenceEngine_LIBRARIES}")
 # target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
-target_link_libraries(FullPipe "libXLink.so")
+# target_link_libraries(FullPipe "/usr/lib/libXLink.so")
 
 # message("InferenceEngine_LIB: ${InferenceEngine_LIBRARIES}")
 
@@ -76,7 +76,7 @@ target_link_libraries(FullPipe "${LIBVA_DRM_LIBRARIES}")
 
 target_include_directories(FullPipe PUBLIC "${LIBVA_DRM_INCLUDE_DIRS}")
 
-target_link_libraries(FullPipe glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0 gstallocators-1.0 boost_filesystem)
+target_link_libraries(FullPipe -L/opt/intel/gst/lib glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0 gstallocators-1.0 boost_filesystem)
 target_include_directories(FullPipe PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_INCLUDE_DIRS}" "${BOOST_INC_DIR}")
 
 target_include_directories(FullPipe PUBLIC ${Boost_INCLUDE_DIR})

@@ -29,7 +29,7 @@ target_include_directories(${TARGET_NAME} PUBLIC "$<BUILD_INTERFACE:/home/kmb/co
 target_link_libraries(${TARGET_NAME} "${HDDLUNITE_LIB}")
 target_link_libraries(${TARGET_NAME} "${OpenCV_LIBRARIES}")
 target_link_libraries(${TARGET_NAME} "${InferenceEngine_LIBRARIES}")
-target_link_libraries(${TARGET_NAME} "/home/kmb/kezhen/install/lib/libXLink.so")
+target_link_libraries(${TARGET_NAME} "/usr/lib/libXLink.so")
 target_link_libraries(${TARGET_NAME} Threads::Threads dl)
 
 message("InferenceEngine_LIB: ${InferenceEngine_LIBRARIES}")

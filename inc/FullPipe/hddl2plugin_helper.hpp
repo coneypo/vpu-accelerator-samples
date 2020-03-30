@@ -16,7 +16,7 @@
 #include "WorkloadContext.h"
 #include <HddlUnite.h>
 #include <RemoteMemory.h>
-#include <hddl2_params.hpp>
+#include "hddl2plugin/hddl2_params.hpp"
 
 #include "ie_compound_blob.h"
 #include "tinyYolov2_post.h"
