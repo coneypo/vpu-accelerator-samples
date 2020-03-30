@@ -9,6 +9,7 @@ aux_source_directory(. DIR_SRCS)
 
 set(TARGET_NAME hddlpipeline)
 add_executable(${TARGET_NAME} ${DIR_SRCS})
+target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wformat -Wformat-security -Werror=format-security -fstack-protector-strong -fno-strict-overflow -fno-delete-null-pointer-checks -fPIE -fwrapv -z noexecstack -z,now -z,relro -D_FORTIFY_SOURCE=2)
 add_dependencies(${TARGET_NAME} hddldemoutils)
 add_dependencies(${TARGET_NAME} gstinference)
 

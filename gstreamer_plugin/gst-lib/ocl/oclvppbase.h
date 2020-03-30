@@ -61,7 +61,7 @@ public:
     getKernelName() { return NULL; }
 
     virtual void
-    setOclFormat(CRCFormat crc_format) {}
+    setOclFormat(CRCFormat) {}
 
     OclStatus
     printOclKernelInfo();

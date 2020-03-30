@@ -11,6 +11,7 @@ aux_source_directory(${PLUGIN_ROOT_DIR}/gst-lib/algo DIR_SRCS)
 aux_source_directory(. DIR_SRCS)
 
 add_library(${pluginname} SHARED ${DIR_SRCS})
+target_compile_options(${pluginname} PRIVATE -Wall -Wextra -Werror -fPIC -shared -fstack-protector-strong -Wformat -Wformat-security -Werror=format-security -fno-strict-overflow  -fno-delete-null-pointer-checks -fwrapv -D_FORTIFY_SOURCE=2)
 
 target_include_directories(${pluginname} PRIVATE .
         ${MFX_INCLUDES}

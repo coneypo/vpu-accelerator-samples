@@ -41,7 +41,7 @@ OclVppBase::process()
 }
 
 OclStatus
-OclVppBase::process(const SharedPtr<VideoFrame>&, BoundingBox* box, guint32 num)
+OclVppBase::process(const SharedPtr<VideoFrame>&, BoundingBox*, guint32)
 {
     return OCL_SUCCESS;
 }

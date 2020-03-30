@@ -150,6 +150,8 @@ void ocl_memory_free(GstAllocator* allocator, GstMemory* memory)
 static gpointer
 ocl_memory_map(GstMemory* memory, gsize size, GstMapFlags flags)
 {
+    (void)size;
+    (void)flags;
     HDDLStreamFilter::AutoLock l(OCL_MEMORY_LOCK(memory));
     gpointer data = 0;
     OclMemory* ocl_mem = OCL_MEMORY_CAST(memory);

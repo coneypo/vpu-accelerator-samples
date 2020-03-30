@@ -233,6 +233,7 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
         if (!connect_client) {
             GST_WARNING("connect to client failed, yet continue playing...");
         }
+        break;
     }
     default:
         ret = gst_pad_event_default(pad, parent, event);
@@ -245,7 +246,7 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
  * this function does the actual processing
  */
 static GstFlowReturn
-gst_inference_chain(GstPad* pad, GstObject* parent, GstBuffer* buf)
+gst_inference_chain(GstPad*, GstObject* parent, GstBuffer* buf)
 {
     GstInference* filter;
     filter = GST_INFERENCE(parent);

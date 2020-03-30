@@ -181,6 +181,7 @@ static GstFlowReturn
 ocl_pool_alloc(GstBufferPool* pool, GstBuffer** buffer,
     GstBufferPoolAcquireParams* params)
 {
+    (void)params;
     GstBuffer* ocl_buf;
     OclMemory* ocl_mem;
 

@@ -175,6 +175,7 @@ gst_roisink_query(GstBaseSink* sink, GstQuery* query)
 
 GstFlowReturn new_sample(GstElement* sink, gpointer data)
 {
+    (void)data;
     GstSample* sample;
     GstRoiSink* roiSink = GST_ROISINK(sink);
 
@@ -212,6 +213,7 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
 
 GstFlowReturn new_prepoll(GstElement* sink, gpointer data)
 {
+    (void)data;
     GstSample* sample;
     g_signal_emit_by_name(sink, "pull-preroll", &sample);
     if (sample) {

@@ -18,6 +18,7 @@ GType infer_result_meta_api_get_type(void)
 static gboolean
 infer_result_meta_init(GstMeta* meta, gpointer params, GstBuffer* buffer)
 {
+    (void)buffer;
     InferResultMeta* emeta = (InferResultMeta*)meta;
 
     emeta->size = *(gint*)params;
@@ -33,6 +34,9 @@ static gboolean
 infer_result_meta_transform(GstBuffer* transbuf, GstMeta* meta,
     GstBuffer* buffer, GQuark type, gpointer data)
 {
+    (void)buffer;
+    (void)type;
+    (void)data;
     InferResultMeta* emeta = (InferResultMeta*)meta;
 
     /* we always copy no matter what transform */
@@ -52,6 +56,7 @@ infer_result_meta_transform(GstBuffer* transbuf, GstMeta* meta,
 static void
 infer_result_meta_free(GstMeta* meta, GstBuffer* buffer)
 {
+    (void)buffer;
     InferResultMeta* emeta = (InferResultMeta*)meta;
 
     for (gint i = 0; i < emeta->size; i++) {

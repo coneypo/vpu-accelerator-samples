@@ -105,6 +105,7 @@ ocl_compare_caps(GstCaps* incaps, GstCaps* outcaps)
 gboolean
 ocl_fixate_caps(GstCaps* caps)
 {
+    (void)caps;
     return TRUE;
 }
 

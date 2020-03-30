@@ -160,6 +160,7 @@ static void
 gst_osd_set_property(GObject* object, guint prop_id,
     const GValue* value, GParamSpec* pspec)
 {
+    (void)value;
     switch (prop_id) {
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -171,6 +172,7 @@ static void
 gst_osd_get_property(GObject* object, guint prop_id,
     GValue* value, GParamSpec* pspec)
 {
+    (void)value;
     switch (prop_id) {
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -239,6 +241,7 @@ gst_osd_parser_finalize(GstOsdParser* parser)
 static GstFlowReturn
 gst_osd_parser_chain(GstPad* pad, GstObject* parent, GstBuffer* buf)
 {
+    (void)pad;
     GstOsdParser* filter = GST_OSDPARSER(parent);
     GstBuffer* osd_buf = NULL;
 

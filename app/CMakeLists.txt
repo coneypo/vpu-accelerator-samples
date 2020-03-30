@@ -9,6 +9,7 @@ aux_source_directory(. DIR_SRCS)
 qt5_wrap_ui(UI_SRC hddldemo.ui)
 
 add_executable(${PROJECT_NAME} ${DIR_SRCS} ${UI_SRC})
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wformat -Wformat-security -Werror=format-security -fstack-protector-strong -fno-strict-overflow -fno-delete-null-pointer-checks -fPIE -fwrapv -z noexecstack -z,now -z,relro -D_FORTIFY_SOURCE=2)
 target_include_directories(${PROJECT_NAME} PRIVATE
         ${Boost_INCLUDE_DIR}
         ${Qt5Widgets_INCLUDE_DIR}
