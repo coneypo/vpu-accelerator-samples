@@ -60,7 +60,7 @@ target_link_libraries(FullPipe "${HDDLUNITE_LIB}")
 target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")
 target_link_libraries(FullPipe "${InferenceEngine_LIBRARIES}")
 # target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
-# target_link_libraries(FullPipe "/usr/lib/libXLink.so")
+target_link_libraries(FullPipe "/usr/lib/libXLink.so")
 
 # message("InferenceEngine_LIB: ${InferenceEngine_LIBRARIES}")
 

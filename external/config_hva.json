@@ -14,8 +14,8 @@
     "mode": "replay"
   },
   "hva": {
-    "cmd": "/home/kmb/kezhen/build/gsthvasample/build/src/FullPipe/FullPipe",
-    "work_directory": "/home/kmb/kezhen/build/gsthvasample",
+    "cmd": "/home/kmb/cong/repos/gsthvasample/build/src/FullPipe/FullPipe",
+    "work_directory": "/home/kmb/cong/repos/gsthvasample",
     "socket_name": "/tmp/gstreamer_ipc_second.sock",
     "environment": [
       {
@@ -32,7 +32,7 @@
       },
       {
         "key": "LD_LIBRARY_PATH",
-        "value": "/home/kmb/kezhen/install/lib:/home/kmb/cong/hddl2plugin/openvino/opencv/lib:/home/kmb/cong/hddl2plugin/openvino/deployment_tools/ngraph/lib:/opt/intel/opencl:/home/kmb/cong/hddl2plugin/openvino/deployment_tools/inference_engine/external/hddl/lib:/home/kmb/cong/hddl2plugin/openvino/deployment_tools/inference_engine/external/gna/lib:/home/kmb/cong/hddl2plugin/openvino/deployment_tools/inference_engine/external/mkltiny_lnx/lib:/home/kmb/cong/hddl2plugin/openvino/deployment_tools/inference_engine/external/tbb/lib:/home/kmb/cong/hddl2plugin/openvino/deployment_tools/inference_engine/lib/intel64"
+        "value": "/home/kmb/kezhen/install/lib:/home/kmb/cong/repos/dldt/bin/intel64/Debug/lib/:/home/kmb/cong/repos/dldt/inference-engine/temp/tbb/lib"
       },
       {
         "key": "GST_PLUGIN_PATH",
