@@ -22,6 +22,7 @@ G_BEGIN_DECLS
     (G_TYPE_CHECK_CLASS_TYPE((klass),G_TYPE_API_OJBECT))
 #define G_API_OBJECT_TO_CLASS(obj) \
     (G_TYPE_INSTANCE_GET_CLASS(obj, G_TYPE_API_OJBECT, GapiObjectClass))
+#define UNUSED(x) ((void)(x))
 
 typedef struct _GapiObject      GapiObject;
 typedef struct _GapiObjectClass GapiObjectClass;

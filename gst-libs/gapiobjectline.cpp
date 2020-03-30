@@ -186,6 +186,7 @@ static gboolean line_render_ip(GapiObject *apiobject, GstVideoInfo *sink_info,
 {
     RETURN_VAL_IF_FAIL((apiobject != NULL && buf != NULL), FALSE);
     GApiObjectLine *object = G_API_OBJECT_LINE(apiobject);
+    UNUSED(object);
     return TRUE;
 }
 //it's used for video scale,video crop, video format convert, or just don't want to modify the origin buffer
@@ -195,6 +196,7 @@ static gboolean line_render(GapiObject *apiobject, GstBuffer *in_buf,
     RETURN_VAL_IF_FAIL((apiobject != NULL && in_buf != NULL
                         && out_buf != NULL), FALSE);
     GApiObjectLine *object = G_API_OBJECT_LINE(apiobject);
+    UNUSED(object);
     return TRUE;
 }
 

@@ -124,6 +124,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([ ], [ ])], [
 ], [
   AC_MSG_RESULT([no])
 ])
+GST_CFLAGS="$GST_CFLAGS -Wformat -Wformat-security -Werror=format-security -fstack-protector-strong -fno-strict-overflow -fno-delete-null-pointer-checks -fwrapv -fPIE -pie -z noexecstack -z,now -z,relro -D_FORTIFY_SOURCE=2"
 
 dnl set the plugindir where plugins should be installed (for src/Makefile.am)
 if test "x${prefix}" = "x$HOME"; then

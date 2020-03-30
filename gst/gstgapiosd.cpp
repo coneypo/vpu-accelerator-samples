@@ -504,7 +504,7 @@ static GList *get_structure_list_from_object_list(GList *object_list)
     while (index) {
         object = (GapiObject *)index->data;
         GapiObjectClass *objectclass = G_API_OBJECT_TO_CLASS(object);
-        if (structure = objectclass->to_gst_structure(object)) {
+        if ((structure = objectclass->to_gst_structure(object))) {
             structure_list= g_list_append(structure_list, structure);
         }
         index = g_list_next(index);

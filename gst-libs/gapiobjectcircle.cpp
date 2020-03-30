@@ -162,6 +162,7 @@ static gboolean circle_render_ip(GapiObject *apiobject, GstVideoInfo *sink_info,
 {
     RETURN_VAL_IF_FAIL((apiobject != NULL && buf != NULL), FALSE);
     GApiObjectCircle *object = G_API_OBJECT_CIRCLE(apiobject);
+    UNUSED(object);
     return TRUE;
 }
 static gboolean circle_render(GapiObject *apiobject, GstBuffer *in_buf,
@@ -170,6 +171,7 @@ static gboolean circle_render(GapiObject *apiobject, GstBuffer *in_buf,
     RETURN_VAL_IF_FAIL((apiobject != NULL && in_buf != NULL
                         && out_buf != NULL), FALSE);
     GApiObjectCircle *object = G_API_OBJECT_CIRCLE(apiobject);
+    UNUSED(object);
     return TRUE;
 }
 
