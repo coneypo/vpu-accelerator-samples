@@ -16,7 +16,7 @@
 
 #ifdef HANTRO_JPEGENC_ROI_API
 
-#include <va_hantro/va_hantro.h>
+#include <va_common/va_hantro.h>
 
 #endif //#ifdef HANTRO_JPEGENC_ROI_API
 
