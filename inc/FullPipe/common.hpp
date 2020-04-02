@@ -28,7 +28,11 @@ struct InferMeta{
     int totalROI;
     int frameId;
     std::vector<ROI> rois;
-    bool drop;
+
+    float durationDetection{0.0f};
+    float durationClassification{0.0f};
+
+    bool drop{false};
 };
 
 #endif //#ifndef COMMON_HPP
