@@ -23,7 +23,7 @@
 #define STREAMS 1
 #define MAX_STREAMS 64
 #define GUI_INTEGRATION
-#define USE_FAKE_IE_NODE
+// #define USE_FAKE_IE_NODE
 using ms = std::chrono::milliseconds;
 
 #ifdef GUI_INTEGRATION
@@ -137,7 +137,10 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
                     {
                         std::lock_guard<std::mutex> lg(g_mutex);
                         boost::split(config->unixSocket, message, boost::is_any_of(","));
-                        config->numOfStreams = config->unixSocket.size();
+                        for (unsigned i = 0; i < config->unixSocket.size();++i){
+                            std::cout << "Value of config[" << i << "]: " << config->unixSocket[i] << std::endl;
+                        }
+                            config->numOfStreams = config->unixSocket.size();
                         // for(unsigned i = 0; i< config->numOfStreams; ++i){
                         //     config->unixSocket[i] = sockets[i];
                         // }
@@ -305,7 +308,7 @@ int main(){
 #ifdef USE_FAKE_IE_NODE
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
-    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, WID, g_detNetwork, "detection", 
+    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], g_detNetwork, "detection", 
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
 #endif
     auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, g_dropXFrameFRC, g_dropEveryXFrameFRC), "FRCNode");
@@ -315,7 +318,7 @@ int main(){
 #ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
 #else //#ifdef USE_FAKE_IE_NODE
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, WID, g_clsNetwork, "classification",
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], g_clsNetwork, "classification",
                                                            &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
 #endif //#ifdef USE_FAKE_IE_NODE
     if(config.numOfStreams > 1){

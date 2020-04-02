@@ -42,9 +42,19 @@ void InferNodeWorker::process(std::size_t batchIdx){
             input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
             input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
 
+            auto start = std::chrono::steady_clock::now();
+
             m_helperHDDL2.update(fd, input_height, input_width);
             m_helperHDDL2.infer();
             m_helperHDDL2.postproc();
+
+            auto end = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+            printf("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
+            
+            m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
+            m_fps = 1000.0f / m_durationAve;
+            m_cntFrame++;
 
             std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
             InferMeta* ptrInferMeta = new InferMeta;
@@ -63,6 +73,8 @@ void InferNodeWorker::process(std::size_t batchIdx){
             }
             ptrInferMeta->frameId = m_vecBlobInput[0]->frameId;
             ptrInferMeta->totalROI = vecObjects.size();
+            ptrInferMeta->durationDetection = m_durationAve;
+            ptrInferMeta->inferFps = m_fps;
             blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
                         if(payload != nullptr){
                             delete payload;
@@ -74,6 +86,7 @@ void InferNodeWorker::process(std::size_t batchIdx){
             blob->streamId = m_vecBlobInput[0]->streamId;
             sendOutput(blob, 0, ms(0));
             m_vecBlobInput.clear();
+
         }
         else if (m_mode == "classification")
         {
@@ -117,9 +130,21 @@ void InferNodeWorker::process(std::size_t batchIdx){
                 }
                 else
                 {
+                    auto start = std::chrono::steady_clock::now();
+
                     m_helperHDDL2.update(fd, input_height, input_width, vecROI);
                     m_helperHDDL2.infer();
                     m_helperHDDL2.postproc();
+
+                    auto end = std::chrono::steady_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                    printf("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    
+                    m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
+                    m_fps = 1000.0f / m_durationAve;
+                    m_cntFrame++;
+
+
                     auto &vecROI = m_helperHDDL2._vecROI;
 
                     printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROI.size());
@@ -151,7 +176,7 @@ void InferNodeWorker::process(std::size_t batchIdx){
             }
             
 
-
+            ptrInferMeta->durationClassification = m_durationAve;
             
             // std::this_thread::sleep_for(std::chrono::milliseconds(100));
             sendOutput(m_vecBlobInput[0], 0, ms(0));

@@ -3,7 +3,7 @@
 
 SenderNode::SenderNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, const std::vector<std::string>& unixSocket):
         hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_unixSocket(unixSocket), m_numOfWorkers(totalThreadNum),
-        m_numOfSockets(unixSocket.size()){
+        m_numOfSockets(unixSocket.size()),m_workerIdx(0u){
 
     if(m_numOfWorkers > 1){
         hva::hvaBatchingConfig_t batchingConfig;
@@ -26,6 +26,7 @@ std::shared_ptr<hva::hvaNodeWorker_t> SenderNode::createNodeWorker() const{
     std::unordered_map<unsigned, std::string> sockets;
     for(unsigned i = startIdx; i != endIdx; ++i){
         sockets[i] = m_unixSocket[i];
+        std::cout << "Assigning socket " << m_unixSocket[i]<< " to stream "<<i<< std::endl;
     }
     return std::shared_ptr<hva::hvaNodeWorker_t>(new SenderNodeWorker((SenderNode*)this, sockets));
 }
@@ -63,8 +64,14 @@ void SenderNodeWorker::process(std::size_t batchIdx){
 void SenderNodeWorker::init(){
     for(const auto& pair: m_unixSocket){
         InferMetaSender* temp = new InferMetaSender();
-        temp->connectServer(pair.second);
-        m_sender[pair.first] = std::move(temp);
+        std::cout << "Going to connect to " << pair.second << std::endl;
+        bool ret = temp->connectServer(pair.second);
+        if(ret){
+            m_sender[pair.first] = std::move(temp);
+        }
+        else{
+            std::cout << "Error: Fail to connect to " << pair.second << std::endl;
+        }
     }
 }
 
