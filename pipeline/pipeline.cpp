@@ -100,6 +100,25 @@ double Pipeline::getFps()
     }
     return fps;
 }
+
+double Pipeline::getOffloadPipeDecodingFps()
+{
+    double fps = 0.0;
+    if (m_fpsProb) {
+        fps = m_fpsProb->getOffloadDecFps();
+    }
+    return fps;
+}
+
+double Pipeline::getOffloadPipeInferenceFps()
+{
+    double fps = 0.0;
+    if (m_fpsProb) {
+        fps = m_fpsProb->getOffloadInferFps();
+    }
+    return fps;
+}
+
 gboolean Pipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
 {
     Pipeline* obj = (Pipeline*)data;

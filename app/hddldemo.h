@@ -28,6 +28,7 @@ public Q_SLOTS:
 private:
     void runPipeline();
     void initConfig();
+    void setTextOnLabel(const QString& labelName, const QString& text);
 
 #ifdef ENABLE_HVA
     void setupHvaProcess();

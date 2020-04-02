@@ -41,6 +41,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 
 
+set(PLUGIN_ROOT_DIR ${CMAKE_SOURCE_DIR}/gstreamer_plugin)
+
 ExternalProject_Add(msdk-gst
         GIT_REPOSITORY https://github.com/intel/gstreamer-media-SDK.git
         GIT_TAG "a4fce96f4a0acb98815875e39022d43a1541b663"

@@ -13,6 +13,8 @@ typedef struct BoundingBox {
     gchar* label;
     GstClockTime pts;
     gdouble probability;
+    gfloat inferfps;
+    gfloat decfps;
 } BoundingBox;
 
 #endif

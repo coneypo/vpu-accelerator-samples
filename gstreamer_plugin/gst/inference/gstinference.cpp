@@ -262,7 +262,7 @@ GST_PLUGIN_DEFINE(
 
 static bool deserialize(const std::string& serialized_data)
 {
-    const int element_nums = 7;
+    const int element_nums = 9;
     std::vector<std::string> fields;
     boost::split(fields, serialized_data, boost::is_any_of(","));
     if (!fields.empty()) {
@@ -286,6 +286,8 @@ static bool deserialize(const std::string& serialized_data)
         box.label = nullptr;
         box.pts = std::stoul(fields[begin_index + 5]);
         box.probability = stod(fields[begin_index + 6]);
+        box.inferfps = std::stof(fields[begin_index + 7]);
+        box.decfps = std::stof(fields[begin_index + 8]);
         pts = box.pts;
         if (box.height * box.width > 0) {
             boxes.push_back(std::move(box));
@@ -382,6 +384,8 @@ static int addMetaData(GstBuffer* buf)
                 meta->boundingBox[i].pts = current_frame_result->second[i].pts;
                 meta->boundingBox[i].width = current_frame_result->second[i].width;
                 meta->boundingBox[i].height = current_frame_result->second[i].height;
+                meta->boundingBox[i].inferfps = current_frame_result->second[i].inferfps;
+                meta->boundingBox[i].decfps = current_frame_result->second[i].decfps;
                 strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
             }
         }

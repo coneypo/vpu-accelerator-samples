@@ -55,6 +55,33 @@ HDDLDemo::HDDLDemo(QWidget* parent)
             fps_label->setStyleSheet("QLabel {color : white;}");
             hlayout->addWidget(fps_label);
 
+            QLabel* infer_fps_label = new QLabel(frame);
+            infer_fps_label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+            infer_fps_label->setText(QString("Infer FPS:"));
+            infer_fps_label->setStyleSheet("QLabel {color : white;}");
+            hlayout->addWidget(infer_fps_label);
+
+            QLabel* infer_fps_value_label = new QLabel(frame);
+            infer_fps_value_label->setObjectName(QString("label_inferfpsstream_") + QString::number(i * m_cols + j));
+            infer_fps_value_label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+            infer_fps_value_label->setText(QString("-N-A-"));
+            infer_fps_value_label->setStyleSheet("QLabel {color : white;}");
+            hlayout->addWidget(infer_fps_value_label);
+
+            QLabel* offload_dec_fps_label = new QLabel(frame);
+            offload_dec_fps_label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+            offload_dec_fps_label->setText(QString("Decoding FPS:"));
+            offload_dec_fps_label->setStyleSheet("QLabel {color : white;}");
+            hlayout->addWidget(offload_dec_fps_label);
+
+            QLabel* offload_dec_value_label = new QLabel(frame);
+            offload_dec_value_label->setObjectName(QString("label_decfpsstream_") + QString::number(i * m_cols + j));
+            offload_dec_value_label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+            offload_dec_value_label->setText(QString("-N-A-"));
+            offload_dec_value_label->setStyleSheet("QLabel {color : white;}");
+            hlayout->addWidget(offload_dec_value_label);
+
+
             QSpacerItem* hspacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
             hlayout->addItem(hspacer);
             hlayout->setContentsMargins(0, 0, 0, 0);
@@ -132,11 +159,21 @@ void HDDLDemo::channelWIDReceived(qintptr sd, WId wid)
     }
 }
 
+void HDDLDemo::setTextOnLabel(const QString& labelName, const QString& text)
+{
+    QLabel* label = this->findChild<QLabel*>(labelName);
+    if (label) {
+        label->setText(text);
+    }
+}
+
 void HDDLDemo::channelFpsReceived(qintptr sp, QString text)
 {
-    QLabel* fps_label = this->findChild<QLabel*>(QString("label_fpsstream_%1").arg(m_socketToIndex[sp]));
-    if (fps_label) {
-        fps_label->setText(text);
+    auto fpsList = text.split(":");
+    if (fpsList.size() == 3) {
+        setTextOnLabel(QString("label_fpsstream_%1").arg(m_socketToIndex[sp]), fpsList[0]);
+        setTextOnLabel(QString("label_inferfpsstream_%1").arg(m_socketToIndex[sp]), fpsList[1]);
+        setTextOnLabel(QString("label_decfpsstream_%1").arg(m_socketToIndex[sp]), fpsList[2]);
     }
 }
 
@@ -188,15 +225,23 @@ void HDDLDemo::runPipeline()
 
 void HDDLDemo::updateTotalFps()
 {
-    double total = 0;
+    double pipelineTotal = 0;
+    double inferTotal = 0;
     for (uint32_t i = 0; i < m_embededNum; i++) {
         QLabel* fps_label = this->findChild<QLabel*>(QString("label_fpsstream_%1").arg(i));
         if (fps_label) {
             QString fps = fps_label->text();
-            total += fps.toDouble();
+            pipelineTotal += fps.toDouble();
+        }
+
+        QLabel* inferfps_label = this->findChild<QLabel*>(QString("label_inferfpsstream_%1").arg(i));
+        if (inferfps_label) {
+            QString fps = inferfps_label->text();
+            inferTotal += fps.toDouble();
         }
     }
-    ui->label_decode_fps->setText(QString::number(total, 'f', 2));
+    ui->label_decode_fps->setText(QString::number(pipelineTotal, 'f', 2));
+    ui->label_inference_fps->setText(QString::number(inferTotal, 'f', 2));
 }
 
 #ifdef ENABLE_HVA
@@ -206,7 +251,7 @@ void HDDLDemo::setupHvaProcess()
     QString hvaWorkDirectory = QString::fromStdString(ConfigParser::instance()->getHvaWorkDirectory());
     auto hvaEnvironmentVariables = ConfigParser::instance()->getHvaEnvironmentVariables();
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    for(auto&entry: hvaEnvironmentVariables){
+    for (auto& entry : hvaEnvironmentVariables) {
         env.insert(QString::fromStdString(entry.first), QString::fromStdString(entry.second));
     }
     QProcess* hvaProcess = new QProcess(this);

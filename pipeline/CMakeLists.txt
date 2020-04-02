@@ -10,6 +10,7 @@ aux_source_directory(. DIR_SRCS)
 set(TARGET_NAME hddlpipeline)
 add_executable(${TARGET_NAME} ${DIR_SRCS})
 add_dependencies(${TARGET_NAME} hddldemoutils)
+add_dependencies(${TARGET_NAME} gstinference)
 
 target_include_directories(${TARGET_NAME} PRIVATE
         ${GSTREAMER_INCLUDE_DIRS}
@@ -17,11 +18,13 @@ target_include_directories(${TARGET_NAME} PRIVATE
         ${GIO_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Boost_INCLUDE_DIRS}
+        ${PLUGIN_ROOT_DIR}/gst-lib
         ${Qt5Widgets_INCLUDE_DIR}
         ${Qt5Network_INCLUDE_DIR})
 
 target_link_libraries(${TARGET_NAME}
         hddldemoutils
+        gstinference
         ${OpenCV_LIBRARIES}
         ${Qt5Widgets_LIBRARIES}
         ${Qt5Network_LIBRARIES}

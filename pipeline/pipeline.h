@@ -23,6 +23,8 @@ public:
     void process(PipelineAction action);
     void exposeVideoOverlay();
     double getFps();
+    double getOffloadPipeDecodingFps();
+    double getOffloadPipeInferenceFps();
 
 private:
     static gboolean busCallBack(GstBus* bus, GstMessage* msg, gpointer data);

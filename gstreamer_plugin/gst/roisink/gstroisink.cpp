@@ -198,8 +198,8 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
             }
             if(!needSend){
                 roiSink->sender->serializeSave(0,0,0,0,"", GST_BUFFER_PTS(metaBuffer), 1.0);
-                needSend = TRUE;
             }
+
             if (roiSink->isConnected) {
                 roiSink->sender->send();
             }

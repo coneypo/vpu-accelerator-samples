@@ -41,6 +41,16 @@ public:
         return m_renderedFps;
     }
 
+    inline double getOffloadDecFps()
+    {
+        return m_decFps;
+    }
+
+    inline double getOffloadInferFps()
+    {
+        return m_inferFps;
+    }
+
     inline void reset()
     {
         m_renderedFps = 0;
@@ -49,6 +59,8 @@ public:
         m_renderedFrames = 0;
         m_lastDropped = 0;
         m_lastRendered = 0;
+        m_inferFps = 0;
+        m_decFps = 0;
         m_lastTimeStamp = system_clock::now();
     }
 
@@ -82,6 +94,8 @@ private:
     std::atomic<uint64_t> m_droppedFrames;
     double m_renderedFps;
     double m_droppedFps;
+    std::atomic<float> m_decFps { 0 }; // offload pipeline decode fps
+    std::atomic<float> m_inferFps { 0 }; // offload pipeline inference fps
     uint64_t m_lastRendered;
     uint64_t m_lastDropped;
     int m_intervalInMs;

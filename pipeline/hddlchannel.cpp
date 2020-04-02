@@ -68,7 +68,9 @@ void HddlChannel::resizeEvent(QResizeEvent* event)
 void HddlChannel::timerEvent(QTimerEvent* event)
 {
     auto fps = m_pipeline->getFps();
-    m_dispatcher->sendString(QString::number(fps, 'f', 2));
+    auto offloadInferFps = m_pipeline->getOffloadPipeInferenceFps();
+    auto offloadDecFps = m_pipeline->getOffloadPipeDecodingFps();
+    m_dispatcher->sendString(QString::number(fps, 'f', 2)+":"+QString::number(offloadInferFps,'f', 2)+":"+QString::number(offloadDecFps,'f',2));
     fetchRoiData();
 }
 
