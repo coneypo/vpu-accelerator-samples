@@ -1,0 +1,60 @@
+{
+  "decode": [
+    {
+      "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+        "socket_name": "/tmp/gstreamer_ipc_0",
+        "display_sink": "mysink"
+      }
+    }
+  ],
+  "app": {
+    "timeout": 0,
+    "mode": "replay"
+  },
+  "hva": {
+    "cmd": "/home/kmb/cong/repos/gsthvasample/build/src/FullPipe/FullPipe",
+    "work_directory": "/home/kmb/cong/repos/gsthvasample",
+    "socket_name": "/tmp/gstreamer_ipc_second.sock",
+    "environment": [
+      {
+        "key": "INSTALL_DIR",
+        "value": "/home/kmb/kezhen/install"
+      },
+      {
+        "key": "LIBVA_DRIVERS_PATH",
+        "value": "/home/kmb/kezhen/install/lib"
+      },
+      {
+        "key": "LIBVA_DRIVER_NAME",
+        "value": "hddl_bypass"
+      },
+      {
+        "key": "LD_LIBRARY_PATH",
+        "value": "/home/kmb/kezhen/install/lib:/home/kmb/cong/repos/dldt/bin/intel64/Debug/lib/:/home/kmb/cong/repos/dldt/inference-engine/temp/tbb/lib"
+      },
+      {
+        "key": "GST_PLUGIN_PATH",
+        "value": "/home/kmb/kezhen/install/lib/gstreamer-1.0"
+      },
+      {
+        "key": "GST_VAAPI_ALL_DRIVERS",
+        "value": "1"
+      },
+      {
+        "key": "HANTROENCLIB",
+        "value": "h264"
+      },
+      {
+        "key": "HANTRODECLIB",
+        "value": "h264"
+      },
+      {
+        "key": "CONFIG_PATH",
+        "value": "/home/kmb/kezhen/connection.cfg"
+      }
+    ]
+  }
+}
+

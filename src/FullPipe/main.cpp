@@ -17,10 +17,13 @@
 #include <mutex>
 #include <condition_variable>
 #include <boost/algorithm/string.hpp>
+#include "hddl2plugin_helper.hpp"
+#include "InferNode.hpp"
 
 #define STREAMS 1
 #define MAX_STREAMS 64
 #define GUI_INTEGRATION
+#define USE_FAKE_IE_NODE
 using ms = std::chrono::milliseconds;
 
 #ifdef GUI_INTEGRATION
@@ -39,16 +42,18 @@ std::condition_variable g_cv;
 static std::string g_detNetwork;
 static std::string g_clsNetwork;
 static std::string g_videoFile;
-static unsigned g_dropEveryXFrame;
-static unsigned g_dropXFrame;
+static unsigned g_dropEveryXFrameDec;
+static unsigned g_dropXFrameDec;
+static unsigned g_dropEveryXFrameFRC;
+static unsigned g_dropXFrameFRC;
 
 bool checkValidNetFile(std::string filepath){
-    std::string::size_type suffix_pos = filepath.find(".xml");
+    std::string::size_type suffix_pos = filepath.find(".blob");
     if(suffix_pos == std::string::npos){
         std::cout<<"Invalid network suffix. Expect *.xml"<<std::endl;
         return false;
     }
-    std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
+    // std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
 
     auto p = boost::filesystem::path(filepath);
     if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
@@ -56,11 +61,11 @@ bool checkValidNetFile(std::string filepath){
         return false;
     }
 
-    auto p_bin = boost::filesystem::path(binFilepath);
-    if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
-        std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
-        return false;
-    }
+    // auto p_bin = boost::filesystem::path(binFilepath);
+    // if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
+    //     std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
+    //     return false;
+    // }
 
     return true;
 }
@@ -179,21 +184,28 @@ int main(){
         std::cout<<"Error: No input video file specified in config.json"<<std::endl;
         return -1;
     }
-    if(!jsParser.parse("Decode.DropXFrame",g_dropXFrame)){
-        std::cout<<"Warning: No frame dropping count specified in config.json"<<std::endl;
-        g_dropXFrame = 0;
+    if(!jsParser.parse("Decode.DropXFrame",g_dropXFrameDec)){
+        std::cout<<"Warning: No frame dropping count for decoder specified in config.json"<<std::endl;
+        g_dropXFrameDec = 0;
     }
-    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrame)){
-        g_dropEveryXFrame = 1024;
+    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrameDec)){
+        g_dropEveryXFrameDec = 1024;
+    }
+    if(!jsParser.parse("FRC.DropXFrame",g_dropXFrameFRC)){
+        std::cout<<"Warning: No frame dropping count for FRC Node specified in config.json"<<std::endl;
+        g_dropXFrameFRC = 0;
+    }
+    if(!jsParser.parse("FRC.DropEveryXFrame",g_dropEveryXFrameFRC)){
+        g_dropEveryXFrameFRC = 1024;
     }
 
     if(!jsParser.parse("Detection.Model",g_detNetwork)){
-        std::cout<<"No detection model specified in config.json. Use default network path"<<std::endl;
-        g_detNetwork = "yolov2_tiny_od_yolo_IR_fp32.xml";
+        std::cout<<"Error: No detection model specified in config.json. Use default network path"<<std::endl;
+        return 0;
     }
     if(!jsParser.parse("Classification.Model",g_clsNetwork)){
-        std::cout<<"No classification model specified in config.json. Use default network path"<<std::endl;
-        g_clsNetwork = "ResNet-50_fp32.xml";
+        std::cout<<"Error: No classification model specified in config.json. Use default network path"<<std::endl;
+        return 0;
     }
 
     if(!checkValidNetFile(g_detNetwork) || !checkValidNetFile(g_clsNetwork) || !checkValidVideo(g_videoFile)){
@@ -208,9 +220,9 @@ int main(){
 #endif
     GstPipeContainer::Config decConfig;
     decConfig.filename = g_videoFile;
-    decConfig.dropEveryXFrame = g_dropEveryXFrame;
-    decConfig.dropXFrame = g_dropXFrame;
     decConfig.enableFpsCounting = true;
+    decConfig.dropEveryXFrame = g_dropEveryXFrameDec;
+    decConfig.dropXFrame = g_dropXFrameDec;
 
 #ifdef GUI_INTEGRATION
     std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &config);
@@ -290,12 +302,22 @@ int main(){
     WIDLock.unlock();
 
     std::cout<<"All WIDs received. Start pipeline with "<<config.numOfStreams<<" streams."<<std::endl;
-
+#ifdef USE_FAKE_IE_NODE
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
-    auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,1,4), "FRCNode");
-    
+#else
+    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, WID, g_detNetwork, "detection", 
+                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
+#endif
+    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, g_dropXFrameFRC, g_dropEveryXFrameFRC), "FRCNode");
+
 #ifdef GUI_INTEGRATION
+
+#ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
+#else //#ifdef USE_FAKE_IE_NODE
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, WID, g_clsNetwork, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+#endif //#ifdef USE_FAKE_IE_NODE
     if(config.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
     }
@@ -303,9 +325,17 @@ int main(){
         pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
     }
     // auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
-#else
+
+#else //#ifdef GUI_INTEGRATION
+
+#ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
-#endif
+#else //#ifdef USE_FAKE_IE_NODE
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 1, 1, WID, g_clsNetwork, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+#endif //#ifdef USE_FAKE_IE_NODE
+
+#endif //#ifdef GUI_INTEGRATION
     auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,config.numOfStreams,vWID), "jpegNode");
 
     if(config.numOfStreams > 1){

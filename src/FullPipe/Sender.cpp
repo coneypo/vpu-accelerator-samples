@@ -55,7 +55,7 @@ void SenderNodeWorker::process(std::size_t batchIdx){
                     rois[i].confidence, inferFps, decFps);
         }
         m_sender[streamIdx]->send();
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(50));
         std::cout<<"Sender complete blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
     }
 }

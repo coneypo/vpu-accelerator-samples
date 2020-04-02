@@ -8,7 +8,7 @@
 #include <chrono>
 #include <iomanip>
 
-static std::string g_recv_socket = "/tmp/gstreamer_ipc_recv.sock";
+static std::string g_recv_socket = "/tmp/gstreamer_ipc_first.sock";
 using ms = std::chrono::milliseconds;
 
 int receiveRoutine()
@@ -86,7 +86,7 @@ int main(int argc, const char* argv[])
 
     auto poller = HddlUnite::Poller::create("client");
     auto conn = HddlUnite::Connection::create(poller);
-    while(!conn->connect("/tmp/gstreamer_ipc111.sock")){
+    while(!conn->connect("/tmp/gstreamer_ipc_second.sock")){
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     std::string toSend = g_recv_socket;

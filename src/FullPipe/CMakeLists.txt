@@ -42,21 +42,25 @@ find_package(Threads REQUIRED)
 
 find_package(HddlUnite REQUIRED)
 
-# find_package(InferenceEngine REQUIRED)
+find_package(InferenceEngine REQUIRED)
 
-# find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED)
 
 add_executable(FullPipe "${FULL_PIPE_SRC}" "${FULL_PIPE_SRC_c}")
 target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:${FULL_PIPE_INC_DIR}>")
 
 target_include_directories(FullPipe PUBLIC "${HDDLUNITE_INCLUDE_DIR}")
-# target_include_directories(FullPipe PUBLIC "${InferenceEngine_INCLUDE_DIRS}")
-# target_include_directories(FullPipe PUBLIC "${OpenCV_INCLUDE_DIRS}")
+target_include_directories(FullPipe PUBLIC "${InferenceEngine_INCLUDE_DIRS}")
+target_include_directories(FullPipe PUBLIC "${OpenCV_INCLUDE_DIRS}")
+target_include_directories(FullPipe PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../inc/FullPipe/hddl2plugin")
+# target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/include/hddl2>")
+# target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/src/hddl2_plugin/include>")
 
 target_link_libraries(FullPipe "${HDDLUNITE_LIB}")
-# target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")
-# target_link_libraries(FullPipe "${InferenceEngine_LIBRARIES}")
+target_link_libraries(FullPipe "${OpenCV_LIBRARIES}")
+target_link_libraries(FullPipe "${InferenceEngine_LIBRARIES}")
 # target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
+target_link_libraries(FullPipe "/usr/lib/libXLink.so")
 
 # message("InferenceEngine_LIB: ${InferenceEngine_LIBRARIES}")
 
@@ -72,7 +76,7 @@ target_link_libraries(FullPipe "${LIBVA_DRM_LIBRARIES}")
 
 target_include_directories(FullPipe PUBLIC "${LIBVA_DRM_INCLUDE_DIRS}")
 
-target_link_libraries(FullPipe glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0 gstallocators-1.0 boost_filesystem)
+target_link_libraries(FullPipe -L/opt/intel/gst/lib glib-2.0 gstreamer-1.0 gstbase-1.0 gobject-2.0 gstapp-1.0 gstallocators-1.0 boost_filesystem)
 target_include_directories(FullPipe PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_INCLUDE_DIRS}" "${BOOST_INC_DIR}")
 
 target_include_directories(FullPipe PUBLIC ${Boost_INCLUDE_DIR})

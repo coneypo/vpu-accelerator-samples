@@ -11,3 +11,4 @@ add_subdirectory(FullPipe)
 add_subdirectory(FullPipeGUITest)
 
 add_subdirectory(FullPipeGUITestSock)
+add_subdirectory(hddl2plugin_test)

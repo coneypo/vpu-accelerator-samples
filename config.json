@@ -1,9 +1,9 @@
 {
     "Detection":{
-        "Model":"yolov2_tiny_od_yolo_IR_fp32.xml"
+        "Model":"/home/kmb/cong/graph/opt/yolotiny/yolotiny.blob"
     },
     "Classification":{
-        "Model":"ResNet-50_fp32.xml"
+        "Model":"/home/kmb/cong/graph/opt/resnet/resnet.blob"
     },
     "Decode":{
         "Video":"./barrier_1080x720.h264",
@@ -11,6 +11,10 @@
         "DropXFrame": 0
     },
     "GUI":{
-        "Socket":"/tmp/gstreamer_ipc111.sock"
+        "Socket":"/tmp/gstreamer_ipc_second.sock"
+    },
+    "FRC":{
+        "DropEveryXFrame":4,
+        "DropXFrame":3
     }
 }

@@ -836,7 +836,12 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             }
         }
 
-        std::cout<<"KL: jpeg blob received with FD: "<<*fd<<" with streamid "<<vInput[0]->streamId<<" and frame id "<<vInput[0]->frameId<<std::endl;
+        
+        if (meta->rois[i_roi].x == 0 && meta->rois[i_roi].y == 0 && meta->rois[i_roi].width == 0 && meta->rois[i_roi].height == 0){
+            continue;
+        }
+
+        std::cout << "KL: jpeg blob received with FD: " << *fd << " with streamid " << vInput[0]->streamId << " and frame id " << vInput[0]->frameId << std::endl;
         do{
             reApplyFreeSurface = false;
             SurfacePool::Surface* surface = nullptr;
@@ -976,10 +981,28 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
 
                 misc_param->type =(VAEncMiscParameterType) HANTROEncMiscParameterTypeEmbeddedPreprocess;
                 ROIData= (HANTROEncMiscParameterBufferEmbeddedPreprocess*)misc_param->data;
-                ROIData->cropping_offset_x = alignTo(meta->rois[i_roi].x);
-                ROIData->cropping_offset_y = alignTo(meta->rois[i_roi].y);
-                ROIData->cropped_width = alignTo(meta->rois[i_roi].width);
-                ROIData->cropped_height = alignTo(meta->rois[i_roi].height);
+                int cropx = alignTo(meta->rois[i_roi].x);
+                int cropy = alignTo(meta->rois[i_roi].y);
+                if (cropx > alignTo(m_picWidth) - 128)
+                    cropx = alignTo(m_picWidth) - 128;
+                if (cropy > alignTo(m_picHeight) - 128)
+                    cropy = alignTo(m_picHeight) - 128;
+                int cropw = alignTo(meta->rois[i_roi].x + meta->rois[i_roi].width) - cropx;
+                int croph = alignTo(meta->rois[i_roi].y + meta->rois[i_roi].height) - cropy;
+                if (cropx + cropw >= m_picWidth){
+                    cropw = alignTo(m_picWidth) - 64 - cropx;
+                }
+                if (cropy + croph >= m_picHeight){
+                    croph = alignTo(m_picHeight) - 64 - cropy;
+                }
+                if(cropw <= 0)
+                    cropw = 64;
+                if(croph <= 0)
+                    croph = 64;
+                ROIData->cropping_offset_x = cropx;
+                ROIData->cropping_offset_y = cropy;
+                ROIData->cropped_width = cropw;
+                ROIData->cropped_height = croph;
 
                 va_status = vaUnmapBuffer(m_vaDpy, (picPool[index].ROIDataBufId));
                 if(va_status != VA_STATUS_SUCCESS){
