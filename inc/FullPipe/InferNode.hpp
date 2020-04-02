@@ -35,7 +35,7 @@ public:
 
     float m_fps {0.0f};
     float m_durationAve {0.0f};
-    uint64_t m_cntFrame {0.0f};
+    uint64_t m_cntFrame {0ul};
 
 private:
     std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;

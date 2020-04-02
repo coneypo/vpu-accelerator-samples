@@ -7,7 +7,7 @@
     },
     "Decode":{
         "Video":"./barrier_1080x720.h264",
-        "DropEveryXFrame": 6,
+        "DropEveryXFrame": 4,
         "DropXFrame": 0
     },
     "GUI":{
@@ -15,6 +15,6 @@
     },
     "FRC":{
         "DropEveryXFrame":4,
-        "DropXFrame":1
+        "DropXFrame":3
     }
 }
