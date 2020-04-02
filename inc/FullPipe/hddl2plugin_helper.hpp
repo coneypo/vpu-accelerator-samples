@@ -13,18 +13,20 @@
 #include <ie_compound_blob.h>
 
 #include <opencv2/opencv.hpp>
-#include "WorkloadContext.h"
+#include <WorkloadContext.h>
 #include <HddlUnite.h>
 #include <RemoteMemory.h>
-#include "hddl2plugin/hddl2_params.hpp"
 
-#include "ie_compound_blob.h"
+#include "hddl2plugin/hddl2_params.hpp"
 #include "tinyYolov2_post.h"
 #include "region_yolov2tiny.h"
 #include "detection_helper.hpp"
 #include "ImageNetLabels.hpp"
 
 #include <fstream>
+#include <chrono>
+
+#define HDDLPLUGIN_PROFILE
 
 // using namespace InferenceEngine;
 namespace IE = InferenceEngine;
@@ -182,9 +184,15 @@ public:
         cv::Mat matTemp{_heightInput * 3 / 2, _widthInput, CV_8UC1, buf};
         cv::cvtColor(matTemp, _frameBGR, cv::COLOR_YUV2BGR_NV12);
 
+        cv::imwrite("./input-nv12-cvt.jpg", _frameBGR);
 #endif
         // ---- Create remote blob by using already exists fd
         assert(_remoteMemoryFd >= 0);
+
+#ifdef HDDLPLUGIN_PROFILE        
+        auto start = std::chrono::steady_clock::now();
+#endif
+
 #if 0
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)}};
 #else
@@ -193,6 +201,14 @@ public:
 #endif
         auto inputsInfo = _executableNetwork.GetInputsInfo();
         _inputName = _executableNetwork.GetInputsInfo().begin()->first;
+        
+#ifdef HDDLPLUGIN_PROFILE  
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+
+        start = std::chrono::steady_clock::now();
+#endif
 
 #if 0
         IE::InputInfo::CPtr inputInfoPtr = _executableNetwork.GetInputsInfo().begin()->second;
@@ -205,12 +221,24 @@ public:
 #endif
         assert(nullptr != _ptrRemoteBlob);
 
+#ifdef HDDLPLUGIN_PROFILE  
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+
+#if 0//todo, only for debug
         printf("[debug] start dump input\n");
         std::ofstream fileInput("./input.bin", std::ios_base::out | std::ios_base::binary);
 
         const size_t inputSize = _ptrRemoteBlob->byteSize();
         fileInput.write(_ptrRemoteBlob->buffer(), inputSize);
         printf("[debug] end dump input\n");
+#endif
+
+#ifdef HDDLPLUGIN_PROFILE  
+        start = std::chrono::steady_clock::now();
+#endif
 
 #if 0
         // ---- Set remote blob as input for infer request         
@@ -224,6 +252,13 @@ public:
         // ---- Set remote NV12 blob with preprocessing information
         _inferRequest.SetBlob(_inputName, _ptrRemoteBlob, preprocInfo);
 #endif
+
+#ifdef HDDLPLUGIN_PROFILE  
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+
         printf("[debug] end create input tensor\n");
     }
 
@@ -233,13 +268,31 @@ public:
 
         // ---- Run the request synchronously
         printf("[debug] start inference\n");
+
+#ifdef HDDLPLUGIN_PROFILE        
+        auto start = std::chrono::steady_clock::now();
+#endif
         _inferRequest.Infer();
+#ifdef HDDLPLUGIN_PROFILE  
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
         printf("[debug] end inference\n");
 
         // --- Get output
         printf("[debug] start dump output file\n");
+
+#ifdef HDDLPLUGIN_PROFILE        
+        start = std::chrono::steady_clock::now();
+#endif
         auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
         _ptrOutputBlob = _inferRequest.GetBlob(outputBlobName);
+#ifdef HDDLPLUGIN_PROFILE  
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] GetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
 
 #if 0 //only for debug
         std::ofstream file(outputPath, std::ios_base::out | std::ios_base::binary);
@@ -252,8 +305,8 @@ public:
 
         const size_t outputSize = _ptrOutputBlob->byteSize();
         file.write(_ptrOutputBlob->buffer(), outputSize);
-        printf("[debug] end dump output file\n");
 #endif
+        printf("[debug] end dump output file\n");
         assert(_ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
     }
 
@@ -346,7 +399,16 @@ public:
         vecObjects = ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(_ptrOutputBlob, _heightInput, _widthInput,
                                                                .6, YoloV2Tiny::fillRawNetOut);
 #else
+
+#ifdef HDDLPLUGIN_PROFILE
+        auto start = std::chrono::steady_clock::now();
+#endif
         auto blobDequant = deQuantize(_ptrOutputBlob, 0.271045, 210);
+#ifdef HDDLPLUGIN_PROFILE
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] dequant duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
         // auto desc = output_blob->getTensorDesc();
         // auto dims = desc.getDims();
         // float *data = static_cast<float *>(output_blob->buffer());
