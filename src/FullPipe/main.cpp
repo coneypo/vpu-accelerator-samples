@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include "hddl2plugin_helper.hpp"
 #include "InferNode.hpp"
+#include "InferNode_unite.hpp"
 
 #define STREAMS 1
 #define GUI_INTEGRATION
@@ -274,13 +275,22 @@ int main(){
     }
 
     uint64_t WID = WIDFuture.get();
-    auto& detNode = pl.setSource(std::make_shared<InferNode>(1,1,1, 
-    WID, g_detNetwork, "detection",&HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
+
+    // auto& detNode = pl.setSource(std::make_shared<InferNode>(1,1,1, 
+    // WID, g_detNetwork, "detection",&HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
+
+    auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,1, 
+    WID, g_detNetwork, "detection", 416*416*3, 13*13*125), "detNode");
+
     auto& FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1,1,0,g_dropXFrameFRC,g_dropEveryXFrameFRC), "FRCNode");
     
 #ifdef GUI_INTEGRATION
-    auto& clsNode = pl.addNode(std::make_shared<InferNode>(1,2,1, 
-    WID, g_clsNetwork, "classification", &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+    // auto& clsNode = pl.addNode(std::make_shared<InferNode>(1,2,1, 
+    // WID, g_clsNetwork, "classification", &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+
+    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,1, 
+    WID, g_clsNetwork, "classification", 224*224*3, 1000), "clsNode");
+
     auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
 #else
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");

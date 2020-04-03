@@ -558,8 +558,8 @@ public:
         return ((x + N - 1) & ~(N - 1));
     }
 
-private:
-    IE::Blob::Ptr deQuantize(const IE::Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint)
+public:
+    static IE::Blob::Ptr deQuantize(const IE::Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint)
     {
         const IE::TensorDesc quantTensor = quantBlob->getTensorDesc();
         const IE::TensorDesc outTensor = IE::TensorDesc(
@@ -581,7 +581,7 @@ private:
         return outputBlob;
     }
 
-    IE::Blob::Ptr yoloLayer_yolov2tiny(const IE::Blob::Ptr &lastBlob, int inputHeight, int inputWidth)
+    static IE::Blob::Ptr yoloLayer_yolov2tiny(const IE::Blob::Ptr &lastBlob, int inputHeight, int inputWidth)
     {
         const IE::TensorDesc quantTensor = lastBlob->getTensorDesc();
         const IE::TensorDesc outTensor = IE::TensorDesc(InferenceEngine::Precision::FP32,
@@ -600,7 +600,7 @@ private:
         return outputBlob;
     }
 
-    std::vector<std::string> readLabelsFromFile(const std::string &labelFileName)
+    static std::vector<std::string> readLabelsFromFile(const std::string &labelFileName)
     {
         std::vector<std::string> labels;
 
