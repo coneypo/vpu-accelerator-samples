@@ -124,20 +124,14 @@ keyshot_process(mediapipe_t *mp, void *userdata)
         MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "bitrate", bps, NULL);
     } else if (key[0] == 'f') {
         static unsigned int fps = 30;
-
+        MEDIAPIPE_GET_PROPERTY(ret, mp, element_name, "dynamic-framerate", &fps, NULL);
         if (fps == 30) {
-            fps = 10;
-            caps = gst_caps_from_string("video/x-raw,framerate=10/1");
+            fps = 60;
+            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "dynamic-framerate", fps, NULL);
         } else {
             fps = 30;
-            caps = gst_caps_from_string("video/x-raw,framerate=30/1");
+            MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "dynamic-framerate", fps, NULL);
         }
-
-        MEDIAPIPE_SET_PROPERTY(ret, mp, "videorate_caps", "caps", caps, NULL);
-        MEDIAPIPE_SET_PROPERTY(ret, mp, element_name, "fps", fps, NULL);
-        MEDIAPIPE_SET_PROPERTY(ret, mp, "enc1", "fps", fps, NULL);
-        MEDIAPIPE_SET_PROPERTY(ret, mp, "enc2", "fps", fps, NULL);
-        gst_caps_unref(caps);
     } else if (key[0] == 'v') {
         int br_mode = 0;
         MEDIAPIPE_GET_PROPERTY(ret, mp, element_name, "rate-control", &br_mode, NULL);
