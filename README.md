@@ -86,3 +86,9 @@ export GST_PLUGIN_PATH='<install path>/lib'
 cd <install path>/bin
 ./hddldemo -c ../config.txt
 ```
+
+
+### Knowning issue
+
+Q. Build opencv error with protobuf
+A. cmake -DBUILD_LIST=core,calib3d,imgproc,imgcodecs,highgui -DBUILD_PROTOBUF=OFF -DWITH_VA_INTEL=ON -DWITH_IPP=OFF -DWITH_CUDA=OFF -DOPENCV_GENERATE_PKGCONFIG=ON -DBUILD_TESTS=OFF
