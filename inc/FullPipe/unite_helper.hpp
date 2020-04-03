@@ -1,3 +1,4 @@
+#pragma once
 #include "RemoteMemory.h"
 #include "InferGraph.h"
 #include <InferBlob.h>

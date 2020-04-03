@@ -21,6 +21,7 @@
 
 #include "detection_helper.hpp"
 #include "tinyYolov2_post.h"
+#include "hddl2plugin_helper.hpp"
 
 
 
@@ -400,6 +401,9 @@ namespace hva
 
 void UniteHelper::setup() {
 
+    videoHeight = HDDL2pluginHelper_t::alignTo<64>(videoHeight);
+    videoWidth = HDDL2pluginHelper_t::alignTo<64>(videoWidth);
+    videoWidthStride = videoWidth;
     HddlUnite::WorkloadContext::Ptr context = _workloadContextHelper.getWorkloadContext();
     _inferDataPtr = HddlUnite::Inference::makeInferData(_auxBlob, context, needPP, 10);
 
@@ -484,12 +488,13 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
     // }
 
     FILE* fp;
+#if 0 
     fp = fopen(inputPath.c_str(), "rb");
 
     void* ptrTemp = malloc(inputSizePP);
     fread(ptrTemp, 1, inputSizePP, fp);
     fclose(fp);
-
+#endif
     // HddlUnite::SMM::RemoteMemory temp(*_workloadContextHelper.getWorkloadContext(), _remoteMemoryFd, inputSizePP);
     // temp.syncFromDevice(ptrTemp, inputSizePP);
 
@@ -504,7 +509,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
 
     cv::Mat frameGray;
     cv::Mat frameBGR;
-
+#if 0
     printf("[debug] videoHeight: %d, videoWidth: %d, inputSizePP: %d\n", videoHeight, videoWidth, inputSizePP);
     printf("[debug] align videoHeight: %d, align videoWidth: %d\n", alignTo<64>(videoHeight), alignTo<64>(videoWidth));
     frameGray = cv::Mat(cv::Size(alignTo<64>(videoWidth),alignTo<64>(videoHeight)*3/2), CV_8UC1);
@@ -513,7 +518,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
     cv::cvtColor(frameGray, frameBGR, cv::COLOR_YUV2BGR_NV12);
 
     free(ptrTemp);
-
+#endif
 
     auto graph = _uniteGraphHelper->getGraph();
     HddlStatusCode inferStatus = HddlUnite::Inference::inferSync(*graph, _inferDataPtr);
@@ -541,7 +546,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
         // fp = fopen("output.bin", "wb");
         // fwrite(memoryBuffer.data(), 1, memoryBuffer.size(), fp);            
         // fclose(fp);
-
+#if 0 //u8 output
         InferenceEngine::TensorDesc desc(InferenceEngine::Precision::FP32,
             {1, 1, 1, memoryBuffer.size() / 2}, InferenceEngine::Layout::NHWC);
         
@@ -549,10 +554,19 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
         ptrBlob->allocate();
         float* ptrFP32 = ptrBlob->buffer();
         hva::f16tof32Arrays(ptrFP32, (short*)(memoryBuffer.data()), memoryBuffer.size() / 2);
-
+#else
+        InferenceEngine::TensorDesc desc(InferenceEngine::Precision::U8,
+            {1, 1, 1, memoryBuffer.size()}, InferenceEngine::Layout::NHWC);
+        
+        InferenceEngine::Blob::Ptr ptrBlob = InferenceEngine::make_shared_blob<uint8_t>(desc, const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(memoryBuffer.data())));
+        printf("[debug] output size is %ld\n", memoryBuffer.size());
+#endif
         //post processing
-        if ("resnet" == graphName)
+        if ("resnet" == graphName || "classification" == graphName)
         {
+
+#if 0 //u8 output
+
             std::vector<int>& vecIdx = _vecIdx;
             std::vector<std::string>& vecLabel = _vecLabel;
             std::vector<float>& vecConfidence = _vecConfidence;
@@ -580,12 +594,116 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
                 vecConfidence.push_back(exp(max) / sum);
                 printf("[debug] roi label is : %s\n", labels[idx].c_str());
             }
+#else
+            auto blobDequant = HDDL2pluginHelper_t::deQuantize(ptrBlob, 0.151837, 67);
+            auto* ptrFP32 = blobDequant->buffer().as<float*>();
+
+            std::vector<int>& vecIdx = _vecIdx;
+            std::vector<std::string>& vecLabel = _vecLabel;
+            std::vector<float>& vecConfidence = _vecConfidence;
+            vecIdx.clear();
+            vecLabel.clear();
+            vecConfidence.clear();
+            for (int i = 0; i < std::min(_vecROI.size(), 10ul); i++)
+            {
+                float* ptrFP32_ROI = ptrFP32 + outputSize * i;
+                float max = 0.0f;
+                float sum = 0.0f;
+                int idx = 0;
+                for (int j = 0; j < outputSize; j++)
+                {
+                    sum += exp(ptrFP32_ROI[j]);
+                    if (ptrFP32_ROI[j] > max)
+                    {
+                        idx = j;
+                        max = ptrFP32_ROI[j];
+                    }
+                }
+                vecIdx.push_back(idx);
+                std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
+                vecLabel.push_back(labels[idx]);
+                vecConfidence.push_back(exp(max) / sum);
+                printf("[debug] roi label is : %s\n", labels[idx].c_str());
+            }
+#endif
         }
-        if ("yolotiny" == graphName)
+        if ("yolotiny" == graphName || "detection" == graphName)
         {
             std::vector<DetectedObject_t>& vecOjects = _vecOjects;
-            vecOjects =  ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(ptrBlob, videoHeight, videoWidth,
-                                        .6, YoloV2Tiny::fillRawNetOut);
+#if 0
+        vecObjects = ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(_ptrOutputBlob, _heightInput, _widthInput,
+                                                               .6, YoloV2Tiny::fillRawNetOut);
+#else
+
+#ifdef HDDLPLUGIN_PROFILE
+        auto start = std::chrono::steady_clock::now();
+#endif
+        auto blobDequant = HDDL2pluginHelper_t::deQuantize(ptrBlob, 0.271045, 210);
+#ifdef HDDLPLUGIN_PROFILE
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] dequant duration is %ld, mode is %s\n", duration, graphPath.c_str());
+#endif
+        // auto desc = output_blob->getTensorDesc();
+        // auto dims = desc.getDims();
+        // float *data = static_cast<float *>(output_blob->buffer());
+        // Blob::Ptr dequantOut = InferNodeWorker::deQuantize(output_blob, 0.33713474f, 221);
+
+        // FILE* fp = fopen("dumpOutput.bin", "wb");
+        // fwrite((unsigned char*)data, 1, output_blob->byteSize(), fp);
+        // fclose(fp);
+
+        // Region YOLO layer
+        // const int imageWidth = 1080;
+        // const int imageHeight = 720;
+        IE::Blob::Ptr detectResult = HDDL2pluginHelper_t::yoloLayer_yolov2tiny(blobDequant, videoHeight, videoWidth);
+
+        std::vector<DetectedObject_t>& vecObjects = _vecOjects;
+        vecObjects.clear();
+
+        // Print result.
+        size_t N = detectResult->getTensorDesc().getDims()[2];
+        if (detectResult->getTensorDesc().getDims()[3] != 7)
+        {
+            throw std::logic_error("Output item should have 7 as a last dimension");
+        }
+        const float *rawData = detectResult->cbuffer().as<const float *>();
+
+        // imageid,labelid,confidence,x0,y0,x1,y1
+        for (size_t i = 0; i < N; i++)
+        {
+            if (rawData[i * 7 + 2] > 0.001)
+            {
+                DetectedObject_t object;
+
+                int x1,y1,x2,y2,w,h;
+                x1 = (rawData[i * 7 + 3]) * videoWidth / 416;
+                y1 = (rawData[i * 7 + 4]) * videoHeight / 416;
+                w = (rawData[i * 7 + 5] - rawData[i * 7 + 3]) * videoWidth / 416;
+                h = (rawData[i * 7 + 6] - rawData[i * 7 + 4]) * videoHeight / 416;
+                object.confidence = rawData[i * 7 + 2];
+                
+                x2 = (x1 + w) & (~1);
+                y2 = (y1 + h) & (~1);
+                x1 = x1 & (~1);
+                y1 = y1 & (~1);
+
+                object.x = x1;
+                object.y = y1;
+                object.width = x2 - x1;
+                object.height = y2 - y1;
+
+
+                vecObjects.push_back(object);
+
+                std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
+                std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
+                          << rawData[i * 7 + 4] << ", "
+                          << rawData[i * 7 + 5] << ", "
+                          << rawData[i * 7 + 6] << std::endl;
+            }
+        }
+#endif
 
             for (auto& object : vecOjects)
             {
