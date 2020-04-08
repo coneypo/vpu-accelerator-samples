@@ -1,0 +1,25 @@
+From b04d896bf68e06393d1160c74c05d8a47ba746b0 Mon Sep 17 00:00:00 2001
+From: "River,Li" <river.li@intel.com>
+Date: Sun, 22 Mar 2020 11:33:39 +0800
+Subject: [PATCH] fix cc build error mmitigate-rop
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 213d5a8..28f82df 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -164,7 +164,7 @@ target_compile_options(${PROJECT_NAME}_objlib
+ target_compile_options(${PROJECT_NAME}_objlib PRIVATE -fPIE -fPIC)
+ 
+ if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_C_COMPILER_VERSION VERSION_GREATER 6)
+-    target_compile_options(${PROJECT_NAME}_objlib PRIVATE -mmitigate-rop)
++    target_compile_options(${PROJECT_NAME}_objlib PRIVATE)
+ endif()
+ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -z noexecstack -z relro -z now")
+ 
+-- 
+2.17.1
+

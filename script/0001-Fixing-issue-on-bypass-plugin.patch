@@ -1,0 +1,206 @@
+From 0770504f2b75435894466002d4719c212397d45b Mon Sep 17 00:00:00 2001
+From: "River,Li" <river.li@intel.com>
+Date: Thu, 26 Mar 2020 20:14:30 +0800
+Subject: [PATCH] Fixing issue on bypass plugin
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The main change is to move workload context creation from gst_bypass_class_init to gst_bypass_init. When I was testing
+multistream vaapi application, it seems gst_bypass_class_init would only be called *once*, though multiple gst_launch in
+different threads, which then results in the same WID across different threads/pipelines.
+Making the change above makes the pipeline behave more like we expected, though I’m not sure
+whether it is logical and proper to do so.
+This patch is from Kezhen.
+---
+ cmake/libva_include.cmake        |  2 ++
+ sample/unite/plugins/gstbypass.c | 59 ++++++++++++++++++++++++++++----
+ sample/unite/plugins/gstbypass.h |  5 +++
+ 3 files changed, 59 insertions(+), 7 deletions(-)
+
+diff --git a/cmake/libva_include.cmake b/cmake/libva_include.cmake
+index ada5372..f73e08d 100644
+--- a/cmake/libva_include.cmake
++++ b/cmake/libva_include.cmake
+@@ -19,6 +19,8 @@
+ # SOFTWARE.
+ 
+ function (FindLibva libva)
++
++#find_library (LIBVA libva)
+ pkg_check_modules (LIBVA REQUIRED libva>=1.0.0)
+ 
+ set (LIBVA_LIBS "")
+diff --git a/sample/unite/plugins/gstbypass.c b/sample/unite/plugins/gstbypass.c
+index b0ac311..a36dfe7 100644
+--- a/sample/unite/plugins/gstbypass.c
++++ b/sample/unite/plugins/gstbypass.c
+@@ -29,8 +29,9 @@
+ //!
+ 
+ #include "gstbypass.h"
++#include <gst/gststructure.h>
++#include <gst/gstquery.h>
+ 
+-#include <WorkloadContextC.h>
+ #include <unistd.h>
+ #include <stdio.h>
+ #include <sys/syscall.h>
+@@ -60,6 +61,36 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
+     GST_PAD_ALWAYS,
+     GST_STATIC_CAPS ("ANY"));
+ 
++static gboolean gst_bypass_sink_query (GstPad    *pad,
++                                         GstObject *parent,
++                                         GstQuery  *query){
++    GST_DEBUG("Query received by bypass\n");
++    gboolean ret = FALSE;
++    GstBypass *obj = GST_BYPASS (parent);
++
++    switch(GST_QUERY_TYPE (query)){
++        case GST_QUERY_CUSTOM:
++            GST_DEBUG("Custom query received by bypass\n");
++            GstStructure *s = gst_query_writable_structure (query);
++
++            const gchar *q_type = gst_structure_get_string (s, "BypassQueryType");
++            if (q_type != NULL && g_str_equal (q_type, "WorkloadContextQuery")){
++                WorkloadID wID = obj->wID;
++                if(wID == NULL){
++                    GST_ERROR("Fail to get workload id in query\n");
++                }
++                gst_structure_set (s, "WorkloadContextId", G_TYPE_UINT64, (guint64)wID, NULL);
++                GST_DEBUG("WorkloadCtx set to query by bypass\n");
++                ret = TRUE;
++            }
++            break;
++        default:
++            ret = gst_pad_query_default (pad, parent, query);
++            break;
++    }
++    return ret;
++}
++
+ static GstFlowReturn gst_bypass_chain (GstPad *pad, GstObject *parent, GstBuffer *buf)
+ {
+     GstBypass *bypass = GST_BYPASS (parent);
+@@ -80,7 +111,7 @@ static void gst_bypass_finalize (GObject *object)
+         GST_ERROR ("Failed to obtain workload %ld\n", workloadId);
+     }
+ 
+-    destroyWorkloadContext (workloadId);
++    destroyWorkloadContext(workloadId);
+ 
+     GST_DEBUG ("Destroyed workload %lu with pid %u tid %lu\n", workloadId, getpid(),
+ 	syscall (SYS_gettid));
+@@ -95,7 +126,7 @@ static void gst_bypass_dispose (GObject *object)
+     G_OBJECT_CLASS (parent_class)->dispose (object);
+ }
+ 
+-static void gst_bypass_workload_init ()
++static WorkloadID gst_bypass_workload_init ()
+ {
+     WorkloadID workloadId;
+     ContextHint contextHint;
+@@ -107,28 +138,35 @@ static void gst_bypass_workload_init ()
+     contextHint.ResolutionWidth = 640;
+     contextHint.ResolutionHeight = 480;
+     contextHint.mediaFps = 29.7;
+-    contextHint.internalWorkload = 0;
+ 
+     hddlStatus = getWorkloadContextId (getpid (), syscall (SYS_gettid), &workloadId);
+ 
+     if (hddlStatus != HDDL_OK)
+     {
++        GST_DEBUG ("Fail to get WID from pid+tid. New WID to be created\n");
++
+         hddlStatus = createWorkloadContext (&workloadId, &contextHint);
+ 
+         if (hddlStatus != HDDL_OK)
+         {
+ 	    GST_ERROR ("Failed to create workload context\n");
++        return NULL;
+         }
+ 
+         GST_DEBUG ("Created workload %lu with pid %u tid %lu\n", workloadId, getpid(),
+ 	    syscall (SYS_gettid));
+     }
++
++    return workloadId;
+ }
+ 
+ static void gst_bypass_class_init (GstBypassClass *klass)
+ {
+     GST_DEBUG ("pid %u tid %lu\n", getpid(), syscall (SYS_gettid));
+-    gst_bypass_workload_init ();
++    // klass->wID = gst_bypass_workload_init ();
++    // if(klass->wID == NULL){
++    //     GST_ERROR ("Failed to get workload context in class init\n");
++    // }
+ 
+     GObjectClass *const gobjectClass = G_OBJECT_CLASS (klass);
+     GstElementClass *const elementClass = GST_ELEMENT_CLASS (klass);
+@@ -149,16 +187,23 @@ static void gst_bypass_class_init (GstBypassClass *klass)
+ static void gst_bypass_init (GstBypass *bypass)
+ {
+     GST_DEBUG ("pid %u tid %lu\n", getpid(), syscall (SYS_gettid));
+-    gst_bypass_workload_init ();
++    bypass->wID = gst_bypass_workload_init ();
++    if(bypass->wID == NULL){
++        GST_ERROR ("Failed to get workload context in class init\n");
++    }
+ 
+     bypass->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
+     gst_pad_set_chain_function (bypass->sinkpad, gst_bypass_chain);
+     GST_PAD_SET_PROXY_CAPS (bypass->sinkpad);
+     gst_element_add_pad (GST_ELEMENT (bypass), bypass->sinkpad);
+ 
++    gst_pad_set_query_function (bypass->sinkpad, gst_bypass_sink_query);
++
+     bypass->srcpad = gst_pad_new_from_static_template (&src_factory, "src");
+     GST_PAD_SET_PROXY_CAPS (bypass->srcpad);
+     gst_element_add_pad (GST_ELEMENT (bypass), bypass->srcpad);
++
++    gst_pad_set_query_function (bypass->srcpad, gst_bypass_sink_query);
+ }
+ 
+ 
+@@ -171,7 +216,7 @@ static gboolean bypass_plugin_init (GstPlugin *plugin)
+     ret = gst_element_register (plugin, "bypass", GST_RANK_NONE, GST_TYPE_BYPASS);
+ 
+     GST_DEBUG ("pid %u tid %lu\n", getpid(), syscall (SYS_gettid));
+-    gst_bypass_workload_init ();
++    // gst_bypass_workload_init ();
+ 
+     return ret;
+ }
+diff --git a/sample/unite/plugins/gstbypass.h b/sample/unite/plugins/gstbypass.h
+index 3dc2525..32e3ab5 100644
+--- a/sample/unite/plugins/gstbypass.h
++++ b/sample/unite/plugins/gstbypass.h
+@@ -32,6 +32,7 @@
+ #define GST_BYPASS_H
+ 
+ #include <gst/gst.h>
++#include <WorkloadContextC.h>
+ 
+ G_BEGIN_DECLS
+ 
+@@ -49,11 +50,15 @@ GstBypassClass))
+ typedef struct _GstBypass GstBypass;
+ typedef struct _GstBypassClass GstBypassClass;
+ 
++#define GST_BYPASS_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS((obj),GST_TYPE_BYPASS,GstBypassClass))
++
+ struct _GstBypass
+ {
+   GstElement element;
+   GstPad *sinkpad;
+   GstPad *srcpad;
++  // to store WorkloadContextID throughout plugin
++  WorkloadID wID;
+ };
+ 
+ struct _GstBypassClass
+-- 
+2.17.1
+
