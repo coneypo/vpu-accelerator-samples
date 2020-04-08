@@ -4,7 +4,7 @@
 
 sudo apt-get install bison
 
-SCRIPT_DIR = "$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 MY_ROOT_DIR=`pwd`
 DOWNLOAD_DIR=${BUILD_DIR:="`pwd`/download/"}
 HOST_INSTALL_DIR=${INSTALL_DIR:="`pwd`/host_install/gst"}
@@ -49,11 +49,6 @@ do
     esac
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
-
-if [ $# == 0 ]; then
-    show_help
-    exit 0
-fi
 
 if [ "$BUILD_DEBUG"x == 1x ]; then
     ENABLE_DEBUG=--enable-debug
@@ -102,6 +97,24 @@ function download_and_build_gst () {
     make install
 }
 
+function download_and_build_gst_plugin_bad () {
+    # GST_DIR=${1}-${GST_VERSION}
+    # GST_SRC=${GST_DIR}.tar.xz
+    echo "Download gst-plugins-bad-1.16.0 ..."
+    cd ${DOWNLOAD_DIR}
+    if [ ! -d ${DOWNLOAD_DIR}/gst-plugins-bad-1.16.0 ]; then
+        git clone -b 1.16.0 https://github.com/GStreamer/gst-plugins-bad.git ${DOWNLOAD_DIR}/gst-plugins-bad-1.16.0
+
+        cd ${DOWNLOAD_DIR}/gst-plugins-bad-1.16.0
+        patch -p1 < ${SCRIPT_DIR}/0001-h265parse-Fix-for-st_rps_bits-calculation.patch
+        patch -p1 < ${SCRIPT_DIR}/0001-fix-openexr-compile-error.patch
+        ./autogen.sh --prefix=${HOST_INSTALL_DIR} --disable-gtk-doc --disable-oss4 $ENABLE_DEBUG
+    fi
+    cd ${DOWNLOAD_DIR}/gst-plugins-bad-1.16.0
+    make -j8
+    make install
+}
+
 # function build_vaapi_shim_plugin () {
 #     MY_HOME_DIR=${DOWNLOAD_DIR}/vaapi_bypass
 #     if [ ! -d ${MY_HOME_DIR} ]; then
@@ -134,7 +147,8 @@ download_and_build_gst gstreamer
 download_and_build_gst gst-plugins-base
 download_and_build_gst gst-plugins-good
 download_and_build_gst gst-plugins-ugly
-download_and_build_gst gst-plugins-bad
+# download_and_build_gst gst-plugins-bad
+download_and_build_gst_plugin_bad
 ## download_and_build_gst gstreamer-vaapi
 build_gst_vaapi_plugin
 # build_vaapi_shim_plugin

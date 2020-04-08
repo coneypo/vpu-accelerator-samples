@@ -4,7 +4,7 @@
 #                      HDDLUNITE_HOST_INSTALL_DIR, HDDLUNITE_KMB_INSTALL_DIR
 #                      HDDLUNITE_ROOT_DIR
 
-SCRIPT_DIR = "$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 DOWNLOAD_DIR=${BUILD_DIR:="`pwd`/download/"}
 HOST_INSTALL_DIR=${INSTALL_DIR:="`pwd`/host_install/vaapi_bypass"}
 KMB_INSTALL_DIR=${INSTALL_DIR_KMB:="`pwd`/kmb_install/vaapi_bypass"}
@@ -58,11 +58,6 @@ do
     esac
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
-
-if [ $# == 0 ]; then
-    show_help
-    exit 0
-fi
 
 if [ "$BUILD_DEBUG"x == 1x ]; then
     ENABLE_DEBUG=--enable-debug
