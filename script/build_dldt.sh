@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# env variable to set: BUILD_DIR, INSTALL_DIR
+# make sure you have obtained the access for 
+#       dldt:           git@gitlab-icv.inn.intel.com:inference-engine/dldt.git
+#       kmbplugin:      git@gitlab-icv.inn.intel.com:inference-engine/kmb-plugin.git
+#       mcmCompiler:    git@github.com:movidius/mcmCompiler.git
+#       gapi-sipp:      git@gitlab-icv.inn.intel.com:G-API/g-api-vpu.git
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 DOWNLOAD_DIR=${BUILD_DIR:="`pwd`/download/"}
 HOST_INSTALL_DIR=${INSTALL_DIR:="`pwd`/host_install/dldt"}
@@ -171,9 +178,12 @@ function download_and_build_hddl2plugin () {
     git submodule update --init --recursive
     mkdir -p $KMB_PLUGIN_HOME/$BUILD_DIR_NAME
     cd $KMB_PLUGIN_HOME/$BUILD_DIR_NAME
-    cmake -DInferenceEngineDeveloperPackage_DIR=$DLDT_HOME/build ${CMAKE_ENABLE_DEBUG} -DCMAKE_INSTALL_PREFIX=${HOST_INSTALL_DIR}/hddl2plugin ..
+    cmake -DInferenceEngineDeveloperPackage_DIR=$DLDT_HOME/build ${CMAKE_ENABLE_DEBUG} -DCMAKE_INSTALL_PREFIX=${HOST_INSTALL_DIR}/dldt ..
     make -j8
     make install
+
+    cp -r $DLDT_HOME/inference-engine/temp/opencv_4.3.0_ubuntu18/opencv ${HOST_INSTALL_DIR}/dldt
+    cp -r ${HOST_INSTALL_DIR}/dldt/lib/* ${HOST_INSTALL_DIR}/dldt/deployment_tools/inference_engine/lib/intel64/
 
     echo "Work of script is finished. Check logs for errors."
      
