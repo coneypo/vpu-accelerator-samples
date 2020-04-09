@@ -19,6 +19,7 @@
 #include <boost/algorithm/string.hpp>
 #include "hddl2plugin_helper.hpp"
 #include "InferNode.hpp"
+#include "InferNode_unite.hpp"
 
 #define STREAMS 1
 #define MAX_STREAMS 64
@@ -308,8 +309,10 @@ int main(){
 #ifdef USE_FAKE_IE_NODE
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
-    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], g_detNetwork, "detection", 
-                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
+    // auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], g_detNetwork, "detection", 
+    //                                                          &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
+    auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,1, 
+    vWID[0], g_detNetwork, "detection", 416*416*3, 13*13*125), "detNode");
 #endif
     auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, g_dropXFrameFRC, g_dropEveryXFrameFRC), "FRCNode");
 
@@ -318,8 +321,10 @@ int main(){
 #ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
 #else //#ifdef USE_FAKE_IE_NODE
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], g_clsNetwork, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+    // auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], g_clsNetwork, "classification",
+    //                                                        &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,1, 
+    vWID[0], g_clsNetwork, "classification", 224*224*3, 1000), "clsNode");
 #endif //#ifdef USE_FAKE_IE_NODE
     if(config.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
