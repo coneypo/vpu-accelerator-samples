@@ -1,0 +1,17 @@
+default:
+  image: hddl/hddlsample_runner:v0.1
+
+build:
+  stage: build
+  script:
+    - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/intel/mediasdk/lib64/pkgconfig
+    - mkdir build && cd build && cmake .. && make -j10
+  artifacts:
+    paths:
+      - ./build/output
+
+# run tests using the binary built before
+test:
+  stage: test
+  script:
+    - echo "yes"
