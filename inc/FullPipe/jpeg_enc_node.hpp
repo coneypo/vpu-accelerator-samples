@@ -398,6 +398,7 @@ class JpegEncNodeWorker : public hva::hvaNodeWorker_t{
 public:
 
     JpegEncNodeWorker(hva::hvaNode_t* parentNode, uint64_t WID);
+    ~JpegEncNodeWorker();
 
     virtual void process(std::size_t batchIdx) override;
 

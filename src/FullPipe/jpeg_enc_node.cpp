@@ -750,6 +750,14 @@ JpegEncNodeWorker::JpegEncNodeWorker(hva::hvaNode_t* parentNode, uint64_t WID):
     memset(m_picPool, 0, sizeof(JpegEncPicture)*PIC_POOL_SIZE);
 }
 
+JpegEncNodeWorker::~JpegEncNodeWorker(){
+    if(!m_pool)
+        delete m_pool;
+
+    if(!m_picPool)
+        delete[] m_picPool;
+}
+
 void JpegEncNodeWorker::init(){
 
 }
@@ -947,6 +955,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                                         &(picPool[index].headerParamBufId));
                 if(va_status != VA_STATUS_SUCCESS){
                     std::cout<<"Create header parameter buffer failed!"<<std::endl;
+                    free(packed_header_buffer);
                     return;
                 }
 
@@ -957,8 +966,10 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                                         &(picPool[index].headerDataBufId));
                 if(va_status != VA_STATUS_SUCCESS){
                     std::cout<<"Create header buffer failed!"<<std::endl;
+                    free(packed_header_buffer);
                     return;
                 }
+                free(packed_header_buffer);
 
 #ifdef HANTRO_JPEGENC_ROI_API
                 /* 12. Create ROI Buffer */
@@ -1135,18 +1146,24 @@ bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
     std::stringstream ss;
     ss << "jpegenc-"<<std::to_string(m_WID)<<"-"<< m_jpegCtr.fetch_add(1)<<".jpg";
     FILE* jpeg_fp = fopen(ss.str().c_str(), "wb");  
-    do {
-        w_items = fwrite(coded_buffer_segment->buf, slice_data_length, 1, jpeg_fp);
-    } while (w_items != 1);
+    if(jpeg_fp != NULL){
+        do {
+            w_items = fwrite(coded_buffer_segment->buf, slice_data_length, 1, jpeg_fp);
+        } while (w_items != 1);
 
-    fclose(jpeg_fp);
+        fclose(jpeg_fp);
 
-    va_status = vaUnmapBuffer(m_vaDpy, picPool[index].codedBufId);
-    if(va_status != VA_STATUS_SUCCESS){
-        std::cout<<"Unmap coded buffer failed!"<<std::endl;
+        va_status = vaUnmapBuffer(m_vaDpy, picPool[index].codedBufId);
+        if(va_status != VA_STATUS_SUCCESS){
+            std::cout<<"Unmap coded buffer failed!"<<std::endl;
+            return false;
+        }
+        return true;
+    }
+    else{
         return false;
     }
-    return true;
+    
 }
 
 void JpegEncNodeWorker::deinit(){

@@ -171,6 +171,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, Pipeline
                 break;
         }
     }
+    return 0;
 }
 
 
