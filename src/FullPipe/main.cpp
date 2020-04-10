@@ -24,7 +24,7 @@
 #define STREAMS 1
 #define MAX_STREAMS 64
 #define GUI_INTEGRATION
-// #define USE_FAKE_IE_NODE
+#define USE_FAKE_IE_NODE
 using ms = std::chrono::milliseconds;
 
 #ifdef GUI_INTEGRATION

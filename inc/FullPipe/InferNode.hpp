@@ -9,6 +9,14 @@
 
 class InferNode : public hva::hvaNode_t{
 public:
+    struct Config{
+        std::string model; //required
+        std::string iePluginName;
+        unsigned batchSize;
+        unsigned inferReqNumber;
+        float threshold;
+    };
+
     InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
               WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc);
 

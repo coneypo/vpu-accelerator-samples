@@ -18,6 +18,7 @@ public:
         unsigned dropXFrame;
         unsigned dropEveryXFrame;
         bool enableFpsCounting;
+        std::string codec;
     };
 
     GstPipeContainer(unsigned idx);

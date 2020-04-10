@@ -7,6 +7,11 @@
 
 class FrameControlNode : public hva::hvaNode_t{
 public:
+    struct Config{
+        unsigned dropEveryXFrame;
+        unsigned dropXFrame;
+    };
+
     FrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, unsigned dropXFrame, unsigned dropEveryXFrame);
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
