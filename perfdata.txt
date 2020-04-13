@@ -1,0 +1,7 @@
+crowdrun_HD_30fps_004mbps_8b_g30_extend10times.264 batch off 10.5 
+crowdrun_HD_30fps_004mbps_8b_g30_extend10times.264 batch on 17.4 out of 1000 frames (with x2 jpeg) with roi on
+crowdrun_HD_30fps_008mbps_8b_g30_extend10times.264 batch on 17.5 out of 1200 frames (with x2 jpeg) with roi on
+crowdrun_HD_30fps_010mbps_8b_g30_extend10times.264 batch on 17.4 out of 1000 frames (with x2 jpeg) with roi on
+crowdrun_HD_30fps_15mbps_8b_g30_extend10times.264  batch on 16.9 out of 1000 frames (with x2 jpeg) with roi on
+crowdrun_HD_60fps_10mbps_8b_g30_extend10times.264  batch on 17.3 out of 1000 frames (with x2 jpeg) with roi on
+crowdrun_HD_60fps_15mbps_8b_g30_extend10times.264  batch on 17.3 out of 1000 frames (with x2 jpeg) with roi on

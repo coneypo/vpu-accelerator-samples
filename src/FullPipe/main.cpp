@@ -20,6 +20,7 @@
 #include "hddl2plugin_helper.hpp"
 #include "InferNode.hpp"
 #include "InferNode_unite.hpp"
+#include <PipelineConfig.hpp>
 
 #define STREAMS 1
 #define MAX_STREAMS 64
@@ -80,13 +81,13 @@ bool checkValidVideo(std::string filepath){
     return true;
 }
 
-struct PipelineConfig_t{
+struct SocketsConfig_t{
     unsigned numOfStreams;
     // std::string unixSocket[MAX_STREAMS];
     std::vector<std::string> unixSocket;
 };
 
-int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, PipelineConfig_t* config)
+int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsConfig_t* config)
 {
     auto poller = HddlUnite::Poller::create();
     auto connection = HddlUnite::Connection::create(poller);
@@ -179,58 +180,31 @@ int main(){
 
     gst_init(0, NULL);
 
-    JsonParser jsParser("config.json");
-    std::string guiSocket;
-    if(!jsParser.parse("GUI.Socket",guiSocket)){
-        std::cout<<"No GUI Socket specified. Exit"<<std::endl;
-        return 0;
-    }
-    if(!jsParser.parse("Decode.Video",g_videoFile)){
-        std::cout<<"Error: No input video file specified in config.json"<<std::endl;
-        return -1;
-    }
-    if(!jsParser.parse("Decode.DropXFrame",g_dropXFrameDec)){
-        std::cout<<"Warning: No frame dropping count for decoder specified in config.json"<<std::endl;
-        g_dropXFrameDec = 0;
-    }
-    if(!jsParser.parse("Decode.DropEveryXFrame",g_dropEveryXFrameDec)){
-        g_dropEveryXFrameDec = 1024;
-    }
-    if(!jsParser.parse("FRC.DropXFrame",g_dropXFrameFRC)){
-        std::cout<<"Warning: No frame dropping count for FRC Node specified in config.json"<<std::endl;
-        g_dropXFrameFRC = 0;
-    }
-    if(!jsParser.parse("FRC.DropEveryXFrame",g_dropEveryXFrameFRC)){
-        g_dropEveryXFrameFRC = 1024;
-    }
-
-    if(!jsParser.parse("Detection.Model",g_detNetwork)){
-        std::cout<<"Error: No detection model specified in config.json. Use default network path"<<std::endl;
-        return 0;
-    }
-    if(!jsParser.parse("Classification.Model",g_clsNetwork)){
-        std::cout<<"Error: No classification model specified in config.json. Use default network path"<<std::endl;
+    PipelineConfigParser configParser;
+    if(!configParser.parse("config.json")){
+        std::cout<<"Failed to parse config.json"<<std::endl;
         return 0;
     }
 
-    if(!checkValidNetFile(g_detNetwork) || !checkValidNetFile(g_clsNetwork) || !checkValidVideo(g_videoFile)){
+    PipelineConfig config = configParser.get();
+
+    if(!checkValidNetFile(config.detConfig.model) || !checkValidNetFile(config.clsConfig.model)){
         return -1;
+    }
+    for(const auto& decConfigItem: config.vDecConfig){
+        if(!checkValidVideo(decConfigItem.filename))
+            return -1;
     }
 
 #ifdef GUI_INTEGRATION
-    PipelineConfig_t config;
-    config.numOfStreams = 0;
-    // config.unixSocket = "";
+    SocketsConfig_t sockConfig;
+    sockConfig.numOfStreams = 0;
+    // sockConfig.unixSocket = "";
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
 #endif
-    GstPipeContainer::Config decConfig;
-    decConfig.filename = g_videoFile;
-    decConfig.enableFpsCounting = true;
-    decConfig.dropEveryXFrame = g_dropEveryXFrameDec;
-    decConfig.dropXFrame = g_dropXFrameDec;
 
 #ifdef GUI_INTEGRATION
-    std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &config);
+    std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &sockConfig);
 #endif
 
     std::mutex WIDMutex;
@@ -244,26 +218,26 @@ int main(){
     // bool ready = configFuture.get();
     {
         std::unique_lock<std::mutex> lk(g_mutex);
-        if(config.numOfStreams == 0){
+        if(sockConfig.numOfStreams == 0){
             g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
             std::cout<<"Control message addr_recved received and cleared"<<std::endl;
             ctrlMsg = ControlMessage::EMPTY;
         }
     }
     std::vector<std::thread*> vTh;
-    vTh.reserve(config.numOfStreams);
-    std::vector<GstPipeContainer*> vCont(config.numOfStreams);
-    std::vector<uint64_t> vWID(config.numOfStreams, 0); 
-    // std::cout<<" Unix Socket addr received is "<<config.unixSocket<<std::endl;
+    vTh.reserve(sockConfig.numOfStreams);
+    std::vector<GstPipeContainer*> vCont(sockConfig.numOfStreams);
+    std::vector<uint64_t> vWID(sockConfig.numOfStreams, 0); 
+    // std::cout<<" Unix Socket addr received is "<<sockConfig.unixSocket<<std::endl;
     std::this_thread::sleep_for(ms(1000));
 #endif
-    for(unsigned i = 0; i < config.numOfStreams; ++i){
+    for(unsigned i = 0; i < sockConfig.numOfStreams; ++i){
         // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
                     // GstPipeContainer cont(i);
                     vCont[i] = new GstPipeContainer(i);
                     uint64_t WID = 0;
-                    if(vCont[i]->init(decConfig, WID) != 0 || WID == 0){
+                    if(vCont[i]->init(config.vDecConfig[i], WID) != 0 || WID == 0){
                         std::cout<<"Fail to init cont!"<<std::endl;
                         return;
                     }
@@ -303,10 +277,10 @@ int main(){
 
     // uint64_t WID = WIDFuture.get();
     std::unique_lock<std::mutex> WIDLock(WIDMutex);
-    WIDCv.wait(WIDLock,[&](){ return WIDReadyCnt == config.numOfStreams;});
+    WIDCv.wait(WIDLock,[&](){ return WIDReadyCnt == sockConfig.numOfStreams;});
     WIDLock.unlock();
 
-    std::cout<<"All WIDs received. Start pipeline with "<<config.numOfStreams<<" streams."<<std::endl;
+    std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
 #ifdef USE_FAKE_IE_NODE
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
@@ -327,13 +301,13 @@ int main(){
     auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,1, 
     vWID[0], g_clsNetwork, "classification", 224*224*3, 1000), "clsNode");
 #endif //#ifdef USE_FAKE_IE_NODE
-    if(config.numOfStreams > 1){
-        pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
+    if(sockConfig.numOfStreams > 1){
+        pl.addNode(std::make_shared<SenderNode>(1,1,2,sockConfig.unixSocket), "sendNode");
     }
     else{
-        pl.addNode(std::make_shared<SenderNode>(1,1,1,config.unixSocket), "sendNode");
+        pl.addNode(std::make_shared<SenderNode>(1,1,1,sockConfig.unixSocket), "sendNode");
     }
-    // auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,config.unixSocket), "sendNode");
+    // auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,sockConfig.unixSocket), "sendNode");
 
 #else //#ifdef GUI_INTEGRATION
 
@@ -345,13 +319,13 @@ int main(){
 #endif //#ifdef USE_FAKE_IE_NODE
 
 #endif //#ifdef GUI_INTEGRATION
-    auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,config.numOfStreams,vWID), "jpegNode");
+    auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,sockConfig.numOfStreams,vWID), "jpegNode");
 
-    if(config.numOfStreams > 1){
+    if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
         batchingConfig.batchSize = 1;
-        batchingConfig.streamNum = config.numOfStreams;
+        batchingConfig.streamNum = sockConfig.numOfStreams;
         batchingConfig.threadNumPerBatch = 1;
 
         jpegNode.configBatch(batchingConfig);
@@ -381,14 +355,14 @@ int main(){
 
         pl.stop();
 
-        for(unsigned i =0; i < config.numOfStreams; ++i){
+        for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
             vCont[i]->stop();
             delete vCont[i];
         }
 
         std::this_thread::sleep_for(ms(1000));
 
-        for(unsigned i =0; i < config.numOfStreams; ++i){
+        for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
             std::cout<<"Going to join "<<i<<"th dec source"<<std::endl;
             vTh[i]->join();
         }
