@@ -41,14 +41,6 @@ enum ControlMessage{
 std::mutex g_mutex;
 std::condition_variable g_cv;
 
-static std::string g_detNetwork;
-static std::string g_clsNetwork;
-static std::string g_videoFile;
-static unsigned g_dropEveryXFrameDec;
-static unsigned g_dropXFrameDec;
-static unsigned g_dropEveryXFrameFRC;
-static unsigned g_dropXFrameFRC;
-
 bool checkValidNetFile(std::string filepath){
     std::string::size_type suffix_pos = filepath.find(".blob");
     if(suffix_pos == std::string::npos){
@@ -204,7 +196,7 @@ int main(){
 #endif
 
 #ifdef GUI_INTEGRATION
-    std::thread t(receiveRoutine, guiSocket.c_str(), &ctrlMsg, &sockConfig);
+    std::thread t(receiveRoutine, config.guiSocket.c_str(), &ctrlMsg, &sockConfig);
 #endif
 
     std::mutex WIDMutex;
@@ -287,9 +279,9 @@ int main(){
     // auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], g_detNetwork, "detection", 
     //                                                          &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
     auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,1, 
-    vWID[0], g_detNetwork, "detection", 416*416*3, 13*13*125), "detNode");
+    vWID[0], config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
 #endif
-    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, g_dropXFrameFRC, g_dropEveryXFrameFRC), "FRCNode");
+    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, config.FRCConfig), "FRCNode");
 
 #ifdef GUI_INTEGRATION
 
@@ -299,7 +291,7 @@ int main(){
     // auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], g_clsNetwork, "classification",
     //                                                        &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
     auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,1, 
-    vWID[0], g_clsNetwork, "classification", 224*224*3, 1000), "clsNode");
+    vWID[0], config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
 #endif //#ifdef USE_FAKE_IE_NODE
     if(sockConfig.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,2,sockConfig.unixSocket), "sendNode");
@@ -314,7 +306,7 @@ int main(){
 #ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
 #else //#ifdef USE_FAKE_IE_NODE
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 1, 1, WID, g_clsNetwork, "classification",
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 1, 1, WID, config.clsConfig.model, "classification",
                                                            &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
 #endif //#ifdef USE_FAKE_IE_NODE
 

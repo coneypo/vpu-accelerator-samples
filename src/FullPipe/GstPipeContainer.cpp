@@ -12,8 +12,9 @@
 
 GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(nullptr), tee(nullptr),
             parser(nullptr), bypass(nullptr), dec(nullptr), vaapi_sink(nullptr), app_sink(nullptr),m_bStart(false),
-            m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr),
-            capsfilter(nullptr), m_width(0), m_height(0), m_idx(idx), m_frameIdx(0), m_frameCnt(0), m_bStopped(false){
+            m_tee_vaapi_pad(nullptr), m_tee_app_pad(nullptr), vaapi_queue(nullptr), app_queue(nullptr), demux(nullptr),
+            capsfilter(nullptr), m_width(0), m_height(0), 
+            m_idx(idx), m_frameIdx(0), m_frameCnt(0), m_bStopped(false){
 }
 
 int GstPipeContainer::init(const Config& config, uint64_t& WID){
@@ -22,6 +23,26 @@ int GstPipeContainer::init(const Config& config, uint64_t& WID){
         std::cout<<"Config invalid!"<<std::endl;
         return -1;
     }
+
+    int ret = -1;
+
+    switch(m_config.codec){
+        case "h264":
+            ret = initH264Pipeline(WID);
+            break;
+        case "h264":
+            ret = initH265Pipeline(WID);
+            break;
+        case "mp4":
+            ret = initContainerPipeline(WID);
+            break;
+        default:
+            break;
+    }
+    return ret;
+}
+
+int GstPipeContainer::initH264Pipeline(uint64_t& WID){
 
     file_source = gst_element_factory_make("multifilesrc", "file_source");
     parser = gst_element_factory_make("h264parse", "parser");
@@ -47,18 +68,6 @@ int GstPipeContainer::init(const Config& config, uint64_t& WID){
             ){
         return -1;
     }
-
-/*
-#ifdef ENABLE_DISPLAY
-    GstCaps *caps = gst_caps_new_simple("video/x-raw", 
-            "format", G_TYPE_STRING, "NV12", NULL);
-#else
-    GstCaps *caps = gst_caps_new_simple("video/x-raw(memory:DMABuf)", 
-            "format", G_TYPE_STRING, "NV12", NULL);
-#endif
-    g_object_set(app_sink, "caps", caps, NULL);
-    gst_caps_unref(caps);
-*/
 
     // GstCaps* caps = gst_caps_from_string("video/x-raw, format=(string)NV12");
     GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
@@ -110,6 +119,233 @@ int GstPipeContainer::init(const Config& config, uint64_t& WID){
     gst_object_unref(app_pad);
 #endif
 
+    WID = queryWID();
+    if(WID == 0){
+        return -4;
+    }
+
+    return 0;
+}
+
+int GstPipeContainer::initH265Pipeline(uint64_t& WID){
+
+    file_source = gst_element_factory_make("multifilesrc", "file_source");
+    parser = gst_element_factory_make("h265parse", "parser");
+    bypass = gst_element_factory_make("bypass","bypass");
+    dec = gst_element_factory_make("vaapih265dec", "dec");
+    // app_queue = gst_element_factory_make("queue", "app_queue");
+    app_sink = gst_element_factory_make("appsink", "appsink");
+#ifdef ENABLE_DISPLAY
+    tee = gst_element_factory_make("tee", "tee");
+    vaapi_queue = gst_element_factory_make("queue", "vaapi_queue");
+    vaapi_sink = gst_element_factory_make("vaapisink", "vaapi_sink");
+#else
+    capsfilter = gst_element_factory_make("capsfilter", "capsfilter");
+#endif
+    pipeline = gst_pipeline_new("pipeline");
+
+    if(!file_source || !parser || !bypass || !dec || !app_sink || !pipeline
+#ifdef ENBALE_DISPLAY
+            || !vaapi_queue || !vaapi_sink || !tee
+#else
+            || !capsfilter
+#endif
+            ){
+        return -1;
+    }
+
+    // GstCaps* caps = gst_caps_from_string("video/x-raw, format=(string)NV12");
+    GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
+    if (!caps)
+        return -3;
+    g_object_set(capsfilter, "caps", caps, NULL);
+    gst_caps_unref (caps);
+    
+    // g_object_set(file_source, "location", "./barrier_1080x720.h264", NULL);
+    g_object_set(file_source, "location", m_config.filename.c_str(), NULL);
+    g_object_set(file_source, "loop", true, NULL);
+
+#ifdef ENABLE_DISPLAY
+    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, bypass, dec,
+            tee, vaapi_queue, app_queue, vaapi_sink, app_sink, NULL);
+    if(!gst_element_link_many(file_source, parser, bypass, dec, tee, NULL)){
+        return -2;
+    }
+
+    if(!gst_element_link_many(vaapi_queue, vaapi_sink, NULL)){
+        return -2;
+    }
+    if(!gst_element_link_many(app_queue, app_sink, NULL)){
+        return -2;
+    }
+#else
+    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, bypass, dec, capsfilter,
+            app_sink, NULL);
+
+    if(!gst_element_link_many(file_source, parser, bypass, dec, capsfilter, app_sink, NULL)){
+        return -2;
+    }
+#endif
+
+#ifdef ENABLE_DISPLAY
+    m_tee_vaapi_pad = gst_element_get_request_pad(tee, "src_%u");
+    m_tee_app_pad = gst_element_get_request_pad(tee, "src_%u");
+
+    GstPad* vaapi_pad = gst_element_get_static_pad(vaapi_queue, "sink");
+    GstPad* app_pad = gst_element_get_static_pad(app_queue, "sink");
+
+    if(gst_pad_link(m_tee_vaapi_pad, vaapi_pad) != GST_PAD_LINK_OK ||
+            gst_pad_link(m_tee_app_pad, app_pad) != GST_PAD_LINK_OK){
+        return -3;
+    }
+
+
+    gst_object_unref(vaapi_pad);
+    gst_object_unref(app_pad);
+#endif
+
+    WID = queryWID();
+    if(WID == 0){
+        return -4;
+    }
+
+    return 0;
+}
+
+static void on_demux_new_pad (GstElement *element, GstPad *pad, gpointer data)
+{
+    GstPad* parserSinkPad;
+    GstElement *parser = (GstElement*)data;
+
+    std::cout<<"Going to link Demux and Parser"<<std::endl;
+
+    parserSinkPad = gst_element_get_static_pad(parser, "sink");
+    gst_pad_link(pad, parserSinkPad);
+
+    gst_object_unref(parserSinkPad);
+}
+
+int GstPipeContainer::initContainerPipeline(uint64_t& WID){
+
+    file_source = gst_element_factory_make("multifilesrc", "file_source");
+    demux = gst_element_factory_make("qtdemux", "demux");
+    parser = gst_element_factory_make("h264parse", "parser");
+    bypass = gst_element_factory_make("bypass","bypass");
+    dec = gst_element_factory_make("vaapih264dec", "dec");
+    // app_queue = gst_element_factory_make("queue", "app_queue");
+    app_sink = gst_element_factory_make("appsink", "appsink");
+#ifdef ENABLE_DISPLAY
+    tee = gst_element_factory_make("tee", "tee");
+    vaapi_queue = gst_element_factory_make("queue", "vaapi_queue");
+    vaapi_sink = gst_element_factory_make("vaapisink", "vaapi_sink");
+#else
+    capsfilter = gst_element_factory_make("capsfilter", "capsfilter");
+#endif
+    pipeline = gst_pipeline_new("pipeline");
+
+    if(!file_source || !demux || !parser || !bypass || !dec || !app_sink || !pipeline
+#ifdef ENBALE_DISPLAY
+            || !vaapi_queue || !vaapi_sink || !tee
+#else
+            || !capsfilter
+#endif
+            ){
+        return -1;
+    }
+
+    // GstCaps* caps = gst_caps_from_string("video/x-raw, format=(string)NV12");
+    GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
+    if (!caps)
+        return -3;
+    g_object_set(capsfilter, "caps", caps, NULL);
+    gst_caps_unref (caps);
+    
+    // g_object_set(file_source, "location", "./barrier_1080x720.h264", NULL);
+    g_object_set(file_source, "location", m_config.filename.c_str(), NULL);
+    g_object_set(file_source, "loop", true, NULL);
+
+#ifdef ENABLE_DISPLAY
+    gst_bin_add_many(GST_BIN(pipeline), file_source, parser, bypass, dec,
+            tee, vaapi_queue, app_queue, vaapi_sink, app_sink, NULL);
+    if(!gst_element_link_many(file_source, parser, bypass, dec, tee, NULL)){
+        return -2;
+    }
+
+    if(!gst_element_link_many(vaapi_queue, vaapi_sink, NULL)){
+        return -2;
+    }
+    if(!gst_element_link_many(app_queue, app_sink, NULL)){
+        return -2;
+    }
+#else
+    gst_bin_add_many(GST_BIN(pipeline), file_source, demux, parser, bypass, dec, capsfilter,
+            app_sink, NULL);
+
+    if(!gst_element_link_many(file_source, demux, NULL)){
+        return -2;
+    }
+    if(!gst_element_link_many(parser, bypass, dec, capsfilter, app_sink, NULL)){
+        return -2;
+    }
+
+    g_signal_connect(demux, "pad-added", G_CALLBACK (on_demux_new_pad), parser);
+
+#endif
+
+#ifdef ENABLE_DISPLAY
+    m_tee_vaapi_pad = gst_element_get_request_pad(tee, "src_%u");
+    m_tee_app_pad = gst_element_get_request_pad(tee, "src_%u");
+
+    GstPad* vaapi_pad = gst_element_get_static_pad(vaapi_queue, "sink");
+    GstPad* app_pad = gst_element_get_static_pad(app_queue, "sink");
+
+    if(gst_pad_link(m_tee_vaapi_pad, vaapi_pad) != GST_PAD_LINK_OK ||
+            gst_pad_link(m_tee_app_pad, app_pad) != GST_PAD_LINK_OK){
+        return -3;
+    }
+
+
+    gst_object_unref(vaapi_pad);
+    gst_object_unref(app_pad);
+#endif
+
+    // GstStructure* structure = gst_structure_new ("WIDQuery",
+    //     "BypassQueryType", G_TYPE_STRING, "WorkloadContextQuery", NULL);
+    // GstQuery* query = gst_query_new_custom (GST_QUERY_CUSTOM, structure);
+
+    // if(!gst_element_query(bypass, query)){
+    //     std::cout<<"Fail to query workload context!"<<std::endl;
+    //     gst_query_unref(query);
+    //     return -4;
+    // }
+
+    // structure = nullptr;
+
+    // // uint64_t WID = -1;
+    // const GstStructure* WIDRet = gst_query_get_structure (query);
+
+    // if(!gst_structure_get_uint64(WIDRet,"WorkloadContextId", &WID)){
+    //     std::cout<<"Fail to get Workload Contex ID from gst structure!"<<std::endl;
+    //     gst_query_unref(query);
+    //     return -5;
+    // }
+
+    // m_WID = WID;
+
+    // std::cout<<"WID Received: "<<WID<<std::endl;
+
+    // gst_query_unref(query);
+
+    WID = queryWID();
+    if(WID == 0){
+        return -4;
+    }
+
+    return 0;
+}
+
+uint64_t GstPipeContainer::queryWID(){
+
     GstStructure* structure = gst_structure_new ("WIDQuery",
         "BypassQueryType", G_TYPE_STRING, "WorkloadContextQuery", NULL);
     GstQuery* query = gst_query_new_custom (GST_QUERY_CUSTOM, structure);
@@ -117,27 +353,27 @@ int GstPipeContainer::init(const Config& config, uint64_t& WID){
     if(!gst_element_query(bypass, query)){
         std::cout<<"Fail to query workload context!"<<std::endl;
         gst_query_unref(query);
-        return -4;
+        return 0;
     }
 
     structure = nullptr;
 
-    // uint64_t WID = -1;
-    const GstStructure* WIDRet = gst_query_get_structure (query);;
+    uint64_t ret = 0;
+    const GstStructure* WIDRet = gst_query_get_structure (query);
 
-    if(!gst_structure_get_uint64(WIDRet,"WorkloadContextId", &WID)){
+    if(!gst_structure_get_uint64(WIDRet,"WorkloadContextId", &ret)){
         std::cout<<"Fail to get Workload Contex ID from gst structure!"<<std::endl;
         gst_query_unref(query);
-        return -5;
+        return 0;
     }
 
-    m_WID = WID;
+    m_WID = ret;
 
-    std::cout<<"WID Received: "<<WID<<std::endl;
+    std::cout<<"WID Received: "<<m_WID<<std::endl;
 
     gst_query_unref(query);
 
-    return 0;
+    return ret;
 }
 
 GstPipeContainer::~GstPipeContainer(){
@@ -156,10 +392,10 @@ GstPipeContainer::~GstPipeContainer(){
 int GstPipeContainer::start(){
     m_height = 0;
     m_width = 0;
+    gst_element_set_state(pipeline, GST_STATE_PLAYING);
     if(m_config.enableFpsCounting){
         m_timeStart = std::chrono::high_resolution_clock::now();
     }
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
     m_bStart = true;
     return 0;
 }
@@ -338,6 +574,11 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 bool GstPipeContainer::validateConfig(){
     if(m_config.filename.empty()){
         std::cout<<"Filename empty!"<<std::endl;
+        return false;
+    }
+
+    if("h264"!=m_config.codec && "h265"!=m_config.codec && "mp4"!=m_config.codec ){
+        std::cout<<"Unsupported codec format"<<std::endl;
         return false;
     }
 

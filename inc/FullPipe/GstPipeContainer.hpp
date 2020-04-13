@@ -36,6 +36,7 @@ public:
     GstElement* pipeline;
     GstElement* file_source;
     GstElement* parser;
+    GstElement* demux;
     GstElement* bypass;
     GstElement* dec;
     GstElement* tee;
@@ -57,6 +58,10 @@ private:
 
     bool _gst_dmabuffer_import(GstBuffer *buffer, int& fd);
     bool validateConfig();
+    int initH264Pipeline(uint64_t& WID);
+    int initH264Pipeline(uint64_t& WID);
+    int initContainerPipeline(uint64_t& WID);
+    uint64_t queryWID();
 
     bool m_bStart;
     bool m_bStopped;

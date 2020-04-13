@@ -2,8 +2,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
-FrameControlNode::FrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, unsigned dropXFrame, unsigned dropEveryXFrame):
-        hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_dropEveryXFrame(dropEveryXFrame), m_dropXFrame(dropXFrame){
+FrameControlNode::FrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, const Config& config):
+        hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_dropEveryXFrame(config.dropEveryXFrame), m_dropXFrame(config.dropXFrame){
 
 }
 
