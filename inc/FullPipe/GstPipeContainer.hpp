@@ -59,7 +59,7 @@ private:
     bool _gst_dmabuffer_import(GstBuffer *buffer, int& fd);
     bool validateConfig();
     int initH264Pipeline(uint64_t& WID);
-    int initH264Pipeline(uint64_t& WID);
+    int initH265Pipeline(uint64_t& WID);
     int initContainerPipeline(uint64_t& WID);
     uint64_t queryWID();
 

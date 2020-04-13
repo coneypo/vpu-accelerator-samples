@@ -24,22 +24,19 @@ int GstPipeContainer::init(const Config& config, uint64_t& WID){
         return -1;
     }
 
-    int ret = -1;
-
-    switch(m_config.codec){
-        case "h264":
-            ret = initH264Pipeline(WID);
-            break;
-        case "h264":
-            ret = initH265Pipeline(WID);
-            break;
-        case "mp4":
-            ret = initContainerPipeline(WID);
-            break;
-        default:
-            break;
+    if("h264"==m_config.codec){
+        return initH264Pipeline(WID);
     }
-    return ret;
+    else if("h265"==m_config.codec){
+        return initH265Pipeline(WID);
+    }
+    else if("mp4"==m_config.codec){
+        return initContainerPipeline(WID);
+    }
+    else{
+        return -1;
+    }
+
 }
 
 int GstPipeContainer::initH264Pipeline(uint64_t& WID){

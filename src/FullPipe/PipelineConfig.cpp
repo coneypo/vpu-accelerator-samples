@@ -47,7 +47,7 @@ bool PipelineConfigParser::parse(const std::string& filename){
         return false;
     }
     
-    m_bReady = true;
+    m_ready = true;
     return true;
 }
 
@@ -56,22 +56,22 @@ bool PipelineConfigParser::parseDecConfig(){
     for(const auto& stream: decStreams){
         GstPipeContainer::Config temp;
 
-        if(!parseFromPTree(stream, "Video", temp.filename)){
+        if(!parseFromPTree(stream.second, "Video", temp.filename)){
             std::cout<<"Error: No input video file specified in config.json"<<std::endl;
             return false;
         }
 
-        if(!parseFromPTree(stream, "Codec", temp.codec)){
+        if(!parseFromPTree(stream.second, "Codec", temp.codec)){
             std::cout<<"Error: No input video codec specified in config.json"<<std::endl;
             return false;
         }
 
-        if(!parseFromPTree(stream, "DropEveryXFrame", temp.dropEveryXFrame)){
+        if(!parseFromPTree(stream.second, "DropEveryXFrame", temp.dropEveryXFrame)){
             std::cout<<"Warning: No frame dropping count for decoder specified in config.json"<<std::endl;
             temp.dropEveryXFrame = 0;
         }
 
-        if(!parseFromPTree(stream, "DropXFrame", temp.dropXFrame)){
+        if(!parseFromPTree(stream.second, "DropXFrame", temp.dropXFrame)){
             temp.dropXFrame = 1024;
         }
 

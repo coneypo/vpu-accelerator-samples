@@ -4,6 +4,8 @@
 #include <string>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/exception/diagnostic_information.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/exception/all.hpp>
 #include <iostream>
 #include <GstPipeContainer.hpp>
 #include <InferNode.hpp>
@@ -43,7 +45,7 @@ private:
 };
 
 template <typename T>
-bool JsonParser::parseFromPTree(const boost::property_tree::ptree& ptree, const std::string& path, T& result){
+bool PipelineConfigParser::parseFromPTree(const boost::property_tree::ptree& ptree, const std::string& path, T& result){
 
     try {
         result = ptree.get<T>(path);
