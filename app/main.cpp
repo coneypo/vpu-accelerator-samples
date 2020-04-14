@@ -37,7 +37,7 @@ std::shared_ptr<Options> parse_arguments(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     auto options = parse_arguments(argc, argv);
-    if (!ConfigParser::instance()->loadConfigFile(options->configFile)) {
+    if (!options || !ConfigParser::instance()->loadConfigFile(options->configFile)) {
         return EXIT_FAILURE;
     }
 

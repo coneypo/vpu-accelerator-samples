@@ -81,48 +81,42 @@ HDDLDemo::HDDLDemo(QWidget* parent)
             offload_dec_value_label->setStyleSheet("QLabel {color : white;}");
             hlayout->addWidget(offload_dec_value_label);
 
-
             QSpacerItem* hspacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
             hlayout->addItem(hspacer);
-            hlayout->setContentsMargins(0, 0, 0, 0);
-
             hlayout->setContentsMargins(1, 1, 0, 0);
             hlayout->setSizeConstraint(QLayout::SetFixedSize);
 
             layout->addLayout(hlayout);
             layout->setContentsMargins(1, 1, 1, 1);
-
             frame->setLayout(layout);
-
-#if 1
             //add result display
             QFrame* resultContainer = ui->centralWidget->findChild<QFrame*>("frame_display");
             if (!resultContainer) {
                 qCritical() << "crop display widget not found!";
-            }
-            QVBoxLayout* display_layout = new QVBoxLayout(resultContainer);
-            if (!resultContainer->layout()) {
-                resultContainer->setLayout(display_layout);
-            }
+            } else {
+                QVBoxLayout* display_layout = new QVBoxLayout(resultContainer);
+                if (!resultContainer->layout()) {
+                    resultContainer->setLayout(display_layout);
+                }
 
-            QFrame* result_frame = new QFrame(resultContainer);
-            QString result_frame_name = QString("result_frame_") + QString::number(i * m_cols + j);
-            result_frame->setObjectName(result_frame_name);
-            QHBoxLayout* resultLayout = new QHBoxLayout(result_frame);
-            result_frame->setStyleSheet(QString("#%1 { border: 1px solid white; }  QLabel {color : white; }").arg(result_frame_name));
-            result_frame->setLayout(resultLayout);
-            QLabel* label_channel = new QLabel(resultContainer);
-            label_channel->setText(QString("CH %1").arg(i * m_cols + j));
-            resultLayout->addWidget(label_channel);
-            for (int index = 0; index < CROP_ROI_NUM; index++) {
-                QLabel* label_roi = new QLabel(resultContainer);
-                label_roi->setObjectName(QString("result_roi_") + QString::number(i * m_cols + j) + QString("_") + QString::number(index));
-                resultLayout->addWidget(label_roi);
+                QFrame* result_frame = new QFrame(resultContainer);
+                QString result_frame_name = QString("result_frame_") + QString::number(i * m_cols + j);
+                result_frame->setObjectName(result_frame_name);
+                QHBoxLayout* resultLayout = new QHBoxLayout(result_frame);
+                result_frame->setStyleSheet(QString("#%1 { border: 1px solid white; }  QLabel {color : white; }").arg(result_frame_name));
+                result_frame->setLayout(resultLayout);
+                QLabel* label_channel = new QLabel(resultContainer);
+                label_channel->setText(QString("CH %1").arg(i * m_cols + j));
+                resultLayout->addWidget(label_channel);
+                for (int index = 0; index < CROP_ROI_NUM; index++) {
+                    QLabel* label_roi = new QLabel(resultContainer);
+                    label_roi->setObjectName(QString("result_roi_") + QString::number(i * m_cols + j) + QString("_") + QString::number(index));
+                    resultLayout->addWidget(label_roi);
+                }
+                resultLayout->addStretch();
+                resultContainer->layout()->addWidget(result_frame);
+                this->adjustSize();
             }
-            resultLayout->addStretch();
-            resultContainer->layout()->addWidget(result_frame);
-            this->adjustSize();
-#endif
         }
     }
 
@@ -196,7 +190,7 @@ void HDDLDemo::initConfig()
     m_rows = std::sqrt(m_pipeline.size());
     m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
     //launch hva process and send channel socket address to it
-    if(ConfigParser::instance()->isHvaConfigured()){
+    if (ConfigParser::instance()->isHvaConfigured()) {
         setupHvaProcess();
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         sendSignalToHvaPipeline();

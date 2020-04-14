@@ -10,7 +10,7 @@ using namespace HddlUnite;
 
 static std::mutex mutex_total_results;
 static std::map<u_int64_t, std::string> total_results;
-static std::atomic<bool> data_ready(false);
+static std::atomic<bool> needStop(false);
 
 int receiveRoutine(const char* socket_address)
 {
@@ -20,14 +20,13 @@ int receiveRoutine(const char* socket_address)
         return -1;
     }
 
-    while (true) {
+    while (!needStop) {
         auto event = poller->waitEvent(100);
         switch (event.type) {
         case Event::Type::CONNECTION_IN:
             connection->accept();
             break;
         case Event::Type::MESSAGE_IN: {
-
             int length = 0;
             auto& data_connection = event.connection;
             std::lock_guard<std::mutex> autoLock(data_connection->getMutex());
@@ -68,12 +67,13 @@ int receiveRoutine(const char* socket_address)
             total_results.clear();
             mutex_total_results.unlock();
             // if you want to stop display when disconnecting.
+            needStop = true;
             break;
-
         default:
             break;
         }
     }
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 
     std::thread t(receiveRoutine, unix_domain_socket.c_str());
     t.detach();
-    while (true) {
+    while (!needStop) {
         mutex_total_results.lock();
         for (auto&& p : total_results) {
             std::cout << p.second << std::endl;

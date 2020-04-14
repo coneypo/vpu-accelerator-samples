@@ -47,6 +47,10 @@ std::shared_ptr<Options> parse_arguments(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     auto options = parse_arguments(argc, argv);
+    if(!options){
+        std::cerr<<"Parse arguments failed"<<std::endl;
+        return EXIT_FAILURE;
+    }
     QApplication a(argc, argv);
 
     HddlChannel w(options->index);

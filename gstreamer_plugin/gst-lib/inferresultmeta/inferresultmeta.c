@@ -37,6 +37,9 @@ infer_result_meta_transform(GstBuffer* transbuf, GstMeta* meta,
 
     /* we always copy no matter what transform */
     InferResultMeta* new_meta = gst_buffer_add_infer_result_meta(transbuf, emeta->size);
+    if (!new_meta) {
+        return FALSE;
+    }
 
     memcpy(new_meta->boundingBox, emeta->boundingBox, sizeof(BoundingBox) * emeta->size);
     for (gint i = 0; i < emeta->size; i++) {

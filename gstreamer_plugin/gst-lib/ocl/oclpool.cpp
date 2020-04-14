@@ -121,6 +121,7 @@ ocl_memory_alloc(OclPool* oclpool)
         g_print("Failed to allocate OclMemory!\n");
         return NULL;
     }
+    memset(ocl_mem, 0, sizeof(OclMemory));
 
     OCL_MEMORY_WIDTH(ocl_mem) = GST_VIDEO_INFO_WIDTH(&priv->info);
     OCL_MEMORY_HEIGHT(ocl_mem) = GST_VIDEO_INFO_HEIGHT(&priv->info);

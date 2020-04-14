@@ -197,7 +197,7 @@ IPCHandle Connection::Impl::accept()
     socklen_t addrLen = sizeof(addr);
 
     int connectFd = ::accept(m_fd, (struct sockaddr*)&addr, &addrLen);
-    if (connectFd <= 0) {
+    if (connectFd < 0) {
         return {};
     }
 
