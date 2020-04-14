@@ -26,23 +26,7 @@ bool ConfigParser::loadConfigFile(const std::string& filePath)
         return false;
     }
 
-#ifdef ENABLE_HVA
-    if (!parseHvaCmd()) {
-        return false;
-    }
-
-    if (!parseHvaWorkDirectory()) {
-        return false;
-    }
-
-    if (!parseHvaSocketPath()) {
-        return false;
-    }
-
-    if (!parseHvaEnvironmentVariables()){
-        return false;
-    }
-#endif
+    parseHaveConfig();
     return true;
 }
 
@@ -104,7 +88,7 @@ bool ConfigParser::parse(const std::string& path, Type& result)
         result = m_ptree.get<Type>(path);
         return true;
     } catch (...) {
-        printf("parse error");
+        printf("Missing config item: %s \n", path.c_str());
         return false;
     }
 }
@@ -143,7 +127,6 @@ bool ConfigParser::parseList(const std::string& path, const std::string& subPath
         return false;
     }
 }
-
 
 bool ConfigParser::parsePipelines()
 {
@@ -187,7 +170,6 @@ bool ConfigParser::parsePlayMode()
     return true;
 }
 
-#ifdef ENABLE_HVA
 std::string ConfigParser::getHvaCMd()
 {
     return m_hvaCmd;
@@ -206,6 +188,11 @@ std::string ConfigParser::getHvaSocketPath()
 std::map<std::string, std::string> ConfigParser::getHvaEnvironmentVariables()
 {
     return m_hvaEnvironmentVariables;
+}
+
+bool ConfigParser::isHvaConfigured()
+{
+    return m_hvaEnabled;
 }
 
 bool ConfigParser::parseHvaCmd()
@@ -234,11 +221,25 @@ bool ConfigParser::parseHvaEnvironmentVariables()
         }
         return true;
     } catch (...) {
-        printf("parse error");
+        printf("Missing config item: hva.environment\n");
         return false;
     }
 }
-#endif
+
+void ConfigParser::parseHaveConfig()
+{
+    bool ret = parseHvaCmd();
+    ret = ret & parseHvaWorkDirectory();
+    ret = ret & parseHvaSocketPath();
+    ret = ret & parseHvaEnvironmentVariables();
+    if (ret) {
+        m_hvaEnabled = true;
+        std::cout << "Get hva related configurations, run in by-pass mode" << std::endl;
+    } else {
+        m_hvaEnabled = false;
+        std::cout << "hva related configurations not found, run in streaming mode" << std::endl;
+    }
+}
 
 static ConfigParser::PlayMode strToPlayMode(const std::string& str)
 {

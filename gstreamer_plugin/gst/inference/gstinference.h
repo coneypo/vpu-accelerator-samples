@@ -65,6 +65,13 @@ G_BEGIN_DECLS
 typedef struct _GstInference GstInference;
 typedef struct _GstInferenceClass GstInferenceClass;
 
+typedef enum {
+    SYNC_MODE_PTS,
+    SYNC_MODE_INDEX,
+    SYNC_MODE_NOSYNC
+} GstInferenceSyncMode;
+
+
 struct _GstInference {
     GstElement element;
 
@@ -72,6 +79,7 @@ struct _GstInference {
 
     gboolean silent;
     const gchar* sockname;
+    GstInferenceSyncMode syncmode;
 };
 
 struct _GstInferenceClass {

@@ -32,7 +32,6 @@ extern "C" {
 #include <string.h>
 #include <unistd.h>
 
-#define pts_sync 1
 using namespace HddlUnite;
 
 GST_DEBUG_CATEGORY_STATIC(gst_inference_debug);
@@ -41,8 +40,26 @@ GST_DEBUG_CATEGORY_STATIC(gst_inference_debug);
 enum {
     PROP_0,
     PROP_SILENT,
-    PROP_SOCKET_NAME
+    PROP_SOCKET_NAME,
+    PROP_SYNC_MODE
 };
+
+#define GST_TYPE_INFERENCE_SYNC_MODE (gst_inference_sync_mode_get_type())
+
+static GType gst_inference_sync_mode_get_type(void)
+{
+    static GType inference_sync_mode_type = 0;
+    static const GEnumValue mode_types[] = {
+        { SYNC_MODE_PTS, "sync with buffer pts", "pts" },
+        { SYNC_MODE_INDEX, "sync with frame index", "index" },
+        { SYNC_MODE_NOSYNC, "no sync", "nosync" },
+        { 0, NULL, NULL }
+    };
+    if (!inference_sync_mode_type) {
+        inference_sync_mode_type = g_enum_register_static("GstInferenceSyncMode", mode_types);
+    }
+    return inference_sync_mode_type;
+}
 
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE("sink",
     GST_PAD_SINK,
@@ -73,7 +90,7 @@ static PTS frameIdx = 0;
 
 static bool deserialize(const std::string& serialized_data);
 static int receiveRoutine(const char* socket_address);
-static int addMetaData(GstBuffer* buf);
+static int addMetaData(GstInference* infer, GstBuffer* buf);
 
 static void gst_inference_set_property(GObject* object, guint prop_id,
     const GValue* value, GParamSpec* pspec);
@@ -104,6 +121,10 @@ gst_inference_class_init(GstInferenceClass* klass)
     g_object_class_install_property(gobject_class, PROP_SOCKET_NAME,
         g_param_spec_string("socketname", "SocketName", "unix socket file name",
             "/var/tmp/gstreamer_ipc.sock", G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_SYNC_MODE,
+        g_param_spec_enum("syncmode", "SyncMode", "unix socket file name", GST_TYPE_INFERENCE_SYNC_MODE,
+            SYNC_MODE_PTS, GParamFlags(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_details_simple(gstelement_class,
         "Inference",
@@ -149,6 +170,9 @@ gst_inference_set_property(GObject* object, guint prop_id,
     case PROP_SOCKET_NAME:
         filter->sockname = g_value_dup_string(value);
         break;
+    case PROP_SYNC_MODE:
+        filter->syncmode = (GstInferenceSyncMode)g_value_get_enum(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -167,6 +191,9 @@ gst_inference_get_property(GObject* object, guint prop_id,
         break;
     case PROP_SOCKET_NAME:
         g_value_set_string(value, filter->sockname);
+        break;
+    case PROP_SYNC_MODE:
+        g_value_set_enum(value, filter->syncmode);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -223,7 +250,7 @@ gst_inference_chain(GstPad* pad, GstObject* parent, GstBuffer* buf)
     GstInference* filter;
     filter = GST_INFERENCE(parent);
 
-    addMetaData(buf);
+    addMetaData(filter, buf);
     return gst_pad_push(filter->srcpad, buf);
 }
 
@@ -359,50 +386,37 @@ static int receiveRoutine(const char* socket_address)
     }
 }
 
-static int addMetaData(GstBuffer* buf)
+static int addMetaData(GstInference* infer, GstBuffer* buf)
 {
-#if pts_sync
+    PTS boxIndex = 0;
+    switch (infer->syncmode) {
+    case SYNC_MODE_NOSYNC: {
+        std::unique_lock<std::mutex> lock(mutex_total_results);
+        auto result = std::find_if(total_results.rbegin(), total_results.rbegin(), [](std::pair<PTS, BoxWrappers> entry) -> bool {
+            return !entry.second.empty();
+        });
+        if (result != total_results.rend()) {
+            boxIndex = result->first;
+        }
+        break;
+    }
+    case SYNC_MODE_INDEX: {
+        boxIndex = frameIdx++;
+        break;
+    }
+    case SYNC_MODE_PTS: {
+        boxIndex = GST_BUFFER_PTS(buf);
+        break;
+    }
+    default:
+        GST_ERROR("unsupported sync mode");
+    }
+
     std::map<PTS, BoxWrappers>::iterator current_frame_result;
-
-#ifdef ENABLE_HVA
-    PTS currentPTS = frameIdx++;
-#else
-    PTS currentPTS = GST_BUFFER_PTS(buf);
-#endif
-
     std::unique_lock<std::mutex> lock(mutex_total_results);
-    infer_data_arrived.wait_for(lock, std::chrono::milliseconds(1000), [&]() {
-        current_frame_result = total_results.find(currentPTS);
-        return current_frame_result != total_results.end(); });
-    if (current_frame_result != total_results.end()) {
-        size_t boxNums = current_frame_result->second.size();
-        if (boxNums > 0) {
-            InferResultMeta* meta = gst_buffer_add_infer_result_meta(buf, boxNums);
-            for (size_t i = 0; i < boxNums; i++) {
-                meta->boundingBox[i].x = current_frame_result->second[i].x;
-                meta->boundingBox[i].y = current_frame_result->second[i].y;
-                meta->boundingBox[i].pts = current_frame_result->second[i].pts;
-                meta->boundingBox[i].width = current_frame_result->second[i].width;
-                meta->boundingBox[i].height = current_frame_result->second[i].height;
-                meta->boundingBox[i].inferfps = current_frame_result->second[i].inferfps;
-                meta->boundingBox[i].decfps = current_frame_result->second[i].decfps;
-                strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
-            }
-        }
-        if (current_frame_result->first > 0) {
-            total_results.erase(total_results.upper_bound(0), current_frame_result);
-        }
-    }
-#else
-    std::unique_lock<std::mutex> lock(mutex_total_results);
-    auto current_frame_result = total_results.rbegin();
-    while (current_frame_result != total_results.rend()) {
-        if (current_frame_result->second.size() > 0) {
-            break;
-        }
-        current_frame_result++;
-    }
-    if (current_frame_result != total_results.rend()) {
+    if (infer_data_arrived.wait_for(lock, std::chrono::milliseconds(1000), [&]() {
+        current_frame_result = total_results.find(boxIndex);
+        return current_frame_result != total_results.end(); })) {
         size_t boxNums = current_frame_result->second.size();
         InferResultMeta* meta = gst_buffer_add_infer_result_meta(buf, boxNums);
         for (size_t i = 0; i < boxNums; i++) {
@@ -411,12 +425,14 @@ static int addMetaData(GstBuffer* buf)
             meta->boundingBox[i].pts = current_frame_result->second[i].pts;
             meta->boundingBox[i].width = current_frame_result->second[i].width;
             meta->boundingBox[i].height = current_frame_result->second[i].height;
+            meta->boundingBox[i].inferfps = current_frame_result->second[i].inferfps;
+            meta->boundingBox[i].decfps = current_frame_result->second[i].decfps;
             strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
         }
-        // total_results.erase(std::next(current_frame_result).base());
+        if (current_frame_result->first > 0) {
+            total_results.erase(total_results.upper_bound(0), current_frame_result);
+        }
     }
-#endif
-
     return 0;
 }
 

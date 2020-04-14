@@ -31,12 +31,11 @@ public:
     std::vector<std::string> getPipelines();
     std::vector<std::map<std::string, std::string>> getPipelineParams();
 
-#ifdef ENABLE_HVA
+    bool isHvaConfigured();
     std::string getHvaCMd();
     std::string getHvaWorkDirectory();
     std::string getHvaSocketPath();
     std::map<std::string, std::string> getHvaEnvironmentVariables();
-#endif
 
 private:
     ConfigParser() = default;
@@ -52,24 +51,22 @@ private:
     bool parsePlayMode();
     void insertPipelineParams();
 
-#ifdef ENABLE_HVA
     bool parseHvaCmd();
     bool parseHvaWorkDirectory();
     bool parseHvaSocketPath();
     bool parseHvaEnvironmentVariables();
-#endif
+    void parseHaveConfig();
 
     int m_timeout { 0 };
     PlayMode m_playMode { PlayMode::REPLAY };
     std::vector<std::string> m_pipelines {};
     std::vector<std::map<std::string, std::string>> m_params {};
 
-#ifdef ENABLE_HVA
     std::string m_hvaCmd {};
     std::string m_hvaWorkDirectory {};
     std::string m_hvaSocketPath {};
     std::map<std::string, std::string> m_hvaEnvironmentVariables {};
-#endif
+    bool m_hvaEnabled { false };
 
     boost::property_tree::ptree m_ptree;
 };

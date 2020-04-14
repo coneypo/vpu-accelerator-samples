@@ -195,12 +195,12 @@ void HDDLDemo::initConfig()
     m_timeout = ConfigParser::instance()->getTimeout();
     m_rows = std::sqrt(m_pipeline.size());
     m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
-#ifdef ENABLE_HVA
     //launch hva process and send channel socket address to it
-    setupHvaProcess();
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    sendSignalToHvaPipeline();
-#endif
+    if(ConfigParser::instance()->isHvaConfigured()){
+        setupHvaProcess();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        sendSignalToHvaPipeline();
+    }
 }
 
 void HDDLDemo::runPipeline()
@@ -244,7 +244,6 @@ void HDDLDemo::updateTotalFps()
     ui->label_inference_fps->setText(QString::number(inferTotal, 'f', 2));
 }
 
-#ifdef ENABLE_HVA
 void HDDLDemo::setupHvaProcess()
 {
     QString hvaCmd = QString::fromStdString(ConfigParser::instance()->getHvaCMd());
@@ -303,4 +302,3 @@ void HDDLDemo::sendSignalToHvaPipeline()
         qDebug() << "Sent addr " << QString::fromStdString(channelSocket) << " in " << length << " bytes";
     }
 }
-#endif

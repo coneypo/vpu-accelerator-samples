@@ -18,12 +18,6 @@ pkg_check_modules(GSTAPP REQUIRED gstreamer-app-1.0)
 pkg_check_modules(GIO REQUIRED gio-2.0)
 
 
-option(ENABLE_HVA "enable hva framework" ON)
-if (ENABLE_HVA)
-    add_definitions(-DENABLE_HVA)
-endif ()
-
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

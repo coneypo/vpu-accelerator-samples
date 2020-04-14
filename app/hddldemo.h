@@ -29,11 +29,8 @@ private:
     void runPipeline();
     void initConfig();
     void setTextOnLabel(const QString& labelName, const QString& text);
-
-#ifdef ENABLE_HVA
     void setupHvaProcess();
     void sendSignalToHvaPipeline();
-#endif
 
     uint32_t m_rows { 0 }; // channel rows
     uint32_t m_cols { 0 }; // channel cols
