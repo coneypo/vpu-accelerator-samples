@@ -224,7 +224,7 @@ static void on_demux_new_pad (GstElement *element, GstPad *pad, gpointer data)
 
 int GstPipeContainer::initContainerPipeline(uint64_t& WID){
 
-    file_source = gst_element_factory_make("multifilesrc", "file_source");
+    file_source = gst_element_factory_make("filesrc", "file_source");
     demux = gst_element_factory_make("qtdemux", "demux");
     parser = gst_element_factory_make("h264parse", "parser");
     bypass = gst_element_factory_make("bypass","bypass");
@@ -259,7 +259,6 @@ int GstPipeContainer::initContainerPipeline(uint64_t& WID){
     
     // g_object_set(file_source, "location", "./barrier_1080x720.h264", NULL);
     g_object_set(file_source, "location", m_config.filename.c_str(), NULL);
-    g_object_set(file_source, "loop", true, NULL);
 
 #ifdef ENABLE_DISPLAY
     gst_bin_add_many(GST_BIN(pipeline), file_source, parser, bypass, dec,
@@ -432,9 +431,9 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     // bail out if EOS
     if (gst_app_sink_is_eos(GST_APP_SINK(app_sink))){
         std::cout<<"EOS reached"<<std::endl;
-        // gst_element_seek_simple(pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
-        // return read(blob);
-        return false;
+        gst_element_seek_simple(pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
+        return read(blob);
+        // return false;
     }
 
     // if(!m_sampleRead){

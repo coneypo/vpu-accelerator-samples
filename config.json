@@ -7,16 +7,34 @@
     },
     "Decode":[
         {
-            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+            "Video":"/home/kmb/kezhen/h264_video/file_example_MP4_1920_18MG.mp4",
             "DropEveryXFrame": 4,
             "DropXFrame": 0,
-            "Codec": "h264"
+            "Codec": "mp4"
         },
         {
             "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
             "DropEveryXFrame": 4,
             "DropXFrame": 0,
             "Codec": "h264"
+        },
+        {
+            "Video":"/home/kmb/kezhen/h264_video/file_example_MP4_1920_18MG.mp4",
+            "DropEveryXFrame": 4,
+            "DropXFrame": 0,
+            "Codec": "mp4"
+        },
+        {
+            "Video":"/home/kmb/kezhen/h264_video/crowdrun_HD_30fps_004mbps_8b_g30_extend10times.264",
+            "DropEveryXFrame": 4,
+            "DropXFrame": 0,
+            "Codec": "h264"
+        },
+        {
+            "Video":"/home/kmb/kezhen/h264_video/crowdrun_HD_30fps_004mbps_10b_g30_extend10times.265",
+            "DropEveryXFrame": 4,
+            "DropXFrame": 0,
+            "Codec": "h265"
         }
     ],
     "GUI":{
