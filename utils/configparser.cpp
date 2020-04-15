@@ -34,7 +34,7 @@ bool ConfigParser::readConfigFile(const std::string& filePath)
 {
     std::ifstream input(filePath);
     if (!input.is_open()) {
-        printf("not open\n");
+        std::cerr << "cannot open file" << filePath << std::endl;
         return false;
     }
 
@@ -50,14 +50,10 @@ bool ConfigParser::readConfigFile(const std::string& filePath)
 
     try {
         boost::property_tree::read_json(output, m_ptree);
-    } catch (const boost::property_tree::ptree_error& e) {
-        printf("ptree error\n");
-        return false;
-    } catch (boost::exception& e) {
-        printf("error\n");
+    } catch (...) {
+        std::cerr << "Json format error!" << std::endl;
         return false;
     }
-
     return true;
 }
 
@@ -88,7 +84,7 @@ bool ConfigParser::parse(const std::string& path, Type& result)
         result = m_ptree.get<Type>(path);
         return true;
     } catch (...) {
-        printf("Missing config item: %s \n", path.c_str());
+        std::cerr << "Missing config item:" << path << std::endl;
         return false;
     }
 }
@@ -103,7 +99,7 @@ bool ConfigParser::parseList(const std::string& path, const std::string& subPath
         }
         return true;
     } catch (...) {
-        printf("parse error");
+        std::cerr << "Parse config item failed: " << path << "." << subPath << std::endl;
         return false;
     }
 }
@@ -123,7 +119,7 @@ bool ConfigParser::parseList(const std::string& path, const std::string& subPath
         }
         return true;
     } catch (...) {
-        printf("parse error");
+        std::cerr << "Parse config item failed: " << path << "." << subPath << std::endl;
         return false;
     }
 }
@@ -221,7 +217,7 @@ bool ConfigParser::parseHvaEnvironmentVariables()
         }
         return true;
     } catch (...) {
-        printf("Missing config item: hva.environment\n");
+        std::cerr << "Missing config item: hva.environment" << std::endl;
         return false;
     }
 }

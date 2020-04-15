@@ -281,9 +281,11 @@ OclDevice::getInstance(VideoDisplayID display)
     // init ocl based on VideoDisplayID
     device->m_ocvContext = cv::va_intel::ocl::initializeContextFromVA(display, true);
 #endif
-    device->setDisplay(display);
-    if (!device->init()) {
-        device.reset();
+    if (device) {
+        device->setDisplay(display);
+        if (!device->init()) {
+            device.reset();
+        }
     }
 
     // make it can be created only once for multiple threads

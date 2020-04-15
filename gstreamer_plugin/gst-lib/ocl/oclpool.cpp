@@ -121,7 +121,6 @@ ocl_memory_alloc(OclPool* oclpool)
         g_print("Failed to allocate OclMemory!\n");
         return NULL;
     }
-    memset(ocl_mem, 0, sizeof(OclMemory));
 
     OCL_MEMORY_WIDTH(ocl_mem) = GST_VIDEO_INFO_WIDTH(&priv->info);
     OCL_MEMORY_HEIGHT(ocl_mem) = GST_VIDEO_INFO_HEIGHT(&priv->info);
@@ -129,7 +128,7 @@ ocl_memory_alloc(OclPool* oclpool)
 
     switch (priv->info.finfo->format) {
     case GST_VIDEO_FORMAT_GRAY8:
-        ocl_mem->frame.create(cv::Size(OCL_MEMORY_WIDTH(ocl_mem), OCL_MEMORY_HEIGHT(ocl_mem)), CV_8UC1);
+        ocl_mem->frame = cv::UMat(cv::Size(OCL_MEMORY_WIDTH(ocl_mem), OCL_MEMORY_HEIGHT(ocl_mem)), CV_8UC1);
         OCL_MEMORY_FOURCC(ocl_mem) = OCL_FOURCC_GRAY;
         ocl_mem->mem_size = OCL_MEMORY_WIDTH(ocl_mem) * OCL_MEMORY_HEIGHT(ocl_mem);
         break;
