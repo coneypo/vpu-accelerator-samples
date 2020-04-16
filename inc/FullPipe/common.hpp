@@ -7,6 +7,18 @@
 
 using ms = std::chrono::milliseconds;
 
+namespace HvaPipeline
+{
+enum class TrackingStatus
+{
+    NEW,         /**< The object is newly added. */
+    TRACKED,     /**< The object is being tracked. */
+    LOST         /**< The object gets lost now. The object can be tracked again automatically(long term tracking) or by specifying detected object manually(short term and zero term tracking). */
+};
+
+
+} //namespace HvaPipeline
+
 struct VideoMeta{
     unsigned videoWidth;
     unsigned videoHeight;
@@ -15,14 +27,25 @@ struct VideoMeta{
 };
 
 struct ROI{
-    int16_t x;
-    int16_t y;
-    int16_t width;
-    int16_t height;
-    std::string label;
-    std::size_t pts;
-    double confidence;
-    int indexROI;
+    int32_t x {0};
+    int32_t y {0};
+    int32_t width {0};
+    int32_t height {0};
+    std::string labelClassification;
+    int32_t labelIdClassification {0};
+    double confidenceClassification {0.0};
+    
+    std::string labelDetection;
+    int32_t labelIdDetection {0};
+    double confidenceDetection {0.0};
+
+    std::size_t pts {0};
+    uint64_t frameId {0};
+    uint64_t streamId {0};
+
+    //for tracking
+    uint64_t trackingId {0};
+    HvaPipeline::TrackingStatus trackingStatus {HvaPipeline::TrackingStatus::NEW};
 };
 
 struct InferMeta{

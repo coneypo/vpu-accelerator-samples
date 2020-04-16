@@ -23,20 +23,20 @@ struct DetectedObject_t {
     }
 };
 
-struct InfoROI_t {
-    int widthImage = 0;
-    int heightImage = 0;
-    int x = 0;
-    int y = 0;
-    int width = 0;
-    int height = 0;
-    int indexROI = 0;
-    int totalROINum = 0;
-    int frameId = 0;
+// struct InfoROI_t {
+//     int widthImage = 0;
+//     int heightImage = 0;
+//     int x = 0;
+//     int y = 0;
+//     int width = 0;
+//     int height = 0;
+//     int indexROI = 0;
+//     int totalROINum = 0;
+//     int frameId = 0;
 
-    int idx = 0;
-    float confidence = 0.0f;
-    std::string label = "";
-};
+//     int idx = 0;
+//     float confidence = 0.0f;
+//     std::string label = "";
+// };
 
 #endif //#ifndef __HVA_DETECTION_HELPER__

@@ -31,10 +31,10 @@ void FakeDelayNodeWorker::process(std::size_t batchIdx){
                 roi.y = 500+(i*100);
                 roi.width = 200;
                 roi.height = 200;
-                roi.label = "unknown";
+                roi.labelClassification = "unknown";
                 roi.pts = vInput[0]->frameId;
-                roi.confidence = 0.9+i/100.0;
-                roi.indexROI = i;
+                roi.confidenceClassification = 0.9+i/100.0;
+                // roi.indexROI = i;
                 meta->rois.push_back(roi);
             }
             meta->frameId = vInput[0]->frameId;

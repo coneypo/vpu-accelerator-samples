@@ -481,7 +481,7 @@ void UniteHelper::setup() {
         }
     }
 }
-void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std::vector<InfoROI_t>& vecROI) {
+void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std::vector<ROI>& vecROI) {
 
     // if (_remoteMemoryPtr == nullptr) {
     //     return;
@@ -620,10 +620,10 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
                     }
                 }
                 vecIdx.push_back(idx);
-                std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
-                vecLabel.push_back(labels[idx]);
+                // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
+                vecLabel.push_back(_labels.imagenet_labelstring(idx));
                 vecConfidence.push_back(exp(max) / sum);
-                printf("[debug] roi label is : %s\n", labels[idx].c_str());
+                printf("[debug] roi label is : %s\n", _labels.imagenet_labelstring(idx).c_str());
             }
 #endif
         }
@@ -749,7 +749,7 @@ UniteHelper::UniteHelper(WorkloadID id, std::string graphName, std::string graph
 
 }
 
-void UniteHelper::update(int32_t videoWidth, int32_t videoHeight, uint64_t fd, const std::vector<InfoROI_t>& vecROI)
+void UniteHelper::update(int32_t videoWidth, int32_t videoHeight, uint64_t fd, const std::vector<ROI>& vecROI)
 {
     this->videoWidth = videoWidth;
     this->videoHeight = videoHeight;

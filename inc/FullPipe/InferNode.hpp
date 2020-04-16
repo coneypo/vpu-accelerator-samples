@@ -38,7 +38,7 @@ public:
     virtual void init() override;
 
     HDDL2pluginHelper_t m_helperHDDL2;
-    std::vector<InfoROI_t> m_vecROI;
+    std::vector<ROI> m_vecROI;
     std::string m_mode;
 
     float m_fps {0.0f};

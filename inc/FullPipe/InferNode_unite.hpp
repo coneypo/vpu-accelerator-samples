@@ -9,17 +9,18 @@
 class InferNode_unite : public hva::hvaNode_t{
 public:
     InferNode_unite(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, 
-    WorkloadID id, std::string graphPath, std::string graphName, int32_t inputSizeNN, int32_t outputSize);
+    std::vector<WorkloadID> vWID, std::string graphPath, std::string graphName, int32_t inputSizeNN, int32_t outputSize);
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
 
 private:
-    WorkloadID id;
+    std::vector<WorkloadID> vWID;
     std::string graphName;
     std::string graphPath;
     int32_t inputSizeNN;
     int32_t outputSize;
-
+    mutable std::atomic_int m_cntNodeWorker {0};
+    mutable std::mutex m_mutex;
 };
 
 class InferNodeWorker_unite : public hva::hvaNodeWorker_t{
@@ -32,12 +33,14 @@ public:
     virtual void init() override;
 
     hva::UniteHelper m_uniteHelper;
-    std::vector<InfoROI_t> m_vecROI;
+    std::vector<ROI> m_vecROI;
     std::string m_mode;
 
     float m_fps{0.0f};
     float m_durationAve{0.0f};
     uint64_t m_cntFrame{0ul};
+
+    std::unordered_map<uint64_t, ROI> m_mapTrackingId2ROI;
 
 private:
 

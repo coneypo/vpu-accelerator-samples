@@ -95,7 +95,7 @@ public:
         _inferRequest = _executableNetwork.CreateInferRequest();
     }
 
-    inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<InfoROI_t> &vecROI = std::vector<InfoROI_t>())
+    inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>())
     {
 //todo, no need to load data from file
 #if 0
@@ -541,11 +541,11 @@ public:
             }
             for (int i = 0; i < _vecROI.size(); i++)
             {
-                _vecROI[i].idx = idx;
+                _vecROI[i].labelIdClassification = idx;
                 // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
                 // _vecROI[i].label = labels[idx];
-                _vecROI[i].label = m_labels.imagenet_labelstring(idx);
-                _vecROI[i].confidence = exp(max) / sum;
+                _vecROI[i].labelClassification = m_labels.imagenet_labelstring(idx);
+                _vecROI[i].confidenceClassification = exp(max) / sum;
                 printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
             }
         }
@@ -640,7 +640,7 @@ private:
 
 public:
     std::vector<DetectedObject_t> _vecObjects;
-    std::vector<InfoROI_t> _vecROI;
+    std::vector<ROI> _vecROI;
 
     static ImageNetLabels m_labels;
     //todo, only for test

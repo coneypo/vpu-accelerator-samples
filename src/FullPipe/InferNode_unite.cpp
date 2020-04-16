@@ -6,15 +6,18 @@
 #define GUI_INTEGRATION
 
 InferNode_unite::InferNode_unite(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
-            WorkloadID id, std::string graphPath, std::string graphName, int32_t inputSizeNN, int32_t outputSize):
+            std::vector<WorkloadID> vWID, std::string graphPath, std::string graphName, int32_t inputSizeNN, int32_t outputSize):
         hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), 
-        graphName(graphName), graphPath(graphPath), inputSizeNN(inputSizeNN), outputSize(outputSize), id(id){
+        graphName(graphName), graphPath(graphPath), inputSizeNN(inputSizeNN), outputSize(outputSize), vWID(vWID){
 
 }
 
-std::shared_ptr<hva::hvaNodeWorker_t> InferNode_unite::createNodeWorker() const{
+std::shared_ptr<hva::hvaNodeWorker_t> InferNode_unite::createNodeWorker() const {
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+    printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
     return std::shared_ptr<hva::hvaNodeWorker_t>(new InferNodeWorker_unite((InferNode_unite*)this, 
-    id, graphName, graphPath, inputSizeNN, outputSize));
+    vWID[m_cntNodeWorker++], graphName, graphPath, inputSizeNN, outputSize));
 }
 
 InferNodeWorker_unite::InferNodeWorker_unite(hva::hvaNode_t* parentNode, 
@@ -68,10 +71,10 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                 roi.y = vecObjects[i].y;
                 roi.width = vecObjects[i].width;
                 roi.height = vecObjects[i].height;
-                roi.label = "unkown";
+                roi.labelClassification = "unkown";
                 roi.pts = m_vecBlobInput[0]->frameId;
-                roi.confidence = 0;
-                roi.indexROI = i;
+                roi.confidenceClassification = 0;
+                // roi.indexROI = i;
                 ptrInferMeta->rois.push_back(roi);
             }
 
@@ -111,40 +114,58 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
             
             InferMeta* ptrInferMeta = ptrBufInfer->getMeta();
 
-            std::vector<InfoROI_t>& vecROI = m_uniteHelper._vecROI;
+            std::vector<ROI>& vecROI = m_uniteHelper._vecROI;
             vecROI.clear();
 
             printf("[debug] classification frame id is %d, roi num is %ld\n", m_vecBlobInput[0]->frameId, ptrInferMeta->rois.size());
 
-            for (auto& roi : ptrInferMeta->rois)
+            
+            if (ptrInferMeta->rois.size() > 0ul)
             {
-                InfoROI_t infoROI;
-                infoROI.x = roi.x;
-                infoROI.y = roi.y;
-                infoROI.height = roi.height;
-                infoROI.width = roi.width;
-                vecROI.push_back(infoROI);
-            }
-            if (vecROI.size() > 0ul)
-            {
-                m_uniteHelper.update(input_width, input_height, fd, vecROI);
-                m_uniteHelper.callInferenceOnBlobs();
-                auto& vecLabel = m_uniteHelper._vecLabel;
-                auto& vecConfidence = m_uniteHelper._vecConfidence;
-
-                
-
-                printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecLabel.size());
-                assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
-
-                for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                for (auto& roi : ptrInferMeta->rois)
                 {
-                    std::vector<std::string> fields;
-                    boost::split(fields, vecLabel[i], boost::is_any_of(","));
-                    ptrInferMeta->rois[i].label = fields[0];
-                    ptrInferMeta->rois[i].confidence = vecConfidence[i];
-                    printf("[debug] roi label is : %s\n", vecLabel[i].c_str());
-                }            
+                    if (roi.trackingStatus != HvaPipeline::TrackingStatus::NEW)
+                    {
+                        continue;
+                    }
+                    ROI roiTemp;
+                    roiTemp.x = roi.x;
+                    roiTemp.y = roi.y;
+                    roiTemp.height = roi.height;
+                    roiTemp.width = roi.width;
+                    vecROI.push_back(roiTemp);
+                }
+                if (vecROI.size() > 0ul)
+                {
+                    m_uniteHelper.update(input_width, input_height, fd, vecROI);
+                    m_uniteHelper.callInferenceOnBlobs();
+                    auto& vecLabel = m_uniteHelper._vecLabel;
+                    auto& vecConfidence = m_uniteHelper._vecConfidence;
+
+                    printf("[debug] input roi size: %ld, output label size: %ld\n", vecROI.size(), vecLabel.size());
+                    assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
+
+                    int cntNewObject = 0;
+                    for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                    {
+                        if (ptrInferMeta->rois[i].trackingStatus != HvaPipeline::TrackingStatus::NEW)
+                        {
+                            auto& recordedROI = m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId];
+                            ptrInferMeta->rois[i].labelClassification = recordedROI.labelClassification;
+                            ptrInferMeta->rois[i].confidenceClassification = recordedROI.confidenceClassification;
+                        }
+                        else
+                        {
+                            std::vector<std::string> fields;
+                            boost::split(fields, vecLabel[cntNewObject], boost::is_any_of(","));
+                            ptrInferMeta->rois[i].labelClassification = fields[0];
+                            ptrInferMeta->rois[i].confidenceClassification = vecConfidence[cntNewObject];
+                            printf("[debug] roi label is : %s\n", vecLabel[cntNewObject].c_str());
+                            cntNewObject++;
+                            m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId] = ptrInferMeta->rois[i];
+                        }
+                    }  
+                }          
             }
             else
             {
@@ -154,8 +175,8 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                 roi.height = 0;
                 roi.width = 0;
                 roi.pts = m_vecBlobInput[0]->frameId;
-                roi.confidence = 0;
-                roi.label = "unknown";
+                roi.confidenceClassification = 0;
+                roi.labelClassification = "unknown";
                 ptrInferMeta->rois.push_back(roi);
                 printf("[debug] fake roi\n");
             }

@@ -84,10 +84,10 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 roi.y = vecObjects[i].y;
                 roi.width = vecObjects[i].width;
                 roi.height = vecObjects[i].height;
-                roi.label = "unkown";
+                roi.labelClassification = "unkown";
                 roi.pts = m_vecBlobInput[0]->frameId;
-                roi.confidence = 0;
-                roi.indexROI = i;
+                roi.confidenceClassification = 0;
+                // roi.indexROI = i;
                 ptrInferMeta->rois.push_back(roi);
             }
             ptrInferMeta->frameId = m_vecBlobInput[0]->frameId;
@@ -124,16 +124,16 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
             InferMeta *ptrInferMeta = ptrBufInfer->getMeta();
 
-            std::vector<InfoROI_t> &vecROI = m_helperHDDL2._vecROI;
+            std::vector<ROI> &vecROI = m_helperHDDL2._vecROI;
             vecROI.clear();
             for (auto &roi : ptrInferMeta->rois)
             {
-                InfoROI_t infoROI;
-                infoROI.x = roi.x;
-                infoROI.y = roi.y;
-                infoROI.height = roi.height;
-                infoROI.width = roi.width;
-                vecROI.push_back(infoROI);
+                ROI roiTemp;
+                roiTemp.x = roi.x;
+                roiTemp.y = roi.y;
+                roiTemp.height = roi.height;
+                roiTemp.width = roi.width;
+                vecROI.push_back(roiTemp);
             }
             if (vecROI.size() > 0)
             {
@@ -142,7 +142,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
-                        ptrInferMeta->rois[i].label = "unknown";
+                        ptrInferMeta->rois[i].labelClassification = "unknown";
                         printf("[debug] roi label is : unknown\n");
                     }
                 }
@@ -183,10 +183,10 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
                         std::vector<std::string> fields;
-                        boost::split(fields, vecROI[i].label, boost::is_any_of(","));
-                        ptrInferMeta->rois[i].label = fields[0];
-                        ptrInferMeta->rois[i].confidence = vecROI[i].confidence;
-                        printf("[debug] roi label is : %s\n", vecROI[i].label.c_str());
+                        boost::split(fields, vecROI[i].labelClassification, boost::is_any_of(","));
+                        ptrInferMeta->rois[i].labelClassification = fields[0];
+                        ptrInferMeta->rois[i].confidenceClassification = vecROI[i].confidenceClassification;
+                        printf("[debug] roi label is : %s\n", vecROI[i].labelClassification.c_str());
                     }
                 }
             }
@@ -198,8 +198,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 roi.height = 0;
                 roi.width = 0;
                 roi.pts = m_vecBlobInput[0]->frameId;
-                roi.confidence = 0;
-                roi.label = "unknown";
+                roi.confidenceClassification = 0;
+                roi.labelClassification = "unknown";
                 ptrInferMeta->rois.push_back(roi);
                 printf("[debug] fake roi\n");
             }

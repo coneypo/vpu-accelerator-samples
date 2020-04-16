@@ -278,10 +278,22 @@ int main(){
 #else
     // auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], g_detNetwork, "detection", 
     //                                                          &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
-    auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,1, 
-    vWID[0], config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
+
+    auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,config.numOfStreams, 
+    vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
+    if(config.numOfStreams > 1){
+        hva::hvaBatchingConfig_t batchingConfig;
+        batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+        batchingConfig.batchSize = 1;
+        batchingConfig.streamNum = config.numOfStreams;
+        batchingConfig.threadNumPerBatch = 1;
+
+        detNode.configBatch(batchingConfig);
+    }
 #endif
     auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, config.FRCConfig), "FRCNode");
+    // auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, config.numOfStreams, 
+    // vWID), "trackingNode");
 
 #ifdef GUI_INTEGRATION
 
@@ -290,8 +302,17 @@ int main(){
 #else //#ifdef USE_FAKE_IE_NODE
     // auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], g_clsNetwork, "classification",
     //                                                        &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,1, 
-    vWID[0], config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,config.numOfStreams, 
+    vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+    if(config.numOfStreams > 1){
+        hva::hvaBatchingConfig_t batchingConfig;
+        batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+        batchingConfig.batchSize = 1;
+        batchingConfig.streamNum = config.numOfStreams;
+        batchingConfig.threadNumPerBatch = 1;
+
+        clsNode.configBatch(batchingConfig);
+    }
 #endif //#ifdef USE_FAKE_IE_NODE
     if(sockConfig.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,2,sockConfig.unixSocket), "sendNode");

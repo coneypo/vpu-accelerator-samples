@@ -52,8 +52,8 @@ void SenderNodeWorker::process(std::size_t batchIdx){
         float inferFps = meta->inferFps;
         for(unsigned i =0; i< meta->rois.size(); ++i){
             const auto& rois = meta->rois;
-            m_sender[streamIdx]->serializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].label, rois[i].pts,
-                    rois[i].confidence, inferFps, decFps);
+            m_sender[streamIdx]->serializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].labelClassification, rois[i].pts,
+                    rois[i].confidenceClassification, inferFps, decFps);
         }
         m_sender[streamIdx]->send();
         // std::this_thread::sleep_for(std::chrono::milliseconds(50));

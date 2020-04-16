@@ -19,6 +19,7 @@
 
 #include "detection_helper.hpp"
 #include "tinyYolov2_post.h"
+#include "ImageNetLabels.hpp"
 
 //------------------------------------------------------------------------------
 //      class WorkloadContext_Helper
@@ -113,16 +114,16 @@ public:
                 RemoteMemoryFd _remoteMemoryFd = 0ul);
     UniteHelper() = default;
 
-    void callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd = 0ul, const std::vector<InfoROI_t>& vecROI = std::vector<InfoROI_t>{});
+    void callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd = 0ul, const std::vector<ROI>& vecROI = std::vector<ROI>{});
     void setup();
     void update(int32_t videoWidth, int32_t videoHeight, uint64_t fd = 0ul, 
-                const std::vector<InfoROI_t>& vecROI = std::vector<InfoROI_t>{});
+                const std::vector<ROI>& vecROI = std::vector<ROI>{});
 
     std::vector<DetectedObject_t> _vecOjects;
     std::vector<int> _vecIdx;
     std::vector<std::string> _vecLabel;
     std::vector<float> _vecConfidence;
-    std::vector<InfoROI_t> _vecROI;
+    std::vector<ROI> _vecROI;
 
 #if 1
     std::string graphName = "yolotiny";
@@ -183,6 +184,8 @@ protected:
     RemoteMemoryFd _remoteMemoryFd = 0;
     WorkloadContext_Helper _workloadContextHelper{static_cast<WorkloadID>(-1ul)};
     RemoteMemory_Helper _remoteMemoryHelper;
+
+    ImageNetLabels _labels;
 
 protected:
     std::vector<HddlUnite::Inference::AuxBlob::Type> _auxBlob {HddlUnite::Inference::AuxBlob::Type::TimeTaken};
