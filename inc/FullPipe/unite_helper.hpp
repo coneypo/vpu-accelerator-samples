@@ -17,6 +17,7 @@
 
 #include <opencv2/opencv.hpp>
 
+#include "common.hpp"
 #include "detection_helper.hpp"
 #include "tinyYolov2_post.h"
 #include "ImageNetLabels.hpp"

@@ -17,6 +17,7 @@
 #include <HddlUnite.h>
 #include <RemoteMemory.h>
 
+#include "common.hpp"
 #include "hddl2plugin/hddl2_params.hpp"
 #include "tinyYolov2_post.h"
 #include "region_yolov2tiny.h"

@@ -1,9 +1,10 @@
 #ifndef OBJECT_TRACKING_NODE_HPP
 #define OBJECT_TRACKING_NODE_HPP
 
-#include <hvaPipeline.hpp>
 #include <string>
-#include <common.hpp>
+#include <hvaPipeline.hpp>
+#include "common.hpp"
+#include "HddlUnite.h"
 
 //to be replaced by real tracker
 namespace FakeOT
@@ -46,7 +47,7 @@ public:
 
     uint64_t tracking_id {0};
     int32_t class_label {0};
-    TrackingStatus status {0};
+    TrackingStatus status {TrackingStatus::NEW};
 };
 
 
@@ -113,7 +114,7 @@ private:
 
     std::vector<WorkloadID> m_vWorkloadId;
     int32_t m_reservedInt{0};
-    std::string m_reservedString;
+    std::string m_reservedStr;
 };
 
 class ObjectTrackingNodeWorker : public hva::hvaNodeWorker_t{
@@ -127,13 +128,14 @@ public:
 
     WorkloadID m_workloadId{0ul};
     float m_fps{0.0f};
+    float m_durationAve {0.0f};
     uint64_t m_cntFrame{0ul};
 
 
     FakeOT::Tracker m_tracker;
 
     int32_t m_reservedInt{0};
-    std::string m_reservedString;
+    std::string m_reservedStr;
 
 private:
 

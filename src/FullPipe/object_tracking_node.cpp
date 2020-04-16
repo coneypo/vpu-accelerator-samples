@@ -3,7 +3,7 @@
 
 //constructed by hva framework when pipeline initialize
 ObjectTrackingNode::ObjectTrackingNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, 
-            std::vector<WorkloadID> vWorkloadId, int32_t reservedInt, std::string reservedStr);
+        std::vector<WorkloadID> vWorkloadId, int32_t reservedInt, std::string reservedStr):
 hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), 
 m_reservedInt(reservedInt), m_reservedStr(reservedStr), m_vWorkloadId(vWorkloadId){
 
@@ -19,7 +19,7 @@ std::shared_ptr<hva::hvaNodeWorker_t> ObjectTrackingNode::createNodeWorker() con
 ObjectTrackingNodeWorker::ObjectTrackingNodeWorker(hva::hvaNode_t* parentNode,
         WorkloadID workloadId, int32_t reservedInt, std::string reservedStr):
 hva::hvaNodeWorker_t(parentNode), 
-m_workloadId(workloadId), m_tracker(workloadId), m_reservedInt(resrvedInt), m_reservedStr(reservedStr) {
+m_workloadId(workloadId), m_tracker(workloadId), m_reservedInt(reservedInt), m_reservedStr(reservedStr) {
 
 }
 
@@ -57,7 +57,7 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
                 roiTemp.top = roi.y;
                 roiTemp.height = roi.height;
                 roiTemp.width = roi.width;
-                roiTemp.class_label = roi.label_id;
+                roiTemp.class_label = roi.labelIdClassification;
                 vecDetectedObject.push_back(roiTemp);
             }
 
@@ -68,11 +68,11 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
             auto vecObject = m_tracker.track(vecDetectedObject);
 
             //fetch tracking output
-            for (int32_t i = 0; i < vecObjects.size(); i++)
+            for (int32_t i = 0; i < vecObject.size(); i++)
             {
                 auto& roi = ptrInferMeta->rois[i];
                 roi.trackingId = vecObject[i].tracking_id;
-                roi.trackingStatus = vecObject[i].tracking_status;
+                roi.trackingStatus = static_cast<HvaPipeline::TrackingStatus>(vecObject[i].status);
             }
 
         }
