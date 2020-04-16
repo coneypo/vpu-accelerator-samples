@@ -86,6 +86,10 @@ public:
             object.status = TrackingStatus::NEW;
 
             vecObjects.push_back(object);
+
+
+            printf("[debug] object class label: %d, tracking id: %ld, object status: %d\n", 
+                    object.class_label, object.tracking_id, (int)object.status);
         }
         return vecObjects;
     }

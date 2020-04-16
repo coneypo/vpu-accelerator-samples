@@ -21,11 +21,13 @@
 #include "InferNode.hpp"
 #include "InferNode_unite.hpp"
 #include <PipelineConfig.hpp>
+#include "object_tracking_node.hpp"
 
 #define STREAMS 1
 #define MAX_STREAMS 64
 #define GUI_INTEGRATION
-#define USE_FAKE_IE_NODE
+// #define USE_FAKE_IE_NODE
+#define USE_OBJECT_TRACKING
 using ms = std::chrono::milliseconds;
 
 #ifdef GUI_INTEGRATION
@@ -279,21 +281,34 @@ int main(){
     // auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], g_detNetwork, "detection", 
     //                                                          &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
 
-    auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,config.numOfStreams, 
+    auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,sockConfig.numOfStreams, 
     vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
-    if(config.numOfStreams > 1){
+    if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
         batchingConfig.batchSize = 1;
-        batchingConfig.streamNum = config.numOfStreams;
+        batchingConfig.streamNum = sockConfig.numOfStreams;
         batchingConfig.threadNumPerBatch = 1;
 
         detNode.configBatch(batchingConfig);
     }
 #endif
+
+#ifndef USE_OBJECT_TRACKING
     auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, config.FRCConfig), "FRCNode");
-    // auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, config.numOfStreams, 
-    // vWID), "trackingNode");
+#else
+    auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
+    vWID, 0, ""), "trackingNode");
+    if(sockConfig.numOfStreams > 1){
+        hva::hvaBatchingConfig_t batchingConfig;
+        batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+        batchingConfig.batchSize = 1;
+        batchingConfig.streamNum = sockConfig.numOfStreams;
+        batchingConfig.threadNumPerBatch = 1;
+
+        trackingNode.configBatch(batchingConfig);
+    }
+#endif
 
 #ifdef GUI_INTEGRATION
 
@@ -302,13 +317,13 @@ int main(){
 #else //#ifdef USE_FAKE_IE_NODE
     // auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], g_clsNetwork, "classification",
     //                                                        &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,config.numOfStreams, 
+    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
     vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
-    if(config.numOfStreams > 1){
+    if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
         batchingConfig.batchSize = 1;
-        batchingConfig.streamNum = config.numOfStreams;
+        batchingConfig.streamNum = sockConfig.numOfStreams;
         batchingConfig.threadNumPerBatch = 1;
 
         clsNode.configBatch(batchingConfig);
@@ -344,8 +359,14 @@ int main(){
         jpegNode.configBatch(batchingConfig);
     }
 
+#ifndef USE_OBJECT_TRACKING
     pl.linkNode("detNode", 0, "FRCNode", 0);
     pl.linkNode("FRCNode", 0, "clsNode", 0);
+#else
+    pl.linkNode("detNode", 0, "trackingNode", 0);
+    pl.linkNode("trackingNode", 0, "clsNode", 0);
+#endif
+
     pl.linkNode("clsNode", 0, "jpegNode", 0);
 #ifdef GUI_INTEGRATION
     pl.linkNode("clsNode", 1, "sendNode", 0);
