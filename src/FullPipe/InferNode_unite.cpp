@@ -103,7 +103,7 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
             auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
 
 
-            uint64_t fd = *((uint64_t*)ptrBufVideo->getPtr());
+            uint64_t fd = *((int32_t*)ptrBufVideo->getPtr());
 
             VideoMeta* ptrVideoMeta = ptrBufVideo->getMeta();
             int input_height = ptrVideoMeta->videoHeight;

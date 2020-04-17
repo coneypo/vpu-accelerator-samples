@@ -51,10 +51,10 @@ public:
 };
 
 
-class Tracker
+class FakeTracker
 {
 public:
-    inline Tracker(int32_t input_workloadId)
+    FakeTracker(int32_t input_workloadId)
     :workloadId(input_workloadId)
     {
 
@@ -74,7 +74,7 @@ public:
 
         vecObjects.clear();
 
-        for (DetectedObject detectedObject : vecDetectedObjects)
+        for (DetectedObject& detectedObject : vecDetectedObjects)
         {
             Object object;
             object.top = detectedObject.top;
@@ -106,6 +106,7 @@ public:
 
 } //namespace FakeOT
 
+
 class ObjectTrackingNode : public hva::hvaNode_t{
 public:
     ObjectTrackingNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, 
@@ -136,7 +137,7 @@ public:
     uint64_t m_cntFrame{0ul};
 
 
-    FakeOT::Tracker m_tracker;
+    FakeOT::FakeTracker m_fakeTracker;
 
     int32_t m_reservedInt{0};
     std::string m_reservedStr;

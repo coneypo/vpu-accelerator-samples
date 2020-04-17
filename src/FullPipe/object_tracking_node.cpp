@@ -19,7 +19,7 @@ std::shared_ptr<hva::hvaNodeWorker_t> ObjectTrackingNode::createNodeWorker() con
 ObjectTrackingNodeWorker::ObjectTrackingNodeWorker(hva::hvaNode_t* parentNode,
         WorkloadID workloadId, int32_t reservedInt, std::string reservedStr):
 hva::hvaNodeWorker_t(parentNode), 
-m_workloadId(workloadId), m_tracker(workloadId), m_reservedInt(reservedInt), m_reservedStr(reservedStr) {
+m_workloadId(workloadId), m_fakeTracker(workloadId), m_reservedInt(reservedInt), m_reservedStr(reservedStr) {
 
 }
 
@@ -33,7 +33,7 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
         auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
 
 
-        int32_t fd = *((uint64_t*)ptrBufVideo->getPtr());
+        int32_t fd = *((int32_t*)ptrBufVideo->getPtr());
 
         VideoMeta* ptrVideoMeta = ptrBufVideo->getMeta();
         int32_t input_height = ptrVideoMeta->videoHeight;
@@ -57,15 +57,15 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
                 roiTemp.top = roi.y;
                 roiTemp.height = roi.height;
                 roiTemp.width = roi.width;
-                roiTemp.class_label = roi.labelIdClassification;
+                roiTemp.class_label = roi.labelIdDetection;
                 vecDetectedObject.push_back(roiTemp);
             }
 
             //set video buffer fd/height/width
-            m_tracker.setVideoBufferProperty(fd, input_height, input_width);
+            m_fakeTracker.setVideoBufferProperty(fd, input_height, input_width);
             
             //run tracking algorithm
-            auto vecObject = m_tracker.track(vecDetectedObject);
+            auto vecObject = m_fakeTracker.track(vecDetectedObject);
 
             //fetch tracking output
             for (int32_t i = 0; i < vecObject.size(); i++)
