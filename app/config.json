@@ -9,6 +9,16 @@
         "detection_model": "/home/xiao/gva/data/models/intel/intel/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml",
         "classification": "IR ABS path"
       }
+    },
+    {
+      "pipe": "filesrc location=${media_file} ! qtdemux ! h264parse ! tee name=t0 ! queue ! remoteoffloadbin.(vaapih264dec !  videoconvert ! gvadetect model=${detection_model} ! queue ! gvawatermark ! videoconvert ! videoroimetadetach  ) ! roisink socketname=${socket_name} sync=false t0. ! queue ! mfxh264dec ! inference syncmode=pts socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/home/xiao/1600x1200.mp4",
+        "socket_name": "/tmp/gstreamer_ipc_1",
+        "display_sink": "mysink",
+        "detection_model": "/home/xiao/gva/data/models/intel/intel/vehicle-license-plate-detection-barrier-0106/FP32/vehicle-license-plate-detection-barrier-0106.xml",
+        "classification": "IR ABS path"
+      }
     }
   ],
   "app": {

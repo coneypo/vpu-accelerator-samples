@@ -84,8 +84,16 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libxcb-dri3.so
 export LD_LIBRARY_PATH='<install path>/lib'
 export GST_PLUGIN_PATH='<install path>/lib'
 cd <install path>/bin
-./hddldemo -c ../config.txt
+./hddldemo -c ../config.json
 ```
+
+
+## Config in bypass mode
+make sure there are hva related configuration in config.json, you can refer to config_hva.json to setup your configuration. Remember to set syncmode=index for inference plugin in pipeline
+
+## Config in streaming  mode
+make sure there are no hva related configuration in config.json, you can refer to config.json to setup your configuration. Remember to set syncmode=pts for inference plugin in pipeline
+
 
 
 ### Knowning issue

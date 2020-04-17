@@ -7,6 +7,14 @@
         "socket_name": "/tmp/gstreamer_ipc_0",
         "display_sink": "mysink"
       }
+    },
+    {
+      "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/home/xiao/hddl/gsthvasample/build/src/FullPipe/barrier_1080x720.h264",
+        "socket_name": "/tmp/gstreamer_ipc_1",
+        "display_sink": "mysink"
+      }
     }
   ],
   "app": {

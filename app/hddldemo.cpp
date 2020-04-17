@@ -276,11 +276,12 @@ void HDDLDemo::sendSignalToHvaPipeline()
     //}
 
     std::string msgToSend = {};
-
     for (auto& pipeParam : ConfigParser::instance()->getPipelineParams()) {
         auto channelSocket = pipeParam["socket_name"];
         msgToSend = msgToSend + "," + channelSocket;
     }
+    msgToSend.erase(0, 1);
+
     int length = static_cast<int>(msgToSend.length());
 
     //send socket length to hva
