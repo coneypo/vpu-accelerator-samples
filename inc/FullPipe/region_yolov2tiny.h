@@ -305,7 +305,7 @@ inline int yolov2(const float *data, int *shape4D, int *strides4D,
         return -1;
     }
     box *boxes = reinterpret_cast<box *>(malloc(lw * lh * num_anchor * sizeof(box)));
-    if (NULL == boxex)
+    if (NULL == boxes)
     {
         return -1;
     }
