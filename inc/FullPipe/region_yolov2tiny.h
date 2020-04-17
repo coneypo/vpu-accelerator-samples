@@ -76,6 +76,12 @@ inline void do_nms_sort(box *boxes, int total, int classes, float thresh)
     sortable_bbox *s =
         reinterpret_cast<sortable_bbox *>(calloc(total, sizeof(sortable_bbox)));
 
+    //todo fix me
+    if (NULL == s)
+    {
+        return;
+    }
+
     for (i = 0; i < total; ++i)
     {
         s[i].index = i;
@@ -299,6 +305,10 @@ inline int yolov2(const float *data, int *shape4D, int *strides4D,
         return -1;
     }
     box *boxes = reinterpret_cast<box *>(malloc(lw * lh * num_anchor * sizeof(box)));
+    if (NULL == boxex)
+    {
+        return -1;
+    }
 
     get_region_boxes(data, shape4D, strides4D, num_classes, thresh, boxes,
                      anchors);

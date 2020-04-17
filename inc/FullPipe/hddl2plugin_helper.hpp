@@ -200,6 +200,13 @@ public:
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)},
                                      {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}};
 #endif
+
+        //todo fix me
+        if (_executableNetwork.GetInputsInfo().empty())
+        {
+            return;
+        }
+
         auto inputsInfo = _executableNetwork.GetInputsInfo();
         _inputName = _executableNetwork.GetInputsInfo().begin()->first;
         
@@ -287,6 +294,12 @@ public:
 #ifdef HDDLPLUGIN_PROFILE        
         start = std::chrono::steady_clock::now();
 #endif
+        //todo fix me
+        if (_executableNetwork.GetOutputsInfo().empty())
+        {
+            return;
+        }
+
         auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
         _ptrOutputBlob = _inferRequest.GetBlob(outputBlobName);
 #ifdef HDDLPLUGIN_PROFILE  

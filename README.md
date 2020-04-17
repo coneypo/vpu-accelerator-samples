@@ -114,29 +114,7 @@ The GUI application will start HVA pipeline automatically. In order to make the 
 
 ###### OpenVINO dependency
 
-HDDL2 plugin was not part of OpenVINO regular build. A separate binary need to be installed manually.
-
-How to install OpenVINO with HDDL2 plugin:
-
-1. Untar OpenVINO package for x86
-        http://nnt-srv01.inn.intel.com/builds/openvino_kmb/openvino-kmb.beta-20200313/builds/l_openvino_toolkit_private_ubuntu18_kmb_x86_p_0.0.0-2813-g509e8d4a56.tar.gz
-
-2. Clone dldt repo
-
-   `git clone git@gitlab-icv.inn.intel.com:inference-engine/dldt.git`
-
-3. build dldt
-
-   `cd ${dldt}; bash build-after-clone.sh `
-
-4. copy(do not overwrite libraries in target path) libraries from `${dldt}/bin/intel64/Release/lib/*` to untared OpenVINO package `${openvino}/deployment_tools/inference_engine/lib/intel64/`
-
-5. Untar HDDL2 plugin into `plugins.xml` path (`${openvino}/deployment_tools/inference_engine/lib/intel64/`)
-        http://nnt-srv01.inn.intel.com/builds/openvino_kmb/openvino-kmb.beta-20200313/builds/HDDL2Plugin.tar.xz
-
-6. Add HDDL2 plugin file name into plugins XML file `plugins.xml`.
-
-7. Setup OpenVINO environment variable before use `source ${openvino}/bin/setupvars.sh`
+Use OpenVINO package released by ICV, or build HDDL2 plugin & InferenceEngine (`script/build_dldt.sh`) 
 
 ###### Boost
 
