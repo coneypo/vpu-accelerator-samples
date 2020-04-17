@@ -275,24 +275,27 @@ void HDDLDemo::sendSignalToHvaPipeline()
     //    exit(EXIT_FAILURE);
     //}
 
+    std::string msgToSend = {};
+
     for (auto& pipeParam : ConfigParser::instance()->getPipelineParams()) {
         auto channelSocket = pipeParam["socket_name"];
-        int length = static_cast<int>(channelSocket.length());
-
-        //send socket length to hva
-        int result = conn->write((void*)&length, sizeof(length));
-        if (result != sizeof(length)) {
-            qDebug() << "Failed to send socket length!";
-            exit(EXIT_FAILURE);
-        }
-        qDebug() << "Sent length " << length << " in " << sizeof(length) << " bytes";
-
-        //send socket name to hva
-        result = conn->write(&channelSocket[0], length);
-        if (result != length) {
-            qDebug() << "Failed to send socket addr!";
-            exit(EXIT_FAILURE);
-        }
-        qDebug() << "Sent addr " << QString::fromStdString(channelSocket) << " in " << length << " bytes";
+        msgToSend = msgToSend + "," + channelSocket;
     }
+    int length = static_cast<int>(msgToSend.length());
+
+    //send socket length to hva
+    int result = conn->write((void*)&length, sizeof(length));
+    if (result != sizeof(length)) {
+        qDebug() << "Failed to send socket length!";
+        exit(EXIT_FAILURE);
+    }
+    qDebug() << "Sent length " << length << " in " << sizeof(length) << " bytes";
+
+    //send socket name to hva
+    result = conn->write(&msgToSend[0], length);
+    if (result != length) {
+        qDebug() << "Failed to send socket addr!";
+        exit(EXIT_FAILURE);
+    }
+    qDebug() << "Sent msg " << QString::fromStdString(msgToSend) << " in " << length << " bytes";
 }
