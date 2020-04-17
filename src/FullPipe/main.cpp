@@ -27,7 +27,7 @@
 #define MAX_STREAMS 64
 #define GUI_INTEGRATION
 // #define USE_FAKE_IE_NODE
-#define USE_OBJECT_TRACKING
+// #define USE_OBJECT_TRACKING
 using ms = std::chrono::milliseconds;
 
 #ifdef GUI_INTEGRATION
@@ -330,7 +330,7 @@ int main(){
     }
 #endif //#ifdef USE_FAKE_IE_NODE
     if(sockConfig.numOfStreams > 1){
-        pl.addNode(std::make_shared<SenderNode>(1,1,2,sockConfig.unixSocket), "sendNode");
+        pl.addNode(std::make_shared<SenderNode>(1,1,sockConfig.numOfStreams,sockConfig.unixSocket), "sendNode");
     }
     else{
         pl.addNode(std::make_shared<SenderNode>(1,1,1,sockConfig.unixSocket), "sendNode");
