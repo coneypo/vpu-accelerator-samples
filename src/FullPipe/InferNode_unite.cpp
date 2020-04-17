@@ -122,50 +122,62 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
             
             if (ptrInferMeta->rois.size() > 0ul)
             {
-                for (auto& roi : ptrInferMeta->rois)
+                if (ptrInferMeta->drop)
                 {
-                    if (roi.trackingStatus != HvaPipeline::TrackingStatus::NEW)
-                    {
-                        continue;
-                    }
-                    ROI roiTemp;
-                    roiTemp.x = roi.x;
-                    roiTemp.y = roi.y;
-                    roiTemp.height = roi.height;
-                    roiTemp.width = roi.width;
-                    vecROI.push_back(roiTemp);
-                }
-                if (vecROI.size() > 0ul)
-                {
-                    m_uniteHelper.update(input_width, input_height, fd, vecROI);
-                    m_uniteHelper.callInferenceOnBlobs();
-                    auto& vecLabel = m_uniteHelper._vecLabel;
-                    auto& vecConfidence = m_uniteHelper._vecConfidence;
-
-                    printf("[debug] input roi size: %ld, output label size: %ld\n", vecROI.size(), vecLabel.size());
-                    assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
-
-                    int cntNewObject = 0;
+                    //todo fix me
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
-                        if (ptrInferMeta->rois[i].trackingStatus != HvaPipeline::TrackingStatus::NEW)
+                        ptrInferMeta->rois[i].labelClassification = "unknown";
+                        printf("[debug] roi label is : unknown\n");
+                    }
+                }
+                else
+                {
+                    for (auto& roi : ptrInferMeta->rois)
+                    {
+                        if (roi.trackingStatus != HvaPipeline::TrackingStatus::NEW)
                         {
-                            auto& recordedROI = m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId];
-                            ptrInferMeta->rois[i].labelClassification = recordedROI.labelClassification;
-                            ptrInferMeta->rois[i].confidenceClassification = recordedROI.confidenceClassification;
+                            continue;
                         }
-                        else
+                        ROI roiTemp;
+                        roiTemp.x = roi.x;
+                        roiTemp.y = roi.y;
+                        roiTemp.height = roi.height;
+                        roiTemp.width = roi.width;
+                        vecROI.push_back(roiTemp);
+                    }
+                    if (vecROI.size() > 0ul)
+                    {
+                        m_uniteHelper.update(input_width, input_height, fd, vecROI);
+                        m_uniteHelper.callInferenceOnBlobs();
+                        auto& vecLabel = m_uniteHelper._vecLabel;
+                        auto& vecConfidence = m_uniteHelper._vecConfidence;
+
+                        printf("[debug] input roi size: %ld, output label size: %ld\n", vecROI.size(), vecLabel.size());
+                        assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
+
+                        int cntNewObject = 0;
+                        for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                         {
-                            std::vector<std::string> fields;
-                            boost::split(fields, vecLabel[cntNewObject], boost::is_any_of(","));
-                            ptrInferMeta->rois[i].labelClassification = fields[0];
-                            ptrInferMeta->rois[i].confidenceClassification = vecConfidence[cntNewObject];
-                            printf("[debug] roi label is : %s\n", vecLabel[cntNewObject].c_str());
-                            cntNewObject++;
-                            m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId] = ptrInferMeta->rois[i];
-                        }
-                    }  
-                }          
+                            if (ptrInferMeta->rois[i].trackingStatus != HvaPipeline::TrackingStatus::NEW)
+                            {
+                                auto& recordedROI = m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId];
+                                ptrInferMeta->rois[i].labelClassification = recordedROI.labelClassification;
+                                ptrInferMeta->rois[i].confidenceClassification = recordedROI.confidenceClassification;
+                            }
+                            else
+                            {
+                                std::vector<std::string> fields;
+                                boost::split(fields, vecLabel[cntNewObject], boost::is_any_of(","));
+                                ptrInferMeta->rois[i].labelClassification = fields[0];
+                                ptrInferMeta->rois[i].confidenceClassification = vecConfidence[cntNewObject];
+                                printf("[debug] roi label is : %s\n", vecLabel[cntNewObject].c_str());
+                                cntNewObject++;
+                                m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId] = ptrInferMeta->rois[i];
+                            }
+                        }  
+                    }
+                }       
             }
             else
             {
