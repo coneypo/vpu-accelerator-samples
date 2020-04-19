@@ -1,8 +1,8 @@
-# KMB sample (gstream decoding + HVA detection/classifcation on ARM)
+# KMB sample (gstream decoding + HVA detection/classifcation)
 
 A sample Bypass Pipeline
 
-This sample runs on IA host, with decoding offloaded to KMB and IE (detection + classification) on VPU. Single process and single pipeline at the moment. The number of Streams can only be configured to 1 (refer to the hash define in main). 
+This sample runs on IA host, with decoding offloaded to KMB and IE (detection + classification) on VPU. This sample now supports multistream, where at most we have tested 4 streams simultaneously at the moment.
 
 #### External dependencies
 
@@ -14,8 +14,8 @@ This sample runs on IA host, with decoding offloaded to KMB and IE (detection + 
 
 The sections that each entity points briefly introduces the requirements and version of each component. To facilitate users to set up the envrironment, some scripts are provided under `script/`. Below are the steps to set up the environment using the scripts provided.
 
-1. build and install hddlunite. Hddlunite also provides a script of installation and hddlunite can be installed free of choice
-2. make sure you have the access for
+1. build and install hddlunite. Hddlunite also provides a script of installation and as a component this sample replies on, it can be installed to anywhere  with freedom of choice
+2. if you would like to use the dependency install script, make sure you have the access for
     1. vaapi shim repo gitlab.devtools.intel.com:29418/OWR/IoTG/GMS/Yocto/Graphics/Media/vaapi_bypass.git
     2. gstreamer vaapi plugin iotg build, https://gitlab.devtools.intel.com/OWR/IoTG/GMS/Yocto/Graphics/Media/gstreamer-vaapi.git
     3. dldt repo, gitlab-icv.inn.intel.com:inference-engine/dldt.git
@@ -39,12 +39,12 @@ The sections that each entity points briefly introduces the requirements and ver
 If you have already had all the above dependencies ready, to compile this sample, just simply do:
 
 ```shell
-git clone https://gitlab.devtools.intel.com/kmb_integration/gsthvasample.git 
+git clone https://gitlab.devtools.intel.com/kmb_integration/gsthvasample.git
 cd gsthvasample
 git checkout feature/for_scan
 ```
 
-Before carrying on the compilation, make sure you have the following environment variables configured properly, especially when you install all those dependencies to a custom location rather than the system root, i.e. `/usr/`.
+Then before carrying on the compilation, make sure you have the following environment variables configured properly, especially when you install all those dependencies to a custom location rather than the system root, i.e. `/usr/`.
 
 ```shell
 export HDDLUNITE_HOST_INSTALL_DIR=...
@@ -79,6 +79,7 @@ Users can configure HVA pipeline through a config file, which will be searched b
   - Video: the video file fed into pipeline
   - DropXFrame: Drop `DropXFrame` frames every `DropEveryXFrame` frames by decoder
   - DropEveryXFrame: Drop `DropXFrame` frames every `DropEveryXFrame` frames by decoder
+  - Codec: the codec of video file. Now this sample supports `h264`, `h265` and `mp4` format. Note that for h265 video, decoded frames are of `P010` (10-bit planar YUV format) rather `NV12` format, which isn't supported by current IE and jpeg encoder, which means IE would be highly likely to not detect anything and encoded jpegs are corrupted.
 - GUI
   - Socket: The socket that HVA opens and listens for messages from GUI application
 - FRC
@@ -97,16 +98,29 @@ Users can configure HVA pipeline through a config file, which will be searched b
 `./build/src/FullPipeGUITest/FullPipeGUITest`
 5. The fake GUI testcase will print out the detected ROI infos and labels etc.
 
+##### if testing with Fake GUI Testcase with 2-stream use case
+
+1. Prepare the same envrionemnt as Hddlunite and vaapi shim required and navigate to the directory where the config.json is located
+2. Start HVA pipeline, e.g.
+`./build/src/FullPipe/FullPipe`
+3. Wait until the application prints out "Set socket to listening"
+4. Start an idle Socket listenser without signaling HVA pipeline like the following, note the argument `1` at the end:
+`./build/src/FullPipeGUITestSock/FullPipeGUITestSock 1`
+5. Start the fake GUI testcase like the following, note the argument `1` at the end.
+`./build/src/FullPipeGUITest/FullPipeGUITest 1`
+6. This will sets up two sockets listens for detected ROI messages and the respective fake GUI testcase will print out the detected ROI infos and labels etc.
+
 ##### if testing with GUI application
 
 The GUI application will start HVA pipeline automatically. In order to make the GUI locate and boot HVA pipeline, a few configurations and environment variable should be set in GUI application's config file. An example GUI config file is provided under `external/`
 
 #### Known Issue
 
-- Vaapi and IE may experience stability issue after ~500 frames. Upon such failures the application should quit with appropriate printout on terminal
-- Key frame tracking issue after loopback. Currently application is set to be looping until the GUI socket quits. If it reaches EOS of video file, application automatically seeks to the beginning of video file. However our tests show that after loopback the key frame tracking in Gstreamer pipeline fails to function well, resulting in blurred decoded image and subsequently inaccurate detection/classification result.
-- in vaapi shim with commit id c6c2be32, vaapi fails to decode any frames with resolution above 1080p. Vaapi shim team should have fixed this issue in their latest commit but we havn't tested upon it.
-- Fd and memory leakage in vaapi shim
+- Vaapi and IE may experience stability issue after ~10000 frames upon the first execution of a clean boot. Upon such failures the application should quit with appropriate printout on terminal
+- Xlink Hang issue. Xlink communication channel through PCIE randomly hangs
+- Fd and memory leakage in vaapi shim, both on IA host and on KMB ARM
+- KMB ARM randomly kernel error. This happens randomly on KMB ARM and happens more often under heavy workload, e.g. 4-streams usecase
+- h265 is only supported by decoder. The decoded pixel format is not supported by IE and Jpeg Encoder
 
 ------
 
@@ -126,7 +140,7 @@ Currently we are using and testing under Gstreamer 1.16.0
 
 Gstreamer Vaapi plugin should be get from IOTG Keembay repository rather than the open source version. Note that we should have a patch fixing on gstreamer vaapi dup issue, which is can be found at HddlUnite release page.
 
-Another Gstreamer Plugin required to run the application is the bypass plugin, which is designed and written to handle the workload context and related data introduced specifically by bypass mode. To compile this plugin, one may refer to the GstBypassPlugin directory for its source code, or Hddlunite will also provide a script which is used to patch on the original version of bypass plugin present in Vaapi Shim repository and build it. 
+Another Gstreamer Plugin required to run the application is the bypass plugin, which is designed and written to handle the workload context and related data introduced specifically by bypass mode. To compile this plugin, one may refer to the GstBypassPlugin directory for its source code, or Hddlunite will also provide a script which is used to patch on the original version of bypass plugin present in Vaapi Shim repository and build it.
 
 ###### VAAPI Shim
 
