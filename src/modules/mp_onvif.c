@@ -392,7 +392,7 @@ change_format_in_channel(gpointer user_data)
     gchar *sink_name = mp_chform->down_sink_name;
     int width = mp_chform->width;
     int height = mp_chform->height;
-
+    int dynamic_framerate = mp_chform->framerate;
     //reset enc_caps and enc property
     GstElement *enc_caps_element = gst_bin_get_by_name(GST_BIN((mp)->pipeline),
                                    caps_name);
@@ -424,6 +424,7 @@ change_format_in_channel(gpointer user_data)
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "resend-pps", 1, NULL);
         MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "resend-sps", 1, NULL);
     }
+    MEDIAPIPE_SET_PROPERTY(ret, mp, ele_name_s , "dynamic-framerate", dynamic_framerate, NULL);
     gst_object_unref(enc_caps_element);
     if (caps != NULL) {
         gst_caps_unref(caps);
@@ -606,6 +607,7 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
     ctx->width = param[WIDTH].value_int;
     ctx->height = param[HEIGHT].value_int;
 
+    LOG_DEBUG("ctx->video_element is %s",ctx->video_element);
     //get video element
     GstElement *enc_element = NULL;
     if (ctx->video_element != NULL) {
@@ -615,6 +617,7 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
         LOG_WARNING("set video config: video element name is NULL");
         *res_status = RET_FAILED;
     }
+    g_assert(enc_element != NULL);
 
     //set width and height
     if (param[WIDTH].status &&  param[WIDTH].value_int <= 0) {
@@ -627,64 +630,14 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
         *res_status = RET_FAILED;
         LOG_WARNING("set video config: error height :%d", param[HEIGHT].value_int);
     }
-    GstElement *enc_up_casfilter_element =  NULL;
-    GstCaps *caps = NULL;
-    GstCaps *copy_caps = NULL;
-    GstStructure *structure = NULL;
     GValue t_value = G_VALUE_INIT;
     g_value_init(&t_value, G_TYPE_INT);
-    if (param[WIDTH].status && param[HEIGHT].status && enc_element != NULL) {
-        if (get_element_by_name_and_direction(enc_element,
-                                              &enc_up_casfilter_element, "capsfilter", TRUE)) {
-            g_object_get(enc_up_casfilter_element, "caps", &caps, NULL);
-            copy_caps = gst_caps_copy(caps);
-            structure = gst_caps_get_structure(copy_caps, 0);
-            g_value_set_int(&t_value, param[WIDTH].value_int);
-            gst_structure_set_value(structure, "width", &t_value);
-            g_value_set_int(&t_value, param[HEIGHT].value_int);
-            gst_structure_set_value(structure, "height", &t_value);
-            g_object_set(enc_up_casfilter_element, "caps", copy_caps, NULL);
-            gst_caps_unref(caps);
-            gst_caps_unref(copy_caps);
-        } else {
-            LOG_WARNING("set video config: can't find up capsfilter element");
-            param[WIDTH].status = FALSE;
-            param[HEIGHT].status = FALSE;
-            *res_status = RET_FAILED;
-        };
-    }
 
-    //set framerate
     if (param[FRAMERATE].status &&  param[FRAMERATE].value_int <= 0) {
         param[FRAMERATE].status = FALSE;
         *res_status = RET_FAILED;
         LOG_WARNING("set video config: error framerate :%d",
                     param[FRAMERATE].value_int);
-    }
-
-    if (param[FRAMERATE].status) {
-        caps = NULL;
-        copy_caps = NULL;
-        structure = NULL;
-        GstElement *videorate_capsfilter_element = NULL;
-        g_value_unset(&t_value);
-        g_value_init(&t_value, GST_TYPE_FRACTION);
-        if (ctx->videorate_capsfilter != NULL) {
-            videorate_capsfilter_element =
-                gst_bin_get_by_name(GST_BIN((mp)->pipeline), ctx->videorate_capsfilter);
-            g_object_get(videorate_capsfilter_element, "caps", &caps, NULL);
-            copy_caps = gst_caps_copy(caps);
-            structure = gst_caps_get_structure(copy_caps, 0);
-            gst_value_set_fraction(&t_value, param[FRAMERATE].value_int, 1);
-            gst_structure_set_value(structure, "framerate", &t_value);
-            g_object_set(videorate_capsfilter_element, "caps", copy_caps, NULL);
-            gst_caps_unref(caps);
-            gst_caps_unref(copy_caps);
-        } else {
-            LOG_WARNING("set video config: videorate_capsfilter name is NULL");
-            param[FRAMERATE].status = FALSE;
-            *res_status = RET_FAILED;
-        }
     }
 
     //change_encode;
@@ -735,7 +688,7 @@ static void _set_videoenc_config(struct json_object *obj, int *res_status,
             param[ENCODER].status = FALSE;
         }
     }
-
+    LOG_DEBUG("res_status is %d",(int)(*res_status));
     GstElement  *queue = NULL;
     GstElement  *down_capsfilter = NULL;
     if (*res_status == RET_SUCESS) {
@@ -905,6 +858,7 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     Context *ctx = (Context *) data;
     mediapipe_t *mp = ctx->mp;
     int ret = 0;
+    UNUSED(ret);
 
     //get element
     GstElement *enc_element = NULL;
@@ -982,7 +936,6 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
     } else {
         LOG_WARNING("get video config: src caps is NULL");
     }
-
     //get quality or bitrate and bitratemode
     int  bitrate = 0;
     int  quality = 50;
@@ -1014,26 +967,13 @@ static void _get_videoenc_config(struct json_object *obj, int *res_status,
                 break;
         }
     }
-
-    //get framrate
-    GstCaps *rate_caps = NULL;
-    MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->videorate_capsfilter, "caps",
-                           &rate_caps, NULL);
-    GstStructure *rate_caps_stucture = NULL;
     gint numerator = 30;
-    gint denominator = 1;
     char framerate[10] = {"30/1"};
-    if (ret == 0) {
-        rate_caps_stucture = gst_caps_get_structure(rate_caps, 0);
-        ret2 = gst_structure_get_fraction(rate_caps_stucture, "framerate",
-                                          &numerator, &denominator);
-        if (!ret2) {
-            LOG_WARNING("fail to get value, use default value \"%s\"", framerate);
-        } else {
-            g_snprintf(framerate, 9, "%d/%d", numerator, denominator);
-        }
-        gst_caps_ref(rate_caps);
-    }
+    MEDIAPIPE_GET_PROPERTY(ret, mp, ctx->video_element, "dynamic-framerate",
+                               &numerator, NULL);
+    g_snprintf(framerate,10,"%d/1",numerator);
+    LOG_DEBUG("dynamic-framerate is %s,ctx->video_element is %s,onvif_ctx->video_element is %s",framerate,ctx->video_element,onvif_ctx->video_element);
+
     json_object_object_add(obj, "quality", json_object_new_int(quality));
     json_object_object_add(obj, "bitrate", json_object_new_int(bitrate));
     json_object_object_add(obj, "govlen", json_object_new_int(govlen));
