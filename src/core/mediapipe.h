@@ -55,6 +55,8 @@ struct mediapipe_s {
 
     message_callback_t  message_callback;
     void                *private_data;
+    int64_t            ts_pipeline_start;
+    int64_t            ts_pipeline_end;
 };
 
 void

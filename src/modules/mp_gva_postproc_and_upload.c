@@ -9,7 +9,7 @@
  */
 
 #include "mediapipe_com.h"
-#include "utils/packet_struct_v3.h"
+#include "utils/packet_struct_v4.h"
 #include <string>
 #include <algorithm>
 #include <vector>
@@ -28,6 +28,9 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
+#define XLINK_DEVICE_TYPE	PCIE_DEVICE
+#define NOT_APPLICABLE_U16  0xfefe
 
 typedef struct {
     GstElement *pipeline;
@@ -95,6 +98,9 @@ push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
 
 static gboolean
 process_roi_only(jpeg_branch_ctx_t *branch_ctx, gint roi_index);
+
+static gboolean
+extract_result_from_meta(jpeg_branch_ctx_t *branch_ctx, GstVideoRegionOfInterestMeta *meta);
 
 //module define start
 static void
@@ -266,6 +272,7 @@ is_roi_outdated(GstVideoRegionOfInterestMeta *roi_meta, jpeg_branch_ctx_t *branc
 }
 
 
+
 static gboolean
 send_result_back(jpeg_branch_ctx_t* branch_ctx)
 {
@@ -290,8 +297,8 @@ send_result_back(jpeg_branch_ctx_t* branch_ctx)
     if(branch_ctx->Jpeg_pag.meta.num_rois){
         //copy the classification result
         memcpy(pbuffer, branch_ctx->Jpeg_pag.results,
-            sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois);
-        pbuffer += (sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois);
+            sizeof(FrameResult) * branch_ctx->Jpeg_pag.meta.num_rois);
+        pbuffer += (sizeof(FrameResult) * branch_ctx->Jpeg_pag.meta.num_rois);
         //only copy the jpeg when the jpegmem_size is not 0
         if(branch_ctx->jpegmem_size)
             memcpy(pbuffer, branch_ctx->Jpeg_pag.jpegs, branch_ctx->jpegmem_size);
@@ -316,19 +323,78 @@ static gboolean
 process_roi_only(jpeg_branch_ctx_t *branch_ctx, gint roi_index)
 {
     //Format the result packet without JPEG
-    branch_ctx->Jpeg_pag.results[roi_index].jpeg_size =  0;
-    branch_ctx->Jpeg_pag.results[roi_index].starting_offset = 0;
+    branch_ctx->Jpeg_pag.results[roi_index].det_result.jpeg_size =  0;
+    branch_ctx->Jpeg_pag.results[roi_index].det_result.jpeg_offset = 0;
     branch_ctx->roi_index++;
     if (branch_ctx->roi_index == branch_ctx->Jpeg_pag.meta.num_rois) {
         GST_LOG("MEDIAPIPE|ROIENC|DEBUG|Send Result back via process_roi_only");
         branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
                 + branch_ctx->Jpeg_pag.header.meta_size
-                + sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois
+                + sizeof(FrameResult) * branch_ctx->Jpeg_pag.meta.num_rois
                 + branch_ctx->jpegmem_size;
         branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
         //set packet_type
         send_result_back(branch_ctx);
     }
+    return true;
+}
+
+static gboolean
+extract_result_from_meta(jpeg_branch_ctx_t *branch_ctx, GstVideoRegionOfInterestMeta *meta)
+{
+    int cls_label_id = 0;
+    int det_label_id = NOT_APPLICABLE_U16;
+    int object_id = 0;
+    int cls_prob = 0;
+    int det_prob = NOT_APPLICABLE_U16;
+    const gchar *model_name = NULL;
+
+    for (GList* l = meta->params; l; l = g_list_next(l)) {
+        GstStructure * structure = (GstStructure *) l->data;
+        if(gst_structure_has_name(structure, "object_id"))
+        {
+            //extract OT results; refer to vasobjecttracker code
+            gst_structure_get_int(structure, "id", &object_id);
+        }
+        else if(gst_structure_has_name(structure, "detection"))
+        {
+            //extract detection results; refer to gvadetect code
+            gst_structure_get_int(structure, "label_id", &det_label_id);
+            double tmp_prob = 0.0;
+            if(gst_structure_get_double(structure, "confidence", &tmp_prob))
+                det_prob = (int)(tmp_prob*1000);
+
+        }
+        else if (gst_structure_has_field(structure, "label")) {
+            // extract classify result; refer to gvaclassiy code
+            gst_structure_get_int(structure, "label_id", &cls_label_id);
+            double tmp_prob = 0.0;
+            if(gst_structure_get_double(structure, "confidence", &tmp_prob))
+                cls_prob = (int)(tmp_prob*1000);
+            model_name = gst_structure_get_string(structure, "model_name");
+        }
+    }
+
+    if(model_name){
+        g_strlcpy((gchar*)(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].cls_result.cls_nn_name), model_name, 13);
+        GST_TRACE("YIDEBUG|Get model name %s confidence %d label_id %d object_id %d", model_name, cls_prob, cls_label_id, object_id);
+    }
+
+    //populate detection result
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.left = meta->x;
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.top =  meta->y;
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.width = meta->w;
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.height = meta->h;
+    //TODO: fix this hard-code, 1 only works for KMB since KMB has only one classify
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.num_classifications = 1;
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.tracking_id = object_id;
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.det_prob = det_prob;
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].det_result.det_label_id = det_label_id;
+
+    //populate classify result
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].cls_result.cls_label_id = cls_label_id;
+    branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].cls_result.cls_prob = cls_prob;
+
     return true;
 }
 
@@ -482,7 +548,7 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
             process_roi_only(branch_ctx, roi_index);
         } else {
             LOG_DEBUG("MEDIAPIPE|DEBUG|Find young ROI do jpegEnc %d\n", roi_index);
-            gint* proi_index = g_new0(gint, 1);
+            uint32_t* proi_index = g_new0(uint32_t, 1);
             *proi_index = roi_index;
             LOG_DEBUG("MEDIAPIPE|DEBUG|roi_index %d|branch roi_index %d\n", roi_index, branch_ctx->roi_index);
             g_async_queue_push(branch_ctx->jpeg_roi_queue, proi_index);
@@ -553,7 +619,6 @@ push_data(gpointer user_data)
     }
     buffer = (GstBuffer *) g_queue_peek_head(branch_ctx->queue);
     int roi_index = 0;
-    int label_id = 0;
     int roi_num = 0;
     if (branch_ctx->roi_index == 0) {
         //count total roi nums
@@ -590,20 +655,10 @@ push_data(gpointer user_data)
 
         meta = (GstVideoRegionOfInterestMeta *)gst_meta;
 
-        for (GList* l = meta->params; l; l = g_list_next(l)) {
-            structure = (GstStructure *) l->data;
-            if (gst_structure_has_field(structure, "label_id") &&
-                gst_structure_get_int(structure, "label_id", &label_id)) {
-                LOG_DEBUG("label_id: %d", label_id);
-                break;
-            }
-        }
+        gboolean success = extract_result_from_meta(branch_ctx, meta);
 
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].classification_index = label_id;
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].left = meta->x;
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].top =  meta->y;
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].width = meta->w;
-        branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].height = meta->h;
+        if(!success) // this meta doesn't have valid data, move to process next
+            GST_WARNING("Meta not valid return default value");
 
         structure = gst_video_region_of_interest_meta_get_param(meta, "mediapipe_probe_meta");
 
@@ -614,6 +669,8 @@ push_data(gpointer user_data)
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.stream_id, "stream_id");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.frame_number, "frame_number");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.packet_type, "packet_type");
+        branch_ctx->Jpeg_pag.meta.ts_pipeline_start = ctx->mp->ts_pipeline_start;
+        branch_ctx->Jpeg_pag.meta.ts_pipeline_end = g_get_monotonic_time();
         /* PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois"); */
         GST_LOG("MEDIAPIPE|TRACE_FRAME|PROCESS|%u|%u|%u|%u|%d", branch_ctx->Jpeg_pag.meta.packet_type, branch_ctx->pipe_id, branch_ctx->Jpeg_pag.meta.num_rois, branch_ctx->Jpeg_pag.meta.frame_number, roi_index);
         while (branch_ctx->Jpeg_pag.meta.num_rois > memory_size) {
@@ -621,8 +678,8 @@ push_data(gpointer user_data)
         }
         if (memory_size > branch_ctx->malloc_max_roi_size) {
             ctx->branch_ctx->Jpeg_pag.results =
-                (ClassificationResult*) g_realloc(ctx->branch_ctx->Jpeg_pag.results,
-                        sizeof(ClassificationResult) * memory_size);
+                (FrameResult*) g_realloc(ctx->branch_ctx->Jpeg_pag.results,
+                        sizeof(FrameResult) * memory_size);
             branch_ctx->malloc_max_roi_size = memory_size;
             LOG_DEBUG("channel:%d, roi memory increase to %d", ctx->channel,
                     branch_ctx->malloc_max_roi_size);
@@ -631,7 +688,7 @@ push_data(gpointer user_data)
         /* PARSE_STRUCTURE(branch_ctx->Jpeg_pag.results[branch_ctx->roi_index].object_index, "object_index"); */
 
         //meta size is fixed , = 8;
-        branch_ctx->Jpeg_pag.header.meta_size = 8;
+        branch_ctx->Jpeg_pag.header.meta_size = sizeof(Meta);
         if (branch_ctx->roi_index < branch_ctx->Jpeg_pag.meta.num_rois) {
             LOG_DEBUG("roi_index:%d", branch_ctx->roi_index);
             if(meta->x == 0
@@ -729,19 +786,19 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
         return GST_PAD_PROBE_OK;
     }
-    gint* proi_index = (gint*)g_async_queue_pop(branch_ctx->jpeg_roi_queue);
+    uint32_t* proi_index = (uint32_t*)g_async_queue_pop(branch_ctx->jpeg_roi_queue);
     if (!proi_index) {
         GST_ERROR("MEDIAPIPE|ERROR|GET ROI Index Error\n");
         abort();
     }
     if(*proi_index >= branch_ctx->Jpeg_pag.meta.num_rois){
-        GST_ERROR("MEDIAPIPE|ERROR|GET ROI Index Overflow roi %d|queue roi %d\n", *proi_index, branch_ctx->Jpeg_pag.meta.num_rois);
+        GST_ERROR("MEDIAPIPE|ERROR|GET ROI Index Overflow roi %u|queue roi %d\n", *proi_index, branch_ctx->Jpeg_pag.meta.num_rois);
         abort();
-    }
-    branch_ctx->Jpeg_pag.results[*proi_index].jpeg_size =  map.size;
-    branch_ctx->Jpeg_pag.results[*proi_index].starting_offset =
+    } 
+    branch_ctx->Jpeg_pag.results[*proi_index].det_result.jpeg_size =  map.size;
+    branch_ctx->Jpeg_pag.results[*proi_index].det_result.jpeg_offset =
         sizeof(Header) + branch_ctx->Jpeg_pag.header.meta_size +
-        sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois +
+        sizeof(FrameResult) * branch_ctx->Jpeg_pag.meta.num_rois +
         branch_ctx->jpegmem_size;//byte
     g_free(proi_index);
     while (branch_ctx->jpegmem_size + map.size > memory_size) {
@@ -764,7 +821,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     if (branch_ctx->roi_index + 1 == branch_ctx->Jpeg_pag.meta.num_rois) {
         branch_ctx->Jpeg_pag.header.package_size = sizeof(Header)
                 + branch_ctx->Jpeg_pag.header.meta_size
-                + sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois
+                + sizeof(FrameResult) * branch_ctx->Jpeg_pag.meta.num_rois
                 + branch_ctx->jpegmem_size;
         branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
         GST_LOG("MEDIAPIPE|DEBUG|Send Result back via Get_objectData");
@@ -985,7 +1042,7 @@ init_module(mediapipe_t *mp)
     ctx->branch_ctx->jpegmem_size = 0;
     ctx->branch_ctx->malloc_max_roi_size = 5;
     ctx->branch_ctx->malloc_max_jpeg_size = 5 * 1024 * 1024;
-    ctx->branch_ctx->Jpeg_pag.results = g_new0(ClassificationResult,
+    ctx->branch_ctx->Jpeg_pag.results = g_new0(FrameResult,
                                         ctx->branch_ctx->malloc_max_roi_size);
     ctx->branch_ctx->Jpeg_pag.jpegs = g_new0(guint8,
                                       ctx->branch_ctx->malloc_max_jpeg_size);

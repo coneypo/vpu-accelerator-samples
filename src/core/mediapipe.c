@@ -575,7 +575,7 @@ void mediapipe_start(mediapipe_t *mp)
     mp->state = STATE_START;
 
     mediapipe_start_prepare(mp);
-
+    mp->ts_pipeline_start = g_get_monotonic_time();
     g_main_loop_run(mp->loop);
 
     mediapipe_start_finish(mp);

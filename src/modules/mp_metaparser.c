@@ -4,7 +4,7 @@
  */
 #include "mediapipe.h"
 #include "mediapipe_com.h"
-#include "utils/packet_struct_v3.h"
+#include "utils/packet_struct_v4.h"
 
 #include <gst/app/app.h>
 #include <vector>
@@ -195,13 +195,12 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
     auto pData = info.data;
     auto header = reinterpret_cast<Header*>(pData);
     auto meta = reinterpret_cast<Meta*>(pData + sizeof(Header));
-    auto roi = reinterpret_cast<ROI*>(pData + sizeof(Header) + sizeof(Meta));
 
     auto frameId = meta->frame_number;
     UNUSED(frameId);
-    auto headerSize = header->meta_size + sizeof(header) + (meta->num_rois * sizeof(ROI));
+    auto headerSize = header->meta_size + sizeof(header);
     GST_LOG("MEDIAPIPE|TRACE_FRAME|RECEIVE|%u|%u|%u|%u", meta->packet_type, mp->pipe_id, meta->num_rois, meta->frame_number);
-    for (int i = 0; i < meta->num_rois; i++) {
+    for (unsigned int i = 0; i < meta->num_rois; i++) {
         //GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
         //   buffer, "label", border[i].left, border[i].top, border[i].width, border[i].height);
         GValue tmp_value = { 0 };
@@ -216,13 +215,13 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
             "stream_id", G_TYPE_UINT, meta->stream_id,
             "frame_number", G_TYPE_UINT, meta->frame_number,
             "num_rois", G_TYPE_UINT, meta->num_rois,
-            "classification_index", G_TYPE_UINT, roi[i].classification_index,
-            "reserved", G_TYPE_UINT, roi[i].reserved,
-            "object_index", G_TYPE_UINT, roi[i].object_index,
-            "left", G_TYPE_UINT, roi[i].left,
-            "top", G_TYPE_UINT, roi[i].top,
-            "width", G_TYPE_UINT, roi[i].width,
-            "height", G_TYPE_UINT, roi[i].height, NULL);
+            "classification_index", G_TYPE_UINT, 0,
+            "reserved", G_TYPE_UINT, 0,
+            "object_index", G_TYPE_UINT, 0,
+            "left", G_TYPE_UINT, 0,
+            "top", G_TYPE_UINT, 0,
+            "width", G_TYPE_UINT, 0,
+            "height", G_TYPE_UINT, 0, NULL);
 
         g_value_take_boxed(&tmp_value, s);
         gst_value_list_append_value(&objectlist, &tmp_value);
