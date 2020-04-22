@@ -1,0 +1,89 @@
+before_script:
+  - echo Setting environment variables...
+  - pwd
+  - export BUILD_DIR=$(pwd)/dependencies
+  - export LOCAL_CACHE_DIR=$(pwd)/cache
+  - export ROOT_INSTALL_DIR=/install
+  - export HDDLUNITE_HOST_INSTALL_DIR=${LOCAL_CACHE_DIR}/hddlunite
+  - export HDDLUNITE_ROOT_DIR=${BUILD_DIR}/hddlunite
+  - export LD_LIBRARY_PATH=${ROOT_INSTALL_DIR}/lib:${ROOT_INSTALL_DIR}/lib/gstreamer-1.0:${LD_LIBRARY_PATH}
+  - export PKG_CONFIG_PATH=${ROOT_INSTALL_DIR}/lib/pkgconfig:$PKG_CONFIG_PATH
+  - export GST_PLUGIN_PATH=${ROOT_INSTALL_DIR}/lib:${ROOT_INSTALL_DIR}/lib/gstreamer-1.0
+  - export PATH=$ROOT_INSTALL_DIR/bin/:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+  - export LIBRARY_PATH=$ROOT_INSTALL_DIR/lib:$ROOT_INSTALL_DIR/lib/gstreamer-1.0
+
+cache:
+  paths:
+    - cache
+
+stages:
+  - build_hddlunite
+  - build_vaapishim
+  - build_hvasample
+
+BuildHddlUnite:
+  tags:
+    - hva_sample_runner
+  image: hddl/hvasample:v0.1
+  stage: build_hddlunite 
+  script:
+    - echo building hddlunite
+    - echo HDDLUNITE_ROOT_DIR is 
+    - echo ${HDDLUNITE_ROOT_DIR}
+    - echo ${LD_LIBRARY_PATH}
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com/kmb_hddl/hddlunite.git --branch develop --single-branch ${HDDLUNITE_ROOT_DIR} && cd ${HDDLUNITE_ROOT_DIR} && mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=${HDDLUNITE_HOST_INSTALL_DIR} && make -j12 && make install
+    - echo pwd is
+    - pwd
+  artifacts:
+    paths:
+      - cache/hddlunite/bin/hddl_scheduler_service
+      - cache/hddlunite/lib/libHddlUnite.so.1.0.0
+
+BuildVaapiShim:
+  tags:
+    - hva_sample_runner
+  image: hddl/hvasample:v0.1
+  stage: build_vaapishim
+  script:
+    - echo building vaapishim
+    - echo pwd is
+    - pwd
+    - ls
+    - SAMPLE_DIR=$(pwd)
+    - export INSTALL_DIR=${LOCAL_CACHE_DIR}/vaapi
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com/kmb_hddl/hddlunite.git --branch develop --single-branch ${HDDLUNITE_ROOT_DIR}
+    - cp -r ${HDDLUNITE_HOST_INSTALL_DIR}/* ${ROOT_INSTALL_DIR}/
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.devtools.intel.com/OWR/IoTG/GMS/Yocto/Graphics/Media/vaapi_bypass.git --branch multisession --single-branch ${BUILD_DIR}/vaapi_bypass
+    - cd ${BUILD_DIR}/vaapi_bypass && patch -p1 < ${SAMPLE_DIR}/script/0001-Fixing-issue-on-bypass-plugin.patch
+    - cd ${SAMPLE_DIR}
+    - chmod a+x ./script/build_vaapishim.sh
+    - ./script/build_vaapishim.sh
+  when: on_success
+  dependencies:
+    - BuildHddlUnite
+  artifacts:
+    paths:
+      - cache/vaapi/lib/hddl_bypass_drv_video.so
+
+BuildHvaSample:
+  tags:
+    - hva_sample_runner
+  stage: build_hvasample
+  script:
+    - echo building hva sample
+    - echo pwd is
+    - pwd
+    - ls
+    - cp -r ${HDDLUNITE_HOST_INSTALL_DIR}/* ${ROOT_INSTALL_DIR}/
+    - cp -r ${LOCAL_CACHE_DIR}/vaapi/* ${ROOT_INSTALL_DIR}/
+    - source ${ROOT_INSTALL_DIR}/dldt/bin/setupvars.sh
+    - mkdir build && cd build
+    - cmake .. && make -j8
+  dependencies:
+    - BuildHddlUnite
+    - BuildVaapiShim
+  artifacts:
+    paths:
+      - build/src/FullPipe/FullPipe
+      - build/src/FullPipeGUITest/FullPipeGUITest
+      - build/src/FullPipeGUITestSock/FullPipeGUITestSock

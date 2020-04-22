@@ -4,6 +4,8 @@
 #                      HDDLUNITE_HOST_INSTALL_DIR, HDDLUNITE_KMB_INSTALL_DIR
 #                      HDDLUNITE_ROOT_DIR
 
+sudo apt-get -y install autoconf libdrm-dev cmake make libx11-dev
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 DOWNLOAD_DIR=${BUILD_DIR:="`pwd`/download/"}
 HOST_INSTALL_DIR=${INSTALL_DIR:="`pwd`/host_install/vaapi_bypass"}
@@ -96,6 +98,7 @@ function build_libva () {
         ./autogen.sh --with-drivers-path=/usr/lib/x86_64-linux-gnu/dri --prefix=$HOST_INSTALL_DIR $ENABLE_DEBUG
     fi
     cd ${DOWNLOAD_DIR}/libva
+    ./autogen.sh --with-drivers-path=/usr/lib/x86_64-linux-gnu/dri --prefix=$HOST_INSTALL_DIR $ENABLE_DEBUG
     make -j8
     make install
 }
@@ -114,12 +117,14 @@ function build_safestringlib () {
     cd build
     cmake .. && make -j8
 
-    #cc safestringlib
-    cd ${DOWNLOAD_DIR}/safestringlib_arm
-    create_folder build
-    cd build
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=${HDDLUNITE_ROOT_DIR}/cmake/aarch64.cmake
-    make -j8
+    if [ "$BUILD_KMB"x == 1x ]; then
+        #cc safestringlib
+        cd ${DOWNLOAD_DIR}/safestringlib_arm
+        create_folder build
+        cd build
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=${HDDLUNITE_ROOT_DIR}/cmake/aarch64.cmake
+        make -j8
+    fi
 }
 
 # download vaapi-bypass
@@ -137,10 +142,15 @@ function build_vaapi_shim () {
     export SAFESTR_HOME=${DOWNLOAD_DIR}/safestringlib
     export HDDLUNITE=1
     #vaapi shim set /opt/intel/hddlunite as default search path
-    sudo mkdir -p /opt/intel
-    sudo cp -r ${HDDLUNITE_HOST_INSTALL_DIR} /opt/intel/.
+    sudo mkdir -p /opt/intel/hddlunite
+    sudo cp -r ${HDDLUNITE_HOST_INSTALL_DIR}/* /opt/intel/hddlunite/
 
     unset XLINK_HOME
+    pwd
+    find /opt/intel -name libHddlUnite.so 
+    ls /opt/intel/hddlunite
+    ls /opt/intel/hddlunite/bin
+    ls /opt/intel/hddlunite/lib
     cmake .. -DTARGETS=IA $VAAPI_ENABLE_DEBUG -DCMAKE_INSTALL_PREFIX=${HOST_INSTALL_DIR}
     make -j4
     # cp hddl_bypass_drv_video.so ${HOST_INSTALL_DIR}/lib

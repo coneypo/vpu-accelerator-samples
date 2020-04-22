@@ -1,0 +1,14 @@
+# This is the DockerFile for hvaSample CI environment
+
+FROM hddl/hddlunite_runner:v0.1
+
+# install sudo and other required packages
+RUN apt-get -y install sudo autoconf libdrm-dev cmake bison pkg-config flex libglib2.0-dev libudev-dev libx11-dev
+
+RUN mkdir /install
+
+# use the pre-installed gstreamer etc.COPY install/* /install/
+ADD install /install
+# use the pre-installed gstreamer etc.
+RUN mkdir /install/dldt
+ADD dldt /install/dldt
