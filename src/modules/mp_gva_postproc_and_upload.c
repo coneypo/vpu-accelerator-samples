@@ -741,7 +741,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
         sizeof(Header) + branch_ctx->Jpeg_pag.header.meta_size +
         sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois +
         branch_ctx->jpegmem_size;//byte
-
+    g_free(proi_index);
     while (branch_ctx->jpegmem_size + map.size > memory_size) {
         memory_size =  memory_size * 2;
     }
