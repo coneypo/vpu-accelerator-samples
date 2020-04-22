@@ -5,6 +5,7 @@
 #include <string>
 #include <common.hpp>
 #include "unite_helper.hpp"
+#include "object_selector.hpp"
 
 class InferNode_unite : public hva::hvaNode_t{
 public:
@@ -40,10 +41,8 @@ public:
     float m_durationAve{0.0f};
     uint64_t m_cntFrame{0ul};
 
-    std::unordered_map<uint64_t, ROI> m_mapTrackingId2ROI;
-
 private:
-
+    ObjectSelector::Ptr m_object_selector;
     std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;
 };
 

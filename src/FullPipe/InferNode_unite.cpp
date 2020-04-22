@@ -1,6 +1,7 @@
 #include <InferNode_unite.hpp>
 #include <boost/algorithm/string.hpp>
 #include "hddl2plugin_helper.hpp"
+#include <tuple>
 
 #define TOTAL_ROIS 2
 #define GUI_INTEGRATION
@@ -22,8 +23,13 @@ std::shared_ptr<hva::hvaNodeWorker_t> InferNode_unite::createNodeWorker() const 
 
 InferNodeWorker_unite::InferNodeWorker_unite(hva::hvaNode_t* parentNode, 
             WorkloadID id, std::string graphName, std::string graphPath, int32_t inputSizeNN, int32_t outputSize):
-hva::hvaNodeWorker_t(parentNode), m_uniteHelper(id, graphName, graphPath, inputSizeNN, outputSize), m_mode{graphName}{
-
+hva::hvaNodeWorker_t(parentNode), m_uniteHelper(id, graphName, graphPath, inputSizeNN, outputSize), m_mode{graphName}
+{
+    if (m_uniteHelper.graphName == "resnet" || m_uniteHelper.graphName == "classification")
+    {
+        printf("initialize ObjectSelector\n");
+        m_object_selector.reset(new ObjectSelector());
+    }
 }
 
 void InferNodeWorker_unite::process(std::size_t batchIdx)
@@ -113,14 +119,9 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
             input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
             
             InferMeta* ptrInferMeta = ptrBufInfer->getMeta();
+            auto num_rois = ptrInferMeta->rois.size();
 
-            std::vector<ROI>& vecROI = m_uniteHelper._vecROI;
-            vecROI.clear();
-
-            printf("[debug] classification frame id is %d, roi num is %ld\n", m_vecBlobInput[0]->frameId, ptrInferMeta->rois.size());
-
-            
-            if (ptrInferMeta->rois.size() > 0ul)
+            if (num_rois > 0ul)
             {
                 if (ptrInferMeta->drop)
                 {
@@ -133,49 +134,60 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                 }
                 else
                 {
-                    for (auto& roi : ptrInferMeta->rois)
+                    Objects input_objects;
+                    for (int32_t i = 0 ; i < num_rois; i++)
                     {
-                        if (roi.trackingStatus != HvaPipeline::TrackingStatus::NEW)
-                        {
-                            continue;
-                        }
+                        auto& roi = ptrInferMeta->rois[i];
+                        input_objects.push_back({i, cv::Rect(roi.x, roi.y, roi.width, roi.height),
+                                                roi.trackingId, -1, "", 0.0});
+                    }
+
+                    // Select new and tracked objects.
+                    Objects new_objs, tracked;
+                    std::tie(new_objs, tracked) = m_object_selector->preprocess(input_objects);
+
+                    std::vector<ROI> &input_vecROI = m_uniteHelper._vecROI;
+                    input_vecROI.clear();
+                    for (auto& o : new_objs)
+                    {
+                        auto &roi = ptrInferMeta->rois[o.oid];
                         ROI roiTemp;
                         roiTemp.x = roi.x;
                         roiTemp.y = roi.y;
                         roiTemp.height = roi.height;
                         roiTemp.width = roi.width;
-                        vecROI.push_back(roiTemp);
+                        input_vecROI.push_back(roiTemp);
                     }
-                    if (vecROI.size() > 0ul)
+
+                    if (input_vecROI.size() > 0ul)
                     {
-                        m_uniteHelper.update(input_width, input_height, fd, vecROI);
+                        m_uniteHelper.update(input_width, input_height, fd, input_vecROI);
                         m_uniteHelper.callInferenceOnBlobs();
                         auto& vecLabel = m_uniteHelper._vecLabel;
                         auto& vecConfidence = m_uniteHelper._vecConfidence;
+                        
+                        printf("[debug] input roi size: %ld, output label size: %ld\n", input_vecROI.size(), vecLabel.size());
+                        assert(std::min(new_objs.size(), 10ul) == vecLabel.size());
 
-                        printf("[debug] input roi size: %ld, output label size: %ld\n", vecROI.size(), vecLabel.size());
-                        assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecLabel.size());
-
-                        int cntNewObject = 0;
-                        for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                        auto &vecROI = m_uniteHelper._vecROI;
+                        for (int32_t i = 0 ; i < vecROI.size() ; i++)
                         {
-                            if (ptrInferMeta->rois[i].trackingStatus != HvaPipeline::TrackingStatus::NEW)
-                            {
-                                auto& recordedROI = m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId];
-                                ptrInferMeta->rois[i].labelClassification = recordedROI.labelClassification;
-                                ptrInferMeta->rois[i].confidenceClassification = recordedROI.confidenceClassification;
-                            }
-                            else
-                            {
-                                std::vector<std::string> fields;
-                                boost::split(fields, vecLabel[cntNewObject], boost::is_any_of(","));
-                                ptrInferMeta->rois[i].labelClassification = fields[0];
-                                ptrInferMeta->rois[i].confidenceClassification = vecConfidence[cntNewObject];
-                                printf("[debug] roi label is : %s\n", vecLabel[cntNewObject].c_str());
-                                cntNewObject++;
-                                m_mapTrackingId2ROI[ptrInferMeta->rois[i].trackingId] = ptrInferMeta->rois[i];
-                            }
-                        }  
+                            std::vector<std::string> fields;
+                            boost::split(fields, vecROI[i].labelClassification, boost::is_any_of(","));
+                            new_objs[i].class_id = vecROI[i].labelIdClassification; // Does it work?
+                            new_objs[i].class_label = fields[0];
+                            new_objs[i].confidence_classification = vecROI[i].confidenceClassification;
+                            printf("[debug] roi label is : %s\n", vecROI[i].labelClassification.c_str());
+                        }
+                    }
+
+                    // final output objects
+                    auto final_objects = m_object_selector->postprocess(new_objs, tracked);
+                    for (auto& o : final_objects)
+                    {
+                        ptrInferMeta->rois[o.oid].labelClassification = o.class_label;
+                        ptrInferMeta->rois[o.oid].labelIdClassification = o.class_id;
+                        ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
                     }
                 }       
             }

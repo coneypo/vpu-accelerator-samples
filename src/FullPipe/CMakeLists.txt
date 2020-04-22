@@ -82,3 +82,5 @@ target_include_directories(FullPipe PUBLIC "${GSTREAMER_INCLUDE_DIRS}" "${GLIB_I
 target_include_directories(FullPipe PUBLIC ${Boost_INCLUDE_DIR})
 target_link_libraries(FullPipe ${Boost_LIBRARIES})
 
+target_include_directories(FullPipe PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty/vas/include")
+target_link_libraries(FullPipe "${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty/vas/lib/intel64/libvasot.so")

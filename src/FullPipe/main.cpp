@@ -298,7 +298,7 @@ int main(){
     auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, config.FRCConfig), "FRCNode");
 #else
     auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
-    vWID, 0, ""), "trackingNode");
+    vWID, 0, "objectTracking", "zero_term_imageless"), "trackingNode");
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;

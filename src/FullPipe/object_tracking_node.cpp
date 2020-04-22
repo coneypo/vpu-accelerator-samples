@@ -1,26 +1,43 @@
 #include "object_tracking_node.hpp"
-
+#include <algorithm>
+#include <cctype>
+#include <string>
 
 //constructed by hva framework when pipeline initialize
 ObjectTrackingNode::ObjectTrackingNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, 
-        std::vector<WorkloadID> vWorkloadId, int32_t reservedInt, std::string reservedStr):
-hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), 
-m_reservedInt(reservedInt), m_reservedStr(reservedStr), m_vWorkloadId(vWorkloadId){
+        std::vector<WorkloadID> vWorkloadId, int32_t reservedInt,
+        std::string reservedStr, const std::string& trackingModeStr)
+        : hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum)
+        , m_reservedInt(reservedInt), m_reservedStr(reservedStr)
+        , m_vWorkloadId(vWorkloadId), m_trackingModeStr(trackingModeStr)
+{
 
 }
 
 //called by hva framework when pipeline initialize
 std::shared_ptr<hva::hvaNodeWorker_t> ObjectTrackingNode::createNodeWorker() const {
     return std::shared_ptr<hva::hvaNodeWorker_t>(new ObjectTrackingNodeWorker((ObjectTrackingNode*)this, 
-    m_vWorkloadId[m_cntNodeWorker++], m_reservedInt, m_reservedStr));
+    m_vWorkloadId[m_cntNodeWorker++], m_reservedInt, m_reservedStr, m_trackingModeStr));
 }
 
 //constructed by hva framework when pipeline initialize
-ObjectTrackingNodeWorker::ObjectTrackingNodeWorker(hva::hvaNode_t* parentNode,
-        WorkloadID workloadId, int32_t reservedInt, std::string reservedStr):
-hva::hvaNodeWorker_t(parentNode), 
-m_workloadId(workloadId), m_fakeTracker(workloadId), m_reservedInt(reservedInt), m_reservedStr(reservedStr) {
+ObjectTrackingNodeWorker::ObjectTrackingNodeWorker(
+    hva::hvaNode_t* parentNode, WorkloadID workloadId, 
+    int32_t reservedInt, std::string reservedStr, const std::string& trackingModeStr)
+    : hva::hvaNodeWorker_t(parentNode), m_workloadId(workloadId)
+    , m_reservedInt(reservedInt), m_reservedStr(reservedStr)
+    , m_trackingModeStr(trackingModeStr)
+{
+    vas::ot::ObjectTracker::Builder builder;
+    builder.backend_type = vas::BackendType::CPU;
 
+    std::transform(m_trackingModeStr.begin(), m_trackingModeStr.end(), m_trackingModeStr.begin(),
+                    [](unsigned char c){ return std::tolower(c); });
+
+    if (m_trackingModeStr == "short_term_imageless")
+        m_tracker = builder.Build(vas::ot::TrackingType::SHORT_TERM_IMAGELESS);
+    else
+        m_tracker = builder.Build(vas::ot::TrackingType::ZERO_TERM_IMAGELESS);
 }
 
 //called by hva framework for each video frame
@@ -49,32 +66,38 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
         //to be replaced by real tracker
         {
             //prepare input for tracking
-            std::vector<FakeOT::DetectedObject> vecDetectedObject;
+            std::vector<vas::ot::DetectedObject> detected_objects;
+
             for (auto& roi : ptrInferMeta->rois)
+                detected_objects.push_back({cv::Rect(roi.x, roi.y, roi.height, roi.width), roi.labelIdDetection});
+
+            //use a dummy image
+            if (m_dummy.empty() || input_height != m_dummy.rows || input_width != m_dummy.cols)
             {
-                FakeOT::DetectedObject roiTemp;
-                roiTemp.left = roi.x;
-                roiTemp.top = roi.y;
-                roiTemp.height = roi.height;
-                roiTemp.width = roi.width;
-                roiTemp.class_label = roi.labelIdDetection;
-                vecDetectedObject.push_back(roiTemp);
+                m_dummy = cv::Mat(input_height, input_width, CV_8UC3);
             }
 
-            //set video buffer fd/height/width
-            m_fakeTracker.setVideoBufferProperty(fd, input_height, input_width);
-            
-            //run tracking algorithm
-            auto vecObject = m_fakeTracker.track(vecDetectedObject);
+            auto tracked_objects = m_tracker->Track(m_dummy, detected_objects);
 
-            //fetch tracking output
-            for (int32_t i = 0; i < vecObject.size(); i++)
+            // The input order is not same with the output order.
+            ptrInferMeta->rois.clear();
+            for (auto& to : tracked_objects)
             {
-                auto& roi = ptrInferMeta->rois[i];
-                roi.trackingId = vecObject[i].tracking_id;
-                roi.trackingStatus = static_cast<HvaPipeline::TrackingStatus>(vecObject[i].status);
+                if (to.status != vas::ot::TrackingStatus::LOST)
+                {
+                    ROI roi;
+                    roi.x = to.rect.x;
+                    roi.y = to.rect.y;
+                    roi.width = to.rect.width;
+                    roi.height = to.rect.height;
+                    roi.trackingId = to.tracking_id;
+                    roi.labelIdClassification = -1;
+                    roi.labelClassification = "unkown";
+                    roi.pts = m_vecBlobInput[0]->frameId;
+                    roi.confidenceClassification = 0;
+                    ptrInferMeta->rois.push_back(roi);
+                }
             }
-
         }
 
         auto end = std::chrono::steady_clock::now();
