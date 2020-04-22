@@ -8,6 +8,7 @@
 #include <vector>
 #include <fstream>
 #include <memory>
+#include <chrono>
 
 #include <inference_engine.hpp>
 #include <ie_compound_blob.h>
@@ -24,8 +25,6 @@
 #include "detection_helper.hpp"
 #include "ImageNetLabels.hpp"
 
-#include <fstream>
-#include <chrono>
 
 #define HDDLPLUGIN_PROFILE
 
@@ -35,7 +34,7 @@ namespace IE = InferenceEngine;
 class HDDL2pluginHelper_t
 {
 public:
-    using PostprocPtr_t = std::function<void(HDDL2pluginHelper_t*)>;
+    using PostprocPtr_t = std::function<void(HDDL2pluginHelper_t*, IE::Blob::Ptr, std::vector<ROI>& vecROI)>;
 
     HDDL2pluginHelper_t() = default;
     ~HDDL2pluginHelper_t() = default;
@@ -270,9 +269,9 @@ public:
         printf("[debug] end create input tensor\n");
     }
 
-    inline void infer()
+    inline IE::Blob::Ptr infer()
     {
-        std::string outputPath = "./output.bin";
+        // std::string outputPath = "./output.bin";
 
         // ---- Run the request synchronously
         printf("[debug] start inference\n");
@@ -297,11 +296,11 @@ public:
         //todo fix me
         if (_executableNetwork.GetOutputsInfo().empty())
         {
-            return;
+            return nullptr;
         }
 
         auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
-        _ptrOutputBlob = _inferRequest.GetBlob(outputBlobName);
+        auto ptrOutputBlob = _inferRequest.GetBlob(outputBlobName);
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -317,29 +316,44 @@ public:
             throw std::runtime_error(err.str());
         }
 
-        const size_t outputSize = _ptrOutputBlob->byteSize();
-        file.write(_ptrOutputBlob->buffer(), outputSize);
+        const size_t outputSize = ptrOutputBlob->byteSize();
+        file.write(ptrOutputBlob->buffer(), outputSize);
 #endif
         printf("[debug] end dump output file\n");
-        assert(_ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
+        assert(ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
+
+        return ptrOutputBlob;
     }
 
-    inline void postproc()
+    inline void postproc(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
         if (nullptr != _ptrPostproc)
         {
-            _ptrPostproc(this);
+            _ptrPostproc(this, ptrBlob, vecROI);
         }
+        return;
     }
 
     //todo, fix me
-    inline void postprocYolotinyv2_fp16()
+    inline void postprocYolotinyv2_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
-        std::vector<DetectedObject_t> &vecObjects = _vecObjects;
         //todo, fix me
 #if 1
-        vecObjects = ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(_ptrOutputBlob, _heightInput, _widthInput,
+        std::vector<DetectedObject_t> vecObjects;
+        vecObjects = ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(ptrBlob, _heightInput, _widthInput,
                                                                 .6, YoloV2Tiny::fillRawNetOut);
+
+        vecROI.clear();
+        for (auto &object : vecObjects)
+        {
+            ROI roi;
+            roi.x = object.x;
+            roi.y = object.y;
+            roi.height = object.height;
+            roi.width = object.width;
+            roi.confidenceDetection = object.confidence;
+            vecROI.push_back(roi);
+        }
 #else
         auto blobDequant = deQuantize(_ptrOutputBlob, 0.271045, 210);
         // auto desc = output_blob->getTensorDesc();
@@ -403,13 +417,15 @@ public:
         // cv::imwrite(filename, frameBGR);
         // cv::imshow("output", frameBGR);
         // cv::waitKey(10);
+
+        return;
     }
 
-    inline void postprocYolotinyv2_u8()
+    inline void postprocYolotinyv2_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
-        std::vector<DetectedObject_t> &vecObjects = _vecObjects;
         //todo, fix me
 #if 0
+        std::vector<DetectedObject_t> &vecObjects;
         vecObjects = ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(_ptrOutputBlob, _heightInput, _widthInput,
                                                                .6, YoloV2Tiny::fillRawNetOut);
 #else
@@ -417,7 +433,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE
         auto start = std::chrono::steady_clock::now();
 #endif
-        auto blobDequant = deQuantize(_ptrOutputBlob, 0.271045, 210);
+        auto blobDequant = deQuantize(ptrBlob, 0.271045, 210);
 #ifdef HDDLPLUGIN_PROFILE
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -438,7 +454,7 @@ public:
         IE::Blob::Ptr detectResult = yoloLayer_yolov2tiny(blobDequant, _heightInput, _widthInput);
 
         // std::vector<DetectedObject_t> vecObjects;
-        vecObjects.clear();
+        vecROI.clear();
 
         // Print result.
         size_t N = detectResult->getTensorDesc().getDims()[2];
@@ -453,13 +469,13 @@ public:
         {
             if (rawData[i * 7 + 2] > 0.001)
             {
-                DetectedObject_t object;
+                ROI object;
                 object.x = (rawData[i * 7 + 3]) * _widthInput / 416;
                 object.y = (rawData[i * 7 + 4]) * _heightInput / 416;
                 object.width = (rawData[i * 7 + 5] - rawData[i * 7 + 3]) * _widthInput / 416;
                 object.height = (rawData[i * 7 + 6] - rawData[i * 7 + 4]) * _heightInput / 416;
-                object.confidence = rawData[i * 7 + 2];
-                vecObjects.push_back(object);
+                object.confidenceDetection = rawData[i * 7 + 2];
+                vecROI.push_back(object);
 
                 std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
                 std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
@@ -469,7 +485,7 @@ public:
             }
         }
 #endif
-        for (auto &object : vecObjects)
+        for (auto &object : vecROI)
         {
             printf("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
             cv::rectangle(_frameBGR, cv::Rect(object.x, object.y, object.width, object.height), cv::Scalar(0, 255, 0), 2);
@@ -486,10 +502,11 @@ public:
         // cv::imshow("output", frameBGR);
         // cv::waitKey(10);
 #endif
+        return;
     }
 
     //todo, fix me
-    inline void postprocResnet50_fp16()
+    inline void postprocResnet50_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
         //todo, fix me
         // std::vector<int>& vecIdx = _vecIdx;
@@ -500,7 +517,7 @@ public:
         // vecConfidence.clear();
 
         size_t outputSize = 2000;
-        for (int i = 0; i < std::min(_vecROI.size(), 10ul); i++)
+        for (int i = 0; i < std::min(vecROI.size(), 10ul); i++)
         {
             //todo, fix me
             // float *ptrFP32_ROI = ptrFP32 + outputSize / 2 * i;
@@ -522,9 +539,11 @@ public:
             // _vecROI[i].confidence = exp(max) / sum;
             // printf("[debug] roi label is : %s\n", labels[idx].c_str());
         }
+
+        return;
     }
 
-    inline void postprocResnet50_u8()
+    inline void postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
         //todo, fix me
         // std::vector<int>& vecIdx = _vecIdx;
@@ -534,11 +553,11 @@ public:
         // vecLabel.clear();
         // vecConfidence.clear();
 
-        auto blobDequant = deQuantize(_ptrOutputBlob, 0.151837, 67);
+        auto blobDequant = deQuantize(ptrBlob, 0.151837, 67);
         size_t outputSize = 1000;
         
         //todo, fix me single roi
-        if (_vecROI.size() > 0)
+        if (vecROI.size() > 0)
         {
             float *ptrFP32_ROI = blobDequant->buffer().as<float*>();
             float max = 0.0f;
@@ -553,17 +572,18 @@ public:
                     max = ptrFP32_ROI[j];
                 }
             }
-            for (int i = 0; i < _vecROI.size(); i++)
+            for (int i = 0; i < vecROI.size(); i++)
             {
-                _vecROI[i].labelIdClassification = idx;
+                vecROI[i].labelIdClassification = idx;
                 // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
                 // _vecROI[i].label = labels[idx];
-                _vecROI[i].labelClassification = m_labels.imagenet_labelstring(idx);
-                _vecROI[i].confidenceClassification = exp(max) / sum;
+                vecROI[i].labelClassification = m_labels.imagenet_labelstring(idx);
+                vecROI[i].confidenceClassification = exp(max) / sum;
                 printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
             }
         }
 
+        return;
     }
 
     template <int N>
@@ -653,8 +673,8 @@ private:
 
 
 public:
-    std::vector<DetectedObject_t> _vecObjects;
-    std::vector<ROI> _vecROI;
+    // std::vector<DetectedObject_t> _vecObjects;
+    // std::vector<ROI> _vecROI;
 
     static ImageNetLabels m_labels;
     //todo, only for test

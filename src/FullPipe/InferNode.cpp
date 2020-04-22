@@ -23,18 +23,18 @@ InferNodeWorker::InferNodeWorker(hva::hvaNode_t *parentNode,
 
 void InferNodeWorker::process(std::size_t batchIdx)
 {
-    m_vecBlobInput = hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t>{0});
+    auto vecBlobInput = hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t>{0});
 
-    if (m_vecBlobInput.size() != 0)
+    if (vecBlobInput.size() != 0)
     {
         auto start = std::chrono::steady_clock::now();
-        printf("[debug] frameId is %d, graphName is %s\n", m_vecBlobInput[0]->frameId, m_mode.c_str());
+        printf("[debug] frameId is %d, graphName is %s\n", vecBlobInput[0]->frameId, m_mode.c_str());
         if (m_mode == "detection")
         {
             // const auto& pbuf = vInput[0]->get<int,VideoMeta>(0)->getPtr();
             // std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-            auto ptrVideoBuf = m_vecBlobInput[0]->get<int, VideoMeta>(0);
+            auto ptrVideoBuf = vecBlobInput[0]->get<int, VideoMeta>(0);
 
             uint64_t fd = *((int32_t *)ptrVideoBuf->getPtr());
 
@@ -53,14 +53,15 @@ void InferNodeWorker::process(std::size_t batchIdx)
             printf("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
             start = std::chrono::steady_clock::now();
-            m_helperHDDL2.infer();
+            auto ptrOutputBlob = m_helperHDDL2.infer();
 
             end = std::chrono::steady_clock::now();
             duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
             printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
             start = std::chrono::steady_clock::now();
-            m_helperHDDL2.postproc();
+            std::vector<ROI> vecObjects;
+            m_helperHDDL2.postproc(ptrOutputBlob, vecObjects);
             end = std::chrono::steady_clock::now();
             duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
             printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
@@ -76,7 +77,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
             std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
             InferMeta *ptrInferMeta = new InferMeta;
-            auto &vecObjects = m_helperHDDL2._vecObjects;
+            // auto &vecObjects = m_helperHDDL2._vecObjects;
             for (unsigned i = 0; i < vecObjects.size(); ++i)
             {
                 ROI roi;
@@ -85,12 +86,12 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 roi.width = vecObjects[i].width;
                 roi.height = vecObjects[i].height;
                 roi.labelClassification = "unkown";
-                roi.pts = m_vecBlobInput[0]->frameId;
+                roi.pts = vecBlobInput[0]->frameId;
                 roi.confidenceClassification = 0;
                 // roi.indexROI = i;
                 ptrInferMeta->rois.push_back(roi);
             }
-            ptrInferMeta->frameId = m_vecBlobInput[0]->frameId;
+            ptrInferMeta->frameId = vecBlobInput[0]->frameId;
             ptrInferMeta->totalROI = vecObjects.size();
             ptrInferMeta->durationDetection = m_durationAve;
             ptrInferMeta->inferFps = m_fps;
@@ -100,18 +101,18 @@ void InferNodeWorker::process(std::size_t batchIdx)
                         }
                         delete meta;
                     });
-            blob->push(m_vecBlobInput[0]->get<int, VideoMeta>(0));
-            blob->frameId = m_vecBlobInput[0]->frameId;
-            blob->streamId = m_vecBlobInput[0]->streamId;
+            blob->push(vecBlobInput[0]->get<int, VideoMeta>(0));
+            blob->frameId = vecBlobInput[0]->frameId;
+            blob->streamId = vecBlobInput[0]->streamId;
             sendOutput(blob, 0, ms(0));
-            m_vecBlobInput.clear();
+            vecBlobInput.clear();
 
         }
         else if (m_mode == "classification")
         {
 
-            auto ptrBufInfer = m_vecBlobInput[0]->get<int, InferMeta>(0);
-            auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
+            auto ptrBufInfer = vecBlobInput[0]->get<int, InferMeta>(0);
+            auto ptrBufVideo = vecBlobInput[0]->get<int, VideoMeta>(1);
 
             uint64_t fd = *((int32_t *)ptrBufVideo->getPtr());
 
@@ -124,17 +125,16 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
             InferMeta *ptrInferMeta = ptrBufInfer->getMeta();
 
-            std::vector<ROI> &vecROI = m_helperHDDL2._vecROI;
-            vecROI.clear();
-            for (auto &roi : ptrInferMeta->rois)
-            {
-                ROI roiTemp;
-                roiTemp.x = roi.x;
-                roiTemp.y = roi.y;
-                roiTemp.height = roi.height;
-                roiTemp.width = roi.width;
-                vecROI.push_back(roiTemp);
-            }
+            std::vector<ROI>& vecROI = ptrInferMeta->rois;
+            // for (auto &roi : ptrInferMeta->rois)
+            // {
+            //     ROI roiTemp;
+            //     roiTemp.x = roi.x;
+            //     roiTemp.y = roi.y;
+            //     roiTemp.height = roi.height;
+            //     roiTemp.width = roi.width;
+            //     vecROI.push_back(roiTemp);
+            // }
             if (vecROI.size() > 0)
             {
                 if (ptrInferMeta->drop)
@@ -156,13 +156,14 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     printf("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                     start = std::chrono::steady_clock::now();
-                    m_helperHDDL2.infer();
+                    auto ptrOutputBlob = m_helperHDDL2.infer();
                     end = std::chrono::steady_clock::now();
                     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                     printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                     start = std::chrono::steady_clock::now();
-                    m_helperHDDL2.postproc();
+                    // std::vector<ROI>  vecROI;
+                    m_helperHDDL2.postproc(ptrOutputBlob, vecROI);
 
                     end = std::chrono::steady_clock::now();
                     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -175,7 +176,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
-                    auto &vecROI = m_helperHDDL2._vecROI;
+                    // auto &vecROI = m_helperHDDL2._vecROI;
 
                     printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROI.size());
                     assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecROI.size());
@@ -197,7 +198,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 roi.y = 0;
                 roi.height = 0;
                 roi.width = 0;
-                roi.pts = m_vecBlobInput[0]->frameId;
+                roi.pts = vecBlobInput[0]->frameId;
                 roi.confidenceClassification = 0;
                 roi.labelClassification = "unknown";
                 ptrInferMeta->rois.push_back(roi);
@@ -207,11 +208,11 @@ void InferNodeWorker::process(std::size_t batchIdx)
             ptrInferMeta->durationClassification = m_durationAve;
             
             // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            sendOutput(m_vecBlobInput[0], 0, ms(0));
+            sendOutput(vecBlobInput[0], 0, ms(0));
 #ifdef GUI_INTEGRATION
-            sendOutput(m_vecBlobInput[0], 1, ms(0));
+            sendOutput(vecBlobInput[0], 1, ms(0));
 #endif
-            m_vecBlobInput.clear();
+            vecBlobInput.clear();
         }
         else
         {
