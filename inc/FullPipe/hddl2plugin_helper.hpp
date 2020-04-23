@@ -9,6 +9,8 @@
 #include <fstream>
 #include <memory>
 #include <chrono>
+#include <map>
+#include <condition_variable>
 
 #include <inference_engine.hpp>
 #include <ie_compound_blob.h>
@@ -28,6 +30,8 @@
 
 #define HDDLPLUGIN_PROFILE
 
+const int32_t INFER_REQUEST_NUM = 4;
+
 // using namespace InferenceEngine;
 namespace IE = InferenceEngine;
 
@@ -35,6 +39,7 @@ class HDDL2pluginHelper_t
 {
 public:
     using PostprocPtr_t = std::function<void(HDDL2pluginHelper_t*, IE::Blob::Ptr, std::vector<ROI>& vecROI)>;
+    using InferCallback_t = std::function<void(void)>;
 
     HDDL2pluginHelper_t() = default;
     ~HDDL2pluginHelper_t() = default;
@@ -93,6 +98,7 @@ public:
 
         // ---- Create infer request
         _ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
+        _ptrInferRequestPool = std::make_shared<InferRequestPool_t> (_executableNetwork, INFER_REQUEST_NUM);
     }
 
     inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>())
@@ -301,6 +307,172 @@ public:
 
         auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
         auto ptrOutputBlob = _ptrInferRequest->GetBlob(outputBlobName);
+#ifdef HDDLPLUGIN_PROFILE  
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] GetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+
+#if 0 //only for debug
+        std::ofstream file(outputPath, std::ios_base::out | std::ios_base::binary);
+        if (!file.good() || !file.is_open())
+        {
+            std::stringstream err;
+            err << "Cannot access output file. File path: " << outputPath;
+            throw std::runtime_error(err.str());
+        }
+
+        const size_t outputSize = ptrOutputBlob->byteSize();
+        file.write(ptrOutputBlob->buffer(), outputSize);
+#endif
+        printf("[debug] end dump output file\n");
+        assert(ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
+
+        return ptrOutputBlob;
+    }
+
+    inline IE::Blob::Ptr inferAsync(int remoteMemoryFd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>(), InferCallback_t callback = nullptr)
+    {
+
+        auto ptrInferRequest = _ptrInferRequestPool->get();
+        if (0 == remoteMemoryFd)
+        {
+            remoteMemoryFd = _remoteMemoryFd;
+        }
+        if (0 == heightInput)
+        {
+            heightInput = _heightInput;
+        }
+        if (0 == widthInput)
+        {
+            widthInput = _widthInput;
+        }
+
+//todo, only for test
+#if 0
+        _ptrContext = HddlUnite::queryWorkloadContext(_workloadId);
+        HddlUnite::SMM::RemoteMemory memTemp(*_ptrContext, _remoteMemoryFd, _heightInput * _widthInput * 3 / 2);
+
+        char *buf = (char *)malloc(_heightInput * _widthInput * 3 / 2);
+        memTemp.syncFromDevice(buf, _heightInput * _widthInput * 3 / 2);
+
+        cv::Mat matTemp{_heightInput * 3 / 2, _widthInput, CV_8UC1, buf};
+        cv::cvtColor(matTemp, _frameBGR, cv::COLOR_YUV2BGR_NV12);
+
+        cv::imwrite("./input-nv12-cvt.jpg", _frameBGR);
+#endif
+        // ---- Create remote blob by using already exists fd
+        assert(_remoteMemoryFd >= 0);
+
+#ifdef HDDLPLUGIN_PROFILE        
+        auto start = std::chrono::steady_clock::now();
+#endif
+
+#if 0
+        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)}};
+#else
+        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)},
+                                     {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}};
+#endif
+
+        //todo fix me
+        if (_executableNetwork.GetInputsInfo().empty())
+        {
+            return;
+        }
+
+        auto inputsInfo = _executableNetwork.GetInputsInfo();
+        _inputName = _executableNetwork.GetInputsInfo().begin()->first;
+        
+#ifdef HDDLPLUGIN_PROFILE  
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+
+        start = std::chrono::steady_clock::now();
+#endif
+
+#if 0
+        IE::InputInfo::CPtr inputInfoPtr = _executableNetwork.GetInputsInfo().begin()->second;
+        _ptrRemoteBlob = _ptrContextIE->CreateBlob(inputInfoPtr->getTensorDesc(), blobParamMap);
+#else
+        IE::TensorDesc inputTensorDesc = IE::TensorDesc(IE::Precision::U8, {1, 3, _heightInput, _widthInput}, IE::Layout::NCHW);
+        // IE::TensorDesc inputTensorDescTemp = _executableNetwork.GetInputsInfo().begin()->second->getTensorDesc();
+        // assert(inputTensorDesc == inputTensorDescTemp);
+        _ptrRemoteBlob = _ptrContextIE->CreateBlob(inputTensorDesc, blobParamMap);
+#endif
+        assert(nullptr != _ptrRemoteBlob);
+
+#ifdef HDDLPLUGIN_PROFILE  
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+
+#if 0//todo, only for debug
+        printf("[debug] start dump input\n");
+        std::ofstream fileInput("./input.bin", std::ios_base::out | std::ios_base::binary);
+
+        const size_t inputSize = _ptrRemoteBlob->byteSize();
+        fileInput.write(_ptrRemoteBlob->buffer(), inputSize);
+        printf("[debug] end dump input\n");
+#endif
+
+#ifdef HDDLPLUGIN_PROFILE  
+        start = std::chrono::steady_clock::now();
+#endif
+
+#if 0
+        // ---- Set remote blob as input for infer request         
+        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob);
+#else
+        // Since it 228x228 image on 224x224 network, resize preprocessing also required
+        IE::PreProcessInfo preprocInfo = _ptrInferRequest->GetPreProcess(_inputName);
+        preprocInfo.setResizeAlgorithm(IE::RESIZE_BILINEAR);
+        preprocInfo.setColorFormat(IE::ColorFormat::NV12);
+
+        // ---- Set remote NV12 blob with preprocessing information
+        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob, preprocInfo);
+#endif
+
+#ifdef HDDLPLUGIN_PROFILE  
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+
+        printf("[debug] end create input tensor\n");
+
+        // std::string outputPath = "./output.bin";
+
+        // ---- Run the request synchronously
+        printf("[debug] start inference\n");
+
+#ifdef HDDLPLUGIN_PROFILE        
+        auto start = std::chrono::steady_clock::now();
+#endif
+        ptrInferRequest->Infer();
+#ifdef HDDLPLUGIN_PROFILE  
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+        printf("[debug] end inference\n");
+
+        // --- Get output
+        printf("[debug] start dump output file\n");
+
+#ifdef HDDLPLUGIN_PROFILE        
+        start = std::chrono::steady_clock::now();
+#endif
+        //todo fix me
+        if (_executableNetwork.GetOutputsInfo().empty())
+        {
+            return nullptr;
+        }
+
+        auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
+        auto ptrOutputBlob = ptrInferRequest->GetBlob(outputBlobName);
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -652,11 +824,172 @@ public:
         return labels;
     }
 
+public:
+    class InferRequestPool_t
+    {
+    public:
+        InferRequestPool_t();
+        explicit InferRequestPool_t(IE::ExecutableNetwork executableNetwork, int32_t numInferRequest)
+        : _cntInferRequest{numInferRequest}, _maxSize{static_cast<size_t>(numInferRequest)}
+        {
+            for (int32_t i = 0; i < numInferRequest; i++)
+            {
+                auto ptrInferRequest = executableNetwork.CreateInferRequestPtr();
+                _vecInferRequest.push_back(ptrInferRequest);
+                // _mapRequest2Status[ptrInferRequest] = InferRequestStatus_t::UNUSED;
+                _queue.push(ptrInferRequest);
+            }
+        }
+        InferRequestPool_t(const InferRequestPool_t&) = delete;
+        InferRequestPool_t& operator= (const InferRequestPool_t&) = delete;
+
+        enum class InferRequestStatus_t
+        {
+            UNUSED,
+            USED
+        };
+
+
+        // //todo fix me
+        // inline void insert(const IE::InferRequest::Ptr ptrInferRequest)
+        // {
+        //     {
+        //         std::lock_guard<std::mutex> lock{_mutex};
+        //         _cntInferRequest++;
+        //         _vecInferRequest.push_back(ptrInferRequest);
+        //         // _mapRequest2Status[ptrInferRequest] = InferRequestStatus_t::UNUSED;
+        //         _freeInferRequest.push(ptrInferRequest);
+        //     }
+        // }
+
+        // //todo fix me
+        // inline void clear()
+        // {
+        //     {
+        //         std::lock_guard<std::mutex> lock{_mutex};
+        //         _cntInferRequest = 0;
+        //         _vecInferRequest.clear();
+        //         // _mapRequest2Status.clear();
+        //     }
+
+        // }
+
+        inline IE::InferRequest::Ptr get()
+        {
+            IE::InferRequest::Ptr ptr = nullptr;
+            pop(ptr);
+            return ptr;
+        }
+
+        inline void put(const IE::InferRequest::Ptr ptrInferRequest)
+        {
+            push(ptrInferRequest);
+        }
+
+    private:
+        using T = IE::InferRequest::Ptr;
+        bool push(T value)
+        {
+            std::unique_lock<std::mutex> lk(_mutex);             
+            _cv_full.wait(lk,[this]{return (_queue.size() <= _maxSize || true == _close);});
+            if (true == _close)
+            {
+                return false;
+            }   
+            _queue.push(std::move(value));
+            _cv_empty.notify_one();
+            return true;
+        }
+
+        // bool tryPush(T value)
+        // {
+        //     std::lock_guard<std::mutex> lk(_mutex);
+        //     if (true == _close)
+        //     {
+        //         return false;
+        //     }
+        //     if(_queue.size() >= _maxSize)
+        //     {
+        //         return false;
+        //     }
+        //     _queue.push(value);
+        //     _cv_empty.notify_one();
+        //     return true;
+        // }
+
+        bool pop(T& value)
+        {
+            std::unique_lock<std::mutex> lk(_mutex);
+            _cv_empty.wait(lk,[this]{return (!_queue.empty() || true == _close);});
+            if (true == _close)
+            {
+                return false;
+            }
+            value=_queue.front();
+            _queue.pop();
+            _cv_full.notify_one();
+            return true;
+        } 
+
+        // bool tryPop(T& value)
+        // {
+        //     std::lock_guard<std::mutex> lk(_mutex);
+        //     if (true == _close)
+        //     {
+        //         return false;
+        //     }
+        //     if(_queue.empty())
+        //     {
+        //         return false;
+        //     }
+        //     value=std::move(_queue.front());
+        //     _queue.pop();
+        //     _cv_full.notify_one();
+        //     return true;
+        // }
+
+        bool empty() const
+        {
+            std::lock_guard<std::mutex> lk(_mutex);
+            return _queue.empty();
+        }
+
+        void close()
+        {
+            std::lock_guard<std::mutex> lk(_mutex);
+            _close = true;
+            _cv_empty.notify_all();
+            _cv_full.notify_all();
+            return;
+        }
+
+    private:
+        mutable std::mutex _mutex;
+        std::queue<T> _queue;
+        std::condition_variable _cv_empty;
+        std::condition_variable _cv_full;
+        std::size_t _maxSize; //max queue size
+        bool _close{false};
+
+    private:
+        std::vector<IE::InferRequest::Ptr> _vecInferRequest;
+        // std::unordered_map<IE::InferRequest::Ptr, InferRequestStatus_t> _mapRequest2Status;
+
+        int32_t _cntInferRequest{0};
+
+    public:
+        using Ptr = std::shared_ptr<InferRequestPool_t>;
+
+    };
+
 private:
     IE::Core _ie;
     IE::RemoteContext::Ptr _ptrContextIE;
     IE::ExecutableNetwork _executableNetwork;
     IE::InferRequest::Ptr _ptrInferRequest;
+    InferRequestPool_t::Ptr _ptrInferRequestPool;
+
+
     IE::RemoteBlob::Ptr _ptrRemoteBlob;
     IE::Blob::Ptr _ptrOutputBlob;
     std::string _inputName;
