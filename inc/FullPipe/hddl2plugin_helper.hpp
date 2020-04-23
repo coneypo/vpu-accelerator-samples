@@ -92,7 +92,7 @@ public:
         printf("[debug] end load graph\n");
 
         // ---- Create infer request
-        _inferRequest = _executableNetwork.CreateInferRequest();
+        _ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
     }
 
     inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>())
@@ -249,15 +249,15 @@ public:
 
 #if 0
         // ---- Set remote blob as input for infer request         
-        _inferRequest.SetBlob(_inputName, _ptrRemoteBlob);
+        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob);
 #else
         // Since it 228x228 image on 224x224 network, resize preprocessing also required
-        IE::PreProcessInfo preprocInfo = _inferRequest.GetPreProcess(_inputName);
+        IE::PreProcessInfo preprocInfo = _ptrInferRequest->GetPreProcess(_inputName);
         preprocInfo.setResizeAlgorithm(IE::RESIZE_BILINEAR);
         preprocInfo.setColorFormat(IE::ColorFormat::NV12);
 
         // ---- Set remote NV12 blob with preprocessing information
-        _inferRequest.SetBlob(_inputName, _ptrRemoteBlob, preprocInfo);
+        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob, preprocInfo);
 #endif
 
 #ifdef HDDLPLUGIN_PROFILE  
@@ -279,7 +279,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE        
         auto start = std::chrono::steady_clock::now();
 #endif
-        _inferRequest.Infer();
+        _ptrInferRequest->Infer();
 #ifdef HDDLPLUGIN_PROFILE  
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -300,7 +300,7 @@ public:
         }
 
         auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
-        auto ptrOutputBlob = _inferRequest.GetBlob(outputBlobName);
+        auto ptrOutputBlob = _ptrInferRequest->GetBlob(outputBlobName);
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -656,7 +656,7 @@ private:
     IE::Core _ie;
     IE::RemoteContext::Ptr _ptrContextIE;
     IE::ExecutableNetwork _executableNetwork;
-    IE::InferRequest _inferRequest;
+    IE::InferRequest::Ptr _ptrInferRequest;
     IE::RemoteBlob::Ptr _ptrRemoteBlob;
     IE::Blob::Ptr _ptrOutputBlob;
     std::string _inputName;
