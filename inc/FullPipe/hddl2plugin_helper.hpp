@@ -29,6 +29,7 @@
 
 
 #define HDDLPLUGIN_PROFILE
+#define INFER_ROI
 
 const int32_t INFER_REQUEST_NUM = 4;
 
@@ -100,7 +101,7 @@ public:
         _ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
         _ptrInferRequestPool = std::make_shared<InferRequestPool_t> (_executableNetwork, INFER_REQUEST_NUM);
     }
-
+    //todo fix me
     inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>())
     {
 //todo, no need to load data from file
@@ -234,7 +235,7 @@ public:
 #endif
         assert(nullptr != _ptrRemoteBlob);
 
-#ifdef HDDLPLUGIN_PROFILE  
+#ifdef HDDLPLUGIN_PROFILE
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         printf("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
@@ -274,7 +275,7 @@ public:
 
         printf("[debug] end create input tensor\n");
     }
-
+    //todo fix me
     inline IE::Blob::Ptr infer()
     {
         // std::string outputPath = "./output.bin";
@@ -331,10 +332,9 @@ public:
         return ptrOutputBlob;
     }
 
-    inline IE::Blob::Ptr inferAsync(int remoteMemoryFd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>(), InferCallback_t callback = nullptr)
+    inline void inferAsync(IE::InferRequest::Ptr ptrInferRequest, InferCallback_t callback, 
+    int remoteMemoryFd = 0, size_t heightInput = 0, size_t widthInput = 0, const ROI &roi = ROI{})
     {
-
-        auto ptrInferRequest = _ptrInferRequestPool->get();
         if (0 == remoteMemoryFd)
         {
             remoteMemoryFd = _remoteMemoryFd;
@@ -349,30 +349,22 @@ public:
         }
 
 //todo, only for test
-#if 0
-        _ptrContext = HddlUnite::queryWorkloadContext(_workloadId);
-        HddlUnite::SMM::RemoteMemory memTemp(*_ptrContext, _remoteMemoryFd, _heightInput * _widthInput * 3 / 2);
 
-        char *buf = (char *)malloc(_heightInput * _widthInput * 3 / 2);
-        memTemp.syncFromDevice(buf, _heightInput * _widthInput * 3 / 2);
-
-        cv::Mat matTemp{_heightInput * 3 / 2, _widthInput, CV_8UC1, buf};
-        cv::cvtColor(matTemp, _frameBGR, cv::COLOR_YUV2BGR_NV12);
-
-        cv::imwrite("./input-nv12-cvt.jpg", _frameBGR);
-#endif
         // ---- Create remote blob by using already exists fd
-        assert(_remoteMemoryFd >= 0);
+        assert(remoteMemoryFd >= 0);
 
 #ifdef HDDLPLUGIN_PROFILE        
         auto start = std::chrono::steady_clock::now();
 #endif
 
-#if 0
-        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)}};
-#else
-        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)},
+#ifndef INFER_ROI
+        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(remoteMemoryFd)},
                                      {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}};
+#else
+        IE::ROI roi{0, 0, 0, widthInput, heightInput};
+        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(remoteMemoryFd)},
+                                     {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}
+                                     {IE::HDDL2_PARAM_KEY(ROI), roi}};
 #endif
 
         //todo fix me
@@ -392,16 +384,13 @@ public:
         start = std::chrono::steady_clock::now();
 #endif
 
-#if 0
-        IE::InputInfo::CPtr inputInfoPtr = _executableNetwork.GetInputsInfo().begin()->second;
-        _ptrRemoteBlob = _ptrContextIE->CreateBlob(inputInfoPtr->getTensorDesc(), blobParamMap);
-#else
+
         IE::TensorDesc inputTensorDesc = IE::TensorDesc(IE::Precision::U8, {1, 3, _heightInput, _widthInput}, IE::Layout::NCHW);
         // IE::TensorDesc inputTensorDescTemp = _executableNetwork.GetInputsInfo().begin()->second->getTensorDesc();
         // assert(inputTensorDesc == inputTensorDescTemp);
-        _ptrRemoteBlob = _ptrContextIE->CreateBlob(inputTensorDesc, blobParamMap);
-#endif
-        assert(nullptr != _ptrRemoteBlob);
+        auto ptrRemoteBlob = _ptrContextIE->CreateBlob(inputTensorDesc, blobParamMap);
+
+        assert(nullptr != ptrRemoteBlob);
 
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
@@ -409,31 +398,18 @@ public:
         printf("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
-#if 0//todo, only for debug
-        printf("[debug] start dump input\n");
-        std::ofstream fileInput("./input.bin", std::ios_base::out | std::ios_base::binary);
-
-        const size_t inputSize = _ptrRemoteBlob->byteSize();
-        fileInput.write(_ptrRemoteBlob->buffer(), inputSize);
-        printf("[debug] end dump input\n");
-#endif
 
 #ifdef HDDLPLUGIN_PROFILE  
         start = std::chrono::steady_clock::now();
 #endif
 
-#if 0
-        // ---- Set remote blob as input for infer request         
-        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob);
-#else
         // Since it 228x228 image on 224x224 network, resize preprocessing also required
-        IE::PreProcessInfo preprocInfo = _ptrInferRequest->GetPreProcess(_inputName);
+        IE::PreProcessInfo preprocInfo = ptrInferRequest->GetPreProcess(_inputName);
         preprocInfo.setResizeAlgorithm(IE::RESIZE_BILINEAR);
         preprocInfo.setColorFormat(IE::ColorFormat::NV12);
 
         // ---- Set remote NV12 blob with preprocessing information
-        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob, preprocInfo);
-#endif
+        ptrInferRequest->SetBlob(_inputName, ptrRemoteBlob, preprocInfo);
 
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
@@ -451,7 +427,9 @@ public:
 #ifdef HDDLPLUGIN_PROFILE        
         auto start = std::chrono::steady_clock::now();
 #endif
-        ptrInferRequest->Infer();
+        ptrInferRequest->wait();
+        ptrInferRequest->SetCompletionCallback(callback);
+        ptrInferRequest->startAsync();
 #ifdef HDDLPLUGIN_PROFILE  
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -459,11 +437,16 @@ public:
 #endif
         printf("[debug] end inference\n");
 
+        return;
+    }
+
+    inline IE::Blob::Ptr getOutputBlob(IE::InferRequest::Ptr ptrInferRequest)
+    {
         // --- Get output
         printf("[debug] start dump output file\n");
 
 #ifdef HDDLPLUGIN_PROFILE        
-        start = std::chrono::steady_clock::now();
+        auto start = std::chrono::steady_clock::now();
 #endif
         //todo fix me
         if (_executableNetwork.GetOutputsInfo().empty())
@@ -474,27 +457,24 @@ public:
         auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
         auto ptrOutputBlob = ptrInferRequest->GetBlob(outputBlobName);
 #ifdef HDDLPLUGIN_PROFILE  
-        end = std::chrono::steady_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         printf("[debug] GetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
-#if 0 //only for debug
-        std::ofstream file(outputPath, std::ios_base::out | std::ios_base::binary);
-        if (!file.good() || !file.is_open())
-        {
-            std::stringstream err;
-            err << "Cannot access output file. File path: " << outputPath;
-            throw std::runtime_error(err.str());
-        }
-
-        const size_t outputSize = ptrOutputBlob->byteSize();
-        file.write(ptrOutputBlob->buffer(), outputSize);
-#endif
         printf("[debug] end dump output file\n");
-        assert(ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
 
         return ptrOutputBlob;
+    }
+    
+    inline IE::InferRequest::Ptr getInferRequest()
+    {
+        return _ptrInferRequestPool->get();
+    }
+    inline void putInferRequest(IE::InferRequest::Ptr ptrInferRequest)
+    {
+        _ptrInferRequestPool->put(ptrInferRequest);
+        return;
     }
 
     inline void postproc(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
@@ -579,13 +559,13 @@ public:
             printf("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
             cv::rectangle(_frameBGR, cv::Rect(object.x, object.y, object.width, object.height), cv::Scalar(0, 255, 0), 2);
         }
-        char filename[256];
-        snprintf(filename, _inputPath.size() - 4, "%s", _inputPath.c_str());
-        snprintf(filename + strlen(filename), 256, "%s", "output.jpg");
-        static int frameCnt = 0;
-        snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
-        frameCnt++;
-        std::cout << filename << std::endl;
+        // char filename[256];
+        // snprintf(filename, _inputPath.size() - 4, "%s", _inputPath.c_str());
+        // snprintf(filename + strlen(filename), 256, "%s", "output.jpg");
+        // static int frameCnt = 0;
+        // snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
+        // frameCnt++;
+        // std::cout << filename << std::endl;
         // cv::imwrite(filename, frameBGR);
         // cv::imshow("output", frameBGR);
         // cv::waitKey(10);
@@ -681,40 +661,38 @@ public:
     inline void postprocResnet50_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
         //todo, fix me
-        // std::vector<int>& vecIdx = _vecIdx;
-        // std::vector<std::string>& vecLabel = _vecLabel;
-        // std::vector<float>& vecConfidence = _vecConfidence;
-        // vecIdx.clear();
-        // vecLabel.clear();
-        // vecConfidence.clear();
+        float* ptrFP32 = ptrBlob->buffer().as<float*>();
 
-        size_t outputSize = 2000;
-        for (int i = 0; i < std::min(vecROI.size(), 10ul); i++)
+        size_t outputSize = 1000;
+
+        float *ptrFP32_ROI = ptrFP32;
+        float max = 0.0f;
+        float sum = 0.0f;
+        int idx = 0;
+        for (int j = 0; j < outputSize; j++)
         {
-            //todo, fix me
-            // float *ptrFP32_ROI = ptrFP32 + outputSize / 2 * i;
-            // float max = 0.0f;
-            // float sum = 0.0f;
-            // int idx = 0;
-            // for (int j = 0; j < outputSize / 2; j++)
-            // {
-            //     sum += exp(ptrFP32_ROI[j]);
-            //     if (ptrFP32_ROI[j] > max)
-            //     {
-            //         idx = j;
-            //         max = ptrFP32_ROI[j];
-            //     }
-            // }
-            // _vecROI[i].idx = idx;
-            // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
-            // _vecROI[i].label = labels[idx];
-            // _vecROI[i].confidence = exp(max) / sum;
-            // printf("[debug] roi label is : %s\n", labels[idx].c_str());
+            sum += exp(ptrFP32_ROI[j]);
+            if (ptrFP32_ROI[j] > max)
+            {
+                idx = j;
+                max = ptrFP32_ROI[j];
+            }
         }
+        roi.labelIdClassification = idx;
+        std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
+        roi.labelClassification = labels[idx];
+        roi.confidenceClassification = exp(max) / sum;
+        printf("[debug] roi label is : %s\n", labels[idx].c_str());
+
+        //todo fix me
+        assert(vecROI.size() == 0);
+
+        vecRoi.push_back(roi);
 
         return;
     }
 
+    //todo, fix me
     inline void postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
         //todo, fix me
