@@ -104,10 +104,8 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
         }
         else if (m_uniteHelper.graphName == "resnet" || m_uniteHelper.graphName == "classification")
         {
-
             auto ptrBufInfer = m_vecBlobInput[0]->get<int, InferMeta>(0);
             auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
-
 
             uint64_t fd = *((int32_t*)ptrBufVideo->getPtr());
 
@@ -117,7 +115,7 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
 
             input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
             input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
-            
+
             InferMeta* ptrInferMeta = ptrBufInfer->getMeta();
             auto num_rois = ptrInferMeta->rois.size();
 
@@ -150,13 +148,8 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                     input_vecROI.clear();
                     for (auto& o : new_objs)
                     {
-                        auto &roi = ptrInferMeta->rois[o.oid];
-                        ROI roiTemp;
-                        roiTemp.x = roi.x;
-                        roiTemp.y = roi.y;
-                        roiTemp.height = roi.height;
-                        roiTemp.width = roi.width;
-                        input_vecROI.push_back(roiTemp);
+                        ROI roi = ptrInferMeta->rois[o.oid];
+                        input_vecROI.push_back(roi);
                     }
 
                     if (input_vecROI.size() > 0ul)
@@ -166,18 +159,16 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                         auto& vecLabel = m_uniteHelper._vecLabel;
                         auto& vecConfidence = m_uniteHelper._vecConfidence;
                         
-                        printf("[debug] input roi size: %ld, output label size: %ld\n", input_vecROI.size(), vecLabel.size());
                         assert(std::min(new_objs.size(), 10ul) == vecLabel.size());
 
                         auto &vecROI = m_uniteHelper._vecROI;
-                        for (int32_t i = 0 ; i < vecROI.size() ; i++)
+                        for (size_t i = 0 ; i < vecROI.size() ; i++)
                         {
                             std::vector<std::string> fields;
-                            boost::split(fields, vecROI[i].labelClassification, boost::is_any_of(","));
+                            boost::split(fields, vecLabel[i], boost::is_any_of(","));
                             new_objs[i].class_id = vecROI[i].labelIdClassification; // Does it work?
                             new_objs[i].class_label = fields[0];
-                            new_objs[i].confidence_classification = vecROI[i].confidenceClassification;
-                            printf("[debug] roi label is : %s\n", vecROI[i].labelClassification.c_str());
+                            new_objs[i].confidence_classification = static_cast<double>(vecConfidence[i]);
                         }
                     }
 
@@ -204,10 +195,7 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                 ptrInferMeta->rois.push_back(roi);
                 printf("[debug] fake roi\n");
             }
-            
 
-
-            
             // std::this_thread::sleep_for(std::chrono::milliseconds(100));
             sendOutput(m_vecBlobInput[0], 0, ms(0));
 #ifdef GUI_INTEGRATION

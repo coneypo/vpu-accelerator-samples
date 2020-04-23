@@ -44,9 +44,7 @@ std::tuple<Objects, Objects> ObjectSelector::preprocess(const Objects& objects)
     for (auto o: objects)
     {
        auto tid = o.tracking_id;
-
-       if (id_set.find(tid) == id_set.end())
-           id_set.insert(tid);
+       id_set.insert(tid);
 
        if (track_info_map_.find(tid) != track_info_map_.end())
        {
@@ -74,7 +72,6 @@ std::tuple<Objects, Objects> ObjectSelector::preprocess(const Objects& objects)
             it->second.age = std::min(it->second.age - 1, -1);
             if (it->second.age < MIN_NUM_LOST)
             {
-                std::cout << "Erased: " << it->second.tracking_id << "\n";
                 it = track_info_map_.erase(it);
             }
         }
@@ -95,34 +92,18 @@ Objects ObjectSelector::postprocess(const Objects& classified, const Objects& tr
     for(auto& o : classified)
     {
         auto tid = o.tracking_id;
-        if (track_info_map_.find(tid) != track_info_map_.end())
-        {
-            // Set the age of track info to 1 and update class Id.
-            auto& track_info       = track_info_map_[tid];
-            track_info.class_id    = o.class_id;
-            track_info.class_label = o.class_label;
-            track_info.confidence_classification = o.confidence_classification;
-            track_info.age         = 1;
-        }
-        else // a new object
-        {
-            track_info_map_[tid] = {o.tracking_id, o.class_id, o.class_label,
-                                    o.confidence_classification, 1};
-        }
-
+        track_info_map_[tid] = {o.tracking_id, o.class_id, o.class_label, o.confidence_classification, 1};
         result.push_back(o);
     }
 
     for(auto& o : tracked)
     {
         auto tid = o.tracking_id;
-        if (track_info_map_.find(tid) != track_info_map_.end())
-        {
-            // Incread the age of track info
-            auto& track_info = track_info_map_[tid];
-            track_info.age = std::max(track_info.age + 1, 1);
-        }
+        assert(track_info_map_.find(tid) != track_info_map_.end());
 
+        // Increase the age of track info
+        auto& track_info = track_info_map_[tid];
+        track_info.age = std::max(track_info.age + 1, 1);
         result.push_back(o);
     }
 

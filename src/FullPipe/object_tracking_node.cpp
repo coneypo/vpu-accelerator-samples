@@ -49,17 +49,15 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
         auto ptrBufInfer = m_vecBlobInput[0]->get<int, InferMeta>(0);
         auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
 
-
-        int32_t fd = *((int32_t*)ptrBufVideo->getPtr());
-
         VideoMeta* ptrVideoMeta = ptrBufVideo->getMeta();
-        int32_t input_height = ptrVideoMeta->videoHeight;
-        int32_t input_width = ptrVideoMeta->videoWidth;
+        int32_t input_height = static_cast<int32_t>(ptrVideoMeta->videoHeight);
+        int32_t input_width = static_cast<int32_t>(ptrVideoMeta->videoWidth);
 
         input_height = (input_height + 63) & (~63);
         input_width = (input_width + 63) & (~63);
         
         InferMeta* ptrInferMeta = ptrBufInfer->getMeta();
+        auto num_rois = ptrInferMeta->rois.size();
 
         auto start = std::chrono::steady_clock::now();
 
@@ -67,7 +65,6 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
         {
             //prepare input for tracking
             std::vector<vas::ot::DetectedObject> detected_objects;
-
             for (auto& roi : ptrInferMeta->rois)
                 detected_objects.push_back({cv::Rect(roi.x, roi.y, roi.height, roi.width), roi.labelIdDetection});
 
@@ -79,26 +76,31 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
 
             auto tracked_objects = m_tracker->Track(m_dummy, detected_objects);
 
-            // The input order is not same with the output order.
+            // Re-create ROI information based on tracking result.
+            // No information will be kept except for the rectangle coordination detection label.
+            // Currently, tracking API does not provide any mapping between tracking input and output.
+            // It will be fixed in the next release of tracking API.
             ptrInferMeta->rois.clear();
             for (auto& to : tracked_objects)
             {
                 if (to.status != vas::ot::TrackingStatus::LOST)
                 {
+                    assert(to.tracking_id > 0);
+
                     ROI roi;
                     roi.x = to.rect.x;
                     roi.y = to.rect.y;
                     roi.width = to.rect.width;
                     roi.height = to.rect.height;
                     roi.trackingId = to.tracking_id;
-                    roi.labelIdClassification = -1;
-                    roi.labelClassification = "unkown";
-                    roi.pts = m_vecBlobInput[0]->frameId;
-                    roi.confidenceClassification = 0;
+                    roi.labelClassification = "unknown";
+                    roi.pts = static_cast<size_t>(m_vecBlobInput[0]->frameId);
                     ptrInferMeta->rois.push_back(roi);
                 }
             }
         }
+
+        assert(num_rois == ptrInferMeta->rois.size());
 
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
