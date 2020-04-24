@@ -72,8 +72,12 @@ gst-launch-1.0 filesrc location=<video path>/video.mp4 ! qtdemux  ! h264parse ! 
 
 
 ``` 
+#generate config file for appl
+cd app
+./gen_config.sh
+
 cd build/output
-./hddldemo -c ../../app/config.txt 
+./hddldemo -c ../../app/config_generated.txt 
 ```
 
 ## Run App in install dir
