@@ -77,6 +77,9 @@ void HddlChannel::timerEvent(QTimerEvent* event)
 void HddlChannel::processAction(PipelineAction action)
 {
     m_pipeline->process(action);
+    if(action==MESSAGE_STOP){
+        QApplication::quit();
+    }
 }
 
 void HddlChannel::fetchRoiData()

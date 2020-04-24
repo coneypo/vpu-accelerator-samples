@@ -187,7 +187,7 @@ void HDDLDemo::initConfig()
 {
     m_pipeline = ConfigParser::instance()->getPipelines();
     m_timeout = ConfigParser::instance()->getTimeout();
-    m_rows = std::sqrt(m_pipeline.size());
+    m_rows = std::ceil(std::sqrt(m_pipeline.size()));
     m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
     //launch hva process and send channel socket address to it
     if (ConfigParser::instance()->isHvaConfigured()) {
@@ -199,7 +199,7 @@ void HDDLDemo::initConfig()
 
 void HDDLDemo::runPipeline()
 {
-    if (m_launchedNum < m_cols * m_rows) {
+    if (m_launchedNum < m_pipeline.size()) {
         QString hddlChannelCmd = QString("./hddlpipeline");
         QProcess* hddlChannelProcess = new QProcess(this);
         hddlChannelProcess->setProcessChannelMode(QProcess::ForwardedChannels);
@@ -299,4 +299,13 @@ void HDDLDemo::sendSignalToHvaPipeline()
         exit(EXIT_FAILURE);
     }
     qDebug() << "Sent msg " << QString::fromStdString(msgToSend) << " in " << length << " bytes";
+}
+
+void HDDLDemo::keyPressEvent(QKeyEvent* event)
+{
+    QKeyEvent* key = static_cast<QKeyEvent*>(event);
+    if ((key->key() == Qt::Key_Q) || (key->key() == Qt::Key_Exit)) {
+        m_dispatcher->sendAction(MESSAGE_STOP);
+        QApplication::quit();
+    }
 }

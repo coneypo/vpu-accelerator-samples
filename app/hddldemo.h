@@ -25,6 +25,9 @@ public Q_SLOTS:
     void channelRoiReceived(qintptr, QByteArray*);
     void updateTotalFps();
 
+protected:
+    virtual void keyPressEvent(QKeyEvent* event) override;
+
 private:
     void runPipeline();
     void initConfig();

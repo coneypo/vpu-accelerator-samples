@@ -1,5 +1,5 @@
 project(hddldemo)
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 include(FindPkgConfig)
 include(ExternalProject)
@@ -18,6 +18,12 @@ pkg_check_modules(GSTAPP REQUIRED gstreamer-app-1.0)
 pkg_check_modules(GIO REQUIRED gio-2.0)
 
 
+option(ENABLE_HVA "enable hva framework" ON)
+if (ENABLE_HVA)
+    add_definitions(-DENABLE_HVA)
+endif ()
+
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -34,8 +40,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 
-
-set(PLUGIN_ROOT_DIR ${CMAKE_SOURCE_DIR}/gstreamer_plugin)
 
 ExternalProject_Add(msdk-gst
         GIT_REPOSITORY https://github.com/intel/gstreamer-media-SDK.git
