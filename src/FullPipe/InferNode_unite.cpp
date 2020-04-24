@@ -77,6 +77,7 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                 roi.y = vecObjects[i].y;
                 roi.width = vecObjects[i].width;
                 roi.height = vecObjects[i].height;
+                roi.confidenceDetection = vecObjects[i].confidence;
                 roi.labelClassification = "unkown";
                 roi.pts = m_vecBlobInput[0]->frameId;
                 roi.confidenceClassification = 0;
@@ -158,6 +159,7 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                         m_uniteHelper.callInferenceOnBlobs();
                         auto& vecLabel = m_uniteHelper._vecLabel;
                         auto& vecConfidence = m_uniteHelper._vecConfidence;
+                        auto& vecLabelId = m_uniteHelper._vecIdx;
                         
                         assert(std::min(new_objs.size(), 10ul) == vecLabel.size());
 
@@ -200,7 +202,10 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
             sendOutput(m_vecBlobInput[0], 0, ms(0));
 #ifdef GUI_INTEGRATION
             sendOutput(m_vecBlobInput[0], 1, ms(0));
-#endif
+#ifdef VALIDATION_DUMP
+            sendOutput(m_vecBlobInput[0], 2, ms(0));
+#endif //#ifdef VALIDATION_DUMP
+#endif //#ifdef GUI_INTEGRATION
             m_vecBlobInput.clear();
         }
         else{

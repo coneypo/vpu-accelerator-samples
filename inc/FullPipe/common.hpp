@@ -4,6 +4,9 @@
 #include <cstdint> 
 #include <string>
 #include <vector>
+#include <chrono>
+
+#define VALIDATION_DUMP
 
 using ms = std::chrono::milliseconds;
 
@@ -24,6 +27,10 @@ struct VideoMeta{
     unsigned videoHeight;
     std::size_t fdActualLength;
     float decFps;
+#ifdef VALIDATION_DUMP
+    ms frameStart;
+    ms frameEnd;
+#endif
 };
 
 struct ROI {

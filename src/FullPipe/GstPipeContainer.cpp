@@ -440,6 +440,9 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     //     gst_sample_unref(m_sampleRead);
     //     m_sampleRead = nullptr;
     // }
+#ifdef VALIDATION_DUMP
+    ms beforeRead = std::chrono::duration_cast<ms>(std::chrono::high_resolution_clock::now().time_since_epoch());
+#endif
     GstSample* sampleRead = gst_app_sink_pull_sample(GST_APP_SINK(app_sink));
     if(!sampleRead){
         std::cout<<"Read sample failed!"<<std::endl;
@@ -547,7 +550,11 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         }
 
         blob->emplace<int, VideoMeta>(new int(fd), m_width*m_height*3/2,
-                new VideoMeta{m_width,m_height, currentSize, decFps},[mem, sampleRead](int* fd, VideoMeta* meta){
+                new VideoMeta{m_width,m_height, currentSize, decFps
+#ifdef VALIDATION_DUMP
+                , beforeRead, ms(0)
+#endif
+                },[mem, sampleRead](int* fd, VideoMeta* meta){
                     std::cout<<"Preparing to destruct fd "<<*fd<<std::endl;
                     // std::cout<<"before mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
                     // std::cout<<"before sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;

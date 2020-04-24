@@ -101,6 +101,11 @@ function build_libva () {
     ./autogen.sh --with-drivers-path=/usr/lib/x86_64-linux-gnu/dri --prefix=$HOST_INSTALL_DIR $ENABLE_DEBUG
     make -j8
     make install
+    if [ -z "${USER}" ]; then
+        echo "USER is unset or empty. Please mannually add current user to video group"
+    else
+        sudo usermod -a -G video ${USER}
+    fi
 }
 
 # download and build safestringlib

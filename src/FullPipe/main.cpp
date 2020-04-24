@@ -22,6 +22,7 @@
 #include "InferNode_unite.hpp"
 #include <PipelineConfig.hpp>
 #include "object_tracking_node.hpp"
+#include <validationDumpNode.hpp>
 
 #define STREAMS 1
 #define MAX_STREAMS 64
@@ -193,7 +194,6 @@ int main(){
 #ifdef GUI_INTEGRATION
     SocketsConfig_t sockConfig;
     sockConfig.numOfStreams = 0;
-    // sockConfig.unixSocket = "";
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
 #endif
 
@@ -204,12 +204,9 @@ int main(){
     std::mutex WIDMutex;
     std::condition_variable WIDCv;
     unsigned WIDReadyCnt = 0;
-    // std::promise<uint64_t> WIDPromise;
-    // std::future<uint64_t> WIDFuture = WIDPromise.get_future();
     hva::hvaPipeline_t pl;
 
 #ifdef GUI_INTEGRATION
-    // bool ready = configFuture.get();
     {
         std::unique_lock<std::mutex> lk(g_mutex);
         if(sockConfig.numOfStreams == 0){
@@ -222,13 +219,10 @@ int main(){
     vTh.reserve(sockConfig.numOfStreams);
     std::vector<GstPipeContainer*> vCont(sockConfig.numOfStreams);
     std::vector<uint64_t> vWID(sockConfig.numOfStreams, 0); 
-    // std::cout<<" Unix Socket addr received is "<<sockConfig.unixSocket<<std::endl;
     std::this_thread::sleep_for(ms(1000));
 #endif
     for(unsigned i = 0; i < sockConfig.numOfStreams; ++i){
-        // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
-                    // GstPipeContainer cont(i);
                     vCont[i] = new GstPipeContainer(i);
                     uint64_t WID = 0;
                     if(vCont[i]->init(config.vDecConfig[i], WID) != 0 || WID == 0){
@@ -236,7 +230,6 @@ int main(){
                         return;
                     }
 
-                    // WIDPromise.set_value(WID);
                     vWID[i] = WID;
                     {
                         std::lock_guard<std::mutex> WIDLg(WIDMutex);
@@ -269,7 +262,6 @@ int main(){
                 }));
     }
 
-    // uint64_t WID = WIDFuture.get();
     std::unique_lock<std::mutex> WIDLock(WIDMutex);
     WIDCv.wait(WIDLock,[&](){ return WIDReadyCnt == sockConfig.numOfStreams;});
     WIDLock.unlock();
@@ -315,10 +307,9 @@ int main(){
 #ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
 #else //#ifdef USE_FAKE_IE_NODE
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
-    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+#ifndef VALIDATION_DUMP
+    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
+    vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -328,6 +319,19 @@ int main(){
 
         clsNode.configBatch(batchingConfig);
     }
+#else //#ifndef VALIDATION_DUMP
+    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,3,sockConfig.numOfStreams, 
+    vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+    if(sockConfig.numOfStreams > 1){
+        hva::hvaBatchingConfig_t batchingConfig;
+        batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+        batchingConfig.batchSize = 1;
+        batchingConfig.streamNum = sockConfig.numOfStreams;
+        batchingConfig.threadNumPerBatch = 1;
+
+        clsNode.configBatch(batchingConfig);
+    }
+#endif //#ifndef VALIDATION_DUMP
 #endif //#ifdef USE_FAKE_IE_NODE
     if(sockConfig.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,sockConfig.numOfStreams,sockConfig.unixSocket), "sendNode");
@@ -335,7 +339,6 @@ int main(){
     else{
         pl.addNode(std::make_shared<SenderNode>(1,1,1,sockConfig.unixSocket), "sendNode");
     }
-    // auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,sockConfig.unixSocket), "sendNode");
 
 #else //#ifdef GUI_INTEGRATION
 
@@ -359,6 +362,10 @@ int main(){
         jpegNode.configBatch(batchingConfig);
     }
 
+#ifdef VALIDATION_DUMP
+    auto& validationDumpNode = pl.addNode(std::make_shared<ValidationDumpNode>(1,0,1,"Resnet"), "validationDumpNode");
+#endif //#ifdef VALIDATION_DUMP
+
 #ifndef USE_OBJECT_TRACKING
     pl.linkNode("detNode", 0, "FRCNode", 0);
     pl.linkNode("FRCNode", 0, "clsNode", 0);
@@ -370,7 +377,10 @@ int main(){
     pl.linkNode("clsNode", 0, "jpegNode", 0);
 #ifdef GUI_INTEGRATION
     pl.linkNode("clsNode", 1, "sendNode", 0);
-#endif
+#ifdef VALIDATION_DUMP
+    pl.linkNode("clsNode", 2, "validationDumpNode", 0);
+#endif //#ifdef VALIDATION_DUMP
+#endif //#ifdef GUI_INTEGRATION
 
     pl.prepare();
 
