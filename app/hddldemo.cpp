@@ -187,8 +187,8 @@ void HDDLDemo::initConfig()
 {
     m_pipeline = ConfigParser::instance()->getPipelines();
     m_timeout = ConfigParser::instance()->getTimeout();
-    m_rows = std::ceil(std::sqrt(m_pipeline.size()));
-    m_cols = m_rows * m_rows < m_pipeline.size() ? m_rows + 1 : m_rows;
+    m_cols = std::ceil(std::sqrt(m_pipeline.size()));
+    m_rows = std::ceil(m_pipeline.size() *1.0 / m_cols);
     //launch hva process and send channel socket address to it
     if (ConfigParser::instance()->isHvaConfigured()) {
         setupHvaProcess();
