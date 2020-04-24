@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "hddl2_config.h"
 #include "hddl_unite/hddl2_infer_data.h"
 #include "hddl_unite/hddl2_unite_graph.h"
 
@@ -33,23 +34,33 @@ namespace HDDL2Plugin {
 
 class HDDL2InferRequest : public InferenceEngine::InferRequestInternal {
 public:
+    using Ptr = std::shared_ptr<HDDL2InferRequest>;
+
     HDDL2InferRequest(const InferenceEngine::InputsDataMap& networkInputs,
         const InferenceEngine::OutputsDataMap& networkOutputs, const HddlUniteGraph::Ptr& loadedGraph,
-        const HDDL2RemoteContext::Ptr& context);
+        const HDDL2RemoteContext::Ptr& context, const HDDL2Config& config);
 
+    void Infer() override;
     void InferImpl() override;
+    void InferAsync();
+    void WaitInferDone();
     void GetPerformanceCounts(
         std::map<std::string, InferenceEngine::InferenceEngineProfileInfo>& perfMap) const override;
 
     void GetResult();
 
 protected:
+    void checkBlobs() override;
+    void SetBlob(const char* name, const InferenceEngine::Blob::Ptr& data) override;
+
     HddlUniteGraph::Ptr _loadedGraphPtr = nullptr;
     HddlUniteInferData::Ptr _inferDataPtr = nullptr;
 
     // TODO [Workaround] This variable should be inside infer data, but since we are creating it before inference, we
     // need to store it here
     HDDL2RemoteContext::Ptr _context = nullptr;
+    const HDDL2Config& _config;
+    const Logger::Ptr _logger;
 };
 
 }  //  namespace HDDL2Plugin

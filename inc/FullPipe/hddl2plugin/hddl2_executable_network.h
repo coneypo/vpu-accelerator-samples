@@ -46,7 +46,15 @@ public:
         const InferenceEngine::InputsDataMap networkInputs,
         const InferenceEngine::OutputsDataMap networkOutputs) override;
 
+    void ExportImpl(std::ostream& model) override;
+
+    void Export(const std::string& modelFileName) override;
+
+    void CreateInferRequest(InferenceEngine::IInferRequest::Ptr& asyncRequest) override;
+
 private:
+    const HDDL2Config _config;
+    const Logger::Ptr _logger;
     Graph::Ptr _graphPtr = nullptr;
     HddlUniteGraph::Ptr _loadedGraph = nullptr;
     HDDL2RemoteContext::Ptr _context = nullptr;

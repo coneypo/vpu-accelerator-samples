@@ -1,5 +1,5 @@
 //
-// Copyright 2019 Intel Corporation.
+// Copyright 2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials,
 // and your use of them is governed by the express license under which they
@@ -16,31 +16,30 @@
 
 #pragma once
 
-#include <mcm_config.h>
+#include <HddlUnite.h>
 
-#include <map>
 #include <string>
-#include <unordered_set>
+#include <vector>
+
+#include "hddl2_params.hpp"
 
 namespace vpu {
+namespace HDDL2Plugin {
 
-class HDDL2Config final : public MCMConfig {
+class HDDL2Metrics {
 public:
-    const std::string& platform() const { return _platform; }
-    const std::string& device_id() const { return _device_id; }
+    HDDL2Metrics();
 
-    // FIXME [Workaround to change default log lvl]
-    LogLevel logLevel() const;
+    static std::vector<std::string> GetAvailableDevicesNames();
+    const std::vector<std::string>& SupportedMetrics() const;
 
-protected:
-    const std::unordered_set<std::string>& getCompileOptions() const override;
-    const std::unordered_set<std::string>& getRunTimeOptions() const override;
-    void parse(const std::map<std::string, std::string>& config) override;
+    static bool isServiceAvailable();
+
+    ~HDDL2Metrics() = default;
 
 private:
-    std::string _platform = "HDDL2";
-    LogLevel _logLevel = LogLevel::Warning;
-    std::string _device_id;
+    std::vector<std::string> _supportedMetrics;
 };
 
+}  // namespace HDDL2Plugin
 }  // namespace vpu

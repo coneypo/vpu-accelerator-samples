@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <ie_blob.h>
+
 #include <memory>
 #include <string>
 
@@ -49,11 +51,12 @@ class HDDL2RemoteContext :
     public std::enable_shared_from_this<HDDL2RemoteContext> {
 public:
     using Ptr = std::shared_ptr<HDDL2RemoteContext>;
+    using CPtr = std::shared_ptr<const HDDL2RemoteContext>;
 
     /**
      * @brief Constructor with parameters, to initialize from workload id
      */
-    explicit HDDL2RemoteContext(const InferenceEngine::ParamMap& paramMap);
+    explicit HDDL2RemoteContext(const InferenceEngine::ParamMap& paramMap, const HDDL2Config& config);
 
     /**
      * @brief CreateBlob provide ability to create RemoteBlob from remote memory fd
@@ -68,6 +71,7 @@ public:
     std::string getDeviceName() const noexcept override;
 
     InferenceEngine::ParamMap getParams() const override;
+    const HDDL2ContextParams& getContextParams() const { return _contextParams; };
     HDDL2RemoteAllocator::Ptr getAllocator();
     HddlUnite::WorkloadContext::Ptr getHddlUniteWorkloadContext() const;
 
@@ -76,6 +80,8 @@ protected:
     HDDL2RemoteAllocator::Ptr _allocatorPtr = nullptr;
 
     HddlUnite::WorkloadContext::Ptr _workloadContext = nullptr;
+    const HDDL2Config& _config;
+    const Logger::Ptr _logger;
 };
 
 }  // namespace HDDL2Plugin

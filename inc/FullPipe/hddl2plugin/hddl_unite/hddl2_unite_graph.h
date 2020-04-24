@@ -30,9 +30,19 @@ class HddlUniteGraph {
 public:
     using Ptr = std::shared_ptr<HddlUniteGraph>;
 
-    explicit HddlUniteGraph(const Graph::Ptr& graphPtr, const HDDL2RemoteContext::Ptr& context = nullptr);
+    /**
+     * @brief Create HddlUnite graph object using context to specify which devices to use
+     */
+    explicit HddlUniteGraph(const Graph::Ptr& graphPtr, const HDDL2RemoteContext::Ptr& context);
+
+    /**
+     * @brief Create HddlUnite graph object using specific device. If empty, use all
+     * available devices
+     */
+    explicit HddlUniteGraph(const Graph::Ptr& graphPtr, const std::string& deviceID = "");
+
     ~HddlUniteGraph();
-    void InferSync(const HddlUniteInferData::Ptr& data);
+    void InferAsync(const HddlUniteInferData::Ptr& data);
 
 protected:
     HddlUnite::Inference::Graph::Ptr _uniteGraphPtr = nullptr;
