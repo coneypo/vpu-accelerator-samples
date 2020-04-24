@@ -428,6 +428,7 @@ static int addMetaData(GstInference* infer, GstBuffer* buf)
                 meta->boundingBox[i].height = current_frame_result->second[i].height;
                 meta->boundingBox[i].inferfps = current_frame_result->second[i].inferfps;
                 meta->boundingBox[i].decfps = current_frame_result->second[i].decfps;
+                meta->boundingBox[i].probability = current_frame_result->second[i].probability;
                 strncpy(meta->boundingBox[i].label, current_frame_result->second[i].label_str.c_str(), MAX_STR_LEN);
             }
         }
