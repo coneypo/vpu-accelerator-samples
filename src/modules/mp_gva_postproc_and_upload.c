@@ -28,7 +28,6 @@ extern "C" {
 }
 #endif
 
-#define XLINK_DEVICE_PATH	"/tmp/xlink_mock"
 #define XLINK_DEVICE_TYPE	PCIE_DEVICE
 typedef struct {
     GstElement *pipeline;
@@ -48,6 +47,7 @@ typedef struct {
     guint malloc_max_jpeg_size;
     gint format;
     gint roi_threshold;
+    guint pipe_id;
 } jpeg_branch_ctx_t;
 
 typedef struct {
@@ -248,7 +248,7 @@ roi_rounding(int* xmin, int* ymin, int* xmax, int* ymax, guint *crop_width, guin
     return true;
 }
 
-static gboolean 
+static gboolean
 is_roi_outdated(GstVideoRegionOfInterestMeta *roi_meta, jpeg_branch_ctx_t *branch_ctx)
 {
     for (GList *l = roi_meta->params; l; l = g_list_next(l)) {
@@ -300,7 +300,8 @@ send_result_back(jpeg_branch_ctx_t* branch_ctx)
             branch_ctx->Jpeg_pag.header.package_size);
     xlink_appsrc = (GstElement *)branch_ctx->other_data;
     g_assert(xlink_appsrc != NULL);
-    GST_WARNING("MEDIAPIPE|ROIENC|Send to HDDLSink GstBufferSize %ld\n", gst_buffer_get_size(result_buf));
+    GST_LOG("MEDIAPIPE|TRACE_FRAME|SEND|%u|%u|%u|%u|%ld", branch_ctx->Jpeg_pag.meta.packet_type,
+        branch_ctx->pipe_id, branch_ctx->Jpeg_pag.meta.num_rois, branch_ctx->Jpeg_pag.meta.frame_number, gst_buffer_get_size(result_buf));
     g_signal_emit_by_name(xlink_appsrc, "push-buffer", result_buf, &ret);
     gst_buffer_unref(result_buf);
     if (ret != GST_FLOW_OK) {
@@ -444,7 +445,7 @@ push_none_roi_data(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
     gboolean ret = send_result_back(branch_ctx);
     branch_ctx->roi_index++;
     if(!ret)
-        GST_WARNING("MEDIAPIPE|ROIENC|DEBUG|Send result back to IA error %d\n", ret);
+        GST_TRACE("MEDIAPIPE|ROIENC|DEBUG|Send result back to IA error %d\n", ret);
     return ret;
 }
 
@@ -498,7 +499,7 @@ crop_and_push_buffer_NV12(GstBuffer *buffer, jpeg_branch_ctx_t *branch_ctx,
             gst_caps_unref(caps);
 
             g_snprintf(caps_string, MAX_BUF_SIZE, "%u%c%u%c%u%c%u",  xmin, ',', ymin, ',',crop_width, ',', crop_height);
-            GST_WARNING("###########crop-roi = [%s]#########\n", caps_string);
+            GST_TRACE("###########crop-roi = [%s]#########\n", caps_string);
             guint set_ret;
             MEDIAPIPE_SET_PROPERTY(set_ret, branch_ctx, "enc", "crop-roi", caps_string, NULL);
             if( set_ret != 0) {
@@ -541,12 +542,12 @@ push_data(gpointer user_data)
     UNUSED(params);
     guint memory_size = branch_ctx->malloc_max_roi_size;
     if (g_queue_is_empty(branch_ctx->queue)) {
-        GST_LOG("MEDIAPIPE|ROIENC|No frame to encode\n");
+        GST_TRACE("MEDIAPIPE|TRACE_FRAME|pipe_id|%u|No frame to encode\n", ctx->mp->pipe_id);
         g_usleep(30000);
         return TRUE;
     }
     if (!branch_ctx->can_pushed) {
-        GST_LOG("MEDIAPIPE|ROIENC|Wait for jpeg encoder ready\n");
+        GST_TRACE("MEDIAPIPE|ROIENC|Wait for jpeg encoder ready\n");
         g_usleep(30000 / (g_queue_get_length(branch_ctx->queue)));
         return TRUE;
     }
@@ -564,7 +565,7 @@ push_data(gpointer user_data)
             continue;
         }
         branch_ctx->Jpeg_pag.meta.num_rois = roi_num;
-        GST_WARNING("MEDIAPIPE|ROIENC|ROI Num %d\n", roi_num);
+        GST_TRACE("MEDIAPIPE|ROIENC|ROI Num %d\n", roi_num);
     }
 
     if (branch_ctx->Jpeg_pag.meta.num_rois == 0 ||
@@ -614,6 +615,7 @@ push_data(gpointer user_data)
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.frame_number, "frame_number");
         PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.packet_type, "packet_type");
         /* PARSE_STRUCTURE(branch_ctx->Jpeg_pag.meta.num_rois, "num_rois"); */
+        GST_LOG("MEDIAPIPE|TRACE_FRAME|PROCESS|%u|%u|%u|%u|%d", branch_ctx->Jpeg_pag.meta.packet_type, branch_ctx->pipe_id, branch_ctx->Jpeg_pag.meta.num_rois, branch_ctx->Jpeg_pag.meta.frame_number, roi_index);
         while (branch_ctx->Jpeg_pag.meta.num_rois > memory_size) {
             memory_size =  memory_size * 2;
         }
@@ -735,7 +737,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
     if(*proi_index >= branch_ctx->Jpeg_pag.meta.num_rois){
         GST_ERROR("MEDIAPIPE|ERROR|GET ROI Index Overflow roi %d|queue roi %d\n", *proi_index, branch_ctx->Jpeg_pag.meta.num_rois);
         abort();
-    } 
+    }
     branch_ctx->Jpeg_pag.results[*proi_index].jpeg_size =  map.size;
     branch_ctx->Jpeg_pag.results[*proi_index].starting_offset =
         sizeof(Header) + branch_ctx->Jpeg_pag.header.meta_size +
@@ -765,7 +767,7 @@ Get_objectData(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
                 + sizeof(ClassificationResult) * branch_ctx->Jpeg_pag.meta.num_rois
                 + branch_ctx->jpegmem_size;
         branch_ctx->Jpeg_pag.meta.packet_type = get_receive_flag_by_send_flag(branch_ctx->Jpeg_pag.meta.packet_type);
-        GST_LOG("MEDIAPIPE|DEBUG|Send REsult back via Get_objectData");
+        GST_LOG("MEDIAPIPE|DEBUG|Send Result back via Get_objectData");
         send_result_back(branch_ctx);
     }
     gst_buffer_unmap(buffer, &map);
@@ -809,7 +811,7 @@ detect_src_callback_for_crop_jpeg(GstPad *pad, GstPadProbeInfo *info,
     GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
     g_queue_push_tail(ctx->branch_ctx->queue, gst_buffer_ref(buffer));
     if (g_queue_get_length(ctx->branch_ctx->queue) > 5) {
-        LOG_DEBUG("buffer queue length:%d\n", g_queue_get_length(ctx->branch_ctx->queue));
+        GST_DEBUG("buffer queue length:%d", g_queue_get_length(ctx->branch_ctx->queue));
         g_usleep(30000 * g_queue_get_length(ctx->branch_ctx->queue));
     }
     return GST_PAD_PROBE_OK;
@@ -939,6 +941,7 @@ init_module(mediapipe_t *mp)
     ctx->branch_ctx = g_new0(jpeg_branch_ctx_t, 1);
     ctx->branch_ctx->queue = g_queue_new();
     ctx->branch_ctx->jpeg_roi_queue = g_async_queue_new();
+    ctx->branch_ctx->pipe_id = (guint) mp->pipe_id;
 #ifdef CROP_NV12
     ctx->branch_ctx->pipeline =
         mediapipe_branch_create_pipeline("appsrc name=mysrc ! vaapijpegenc  name=enc  crop-roi=\"100,100,200,200\" ! fakesink name=mysink");
@@ -1024,7 +1027,7 @@ static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
         struct json_object *roi_config = NULL;
         if(json_object_object_get_ex(parent, "roi_threshold", &roi_config)) {
             gint roi_threshold = json_object_get_int(roi_config);
-            GST_WARNING("MEDIAPIPE|DEBUG|set roi_threshold %d\n",roi_threshold);
+            GST_TRACE("MEDIAPIPE|DEBUG|set roi_threshold %d\n",roi_threshold);
             ctx->branch_ctx->roi_threshold = roi_threshold;
         }
     }

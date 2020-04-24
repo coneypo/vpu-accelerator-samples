@@ -51,7 +51,7 @@ struct mediapipe_s {
 
     GMutex              channel_id_assignment_mutex;
     GHashTable*         channel_id_assignment;
-    int                 xlink_channel_id;
+    uint32_t                 pipe_id;
 
     message_callback_t  message_callback;
     void                *private_data;

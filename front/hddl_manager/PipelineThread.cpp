@@ -179,7 +179,7 @@ public:
         m_mp = g_new0(mediapipe_t, 1);
         if (!m_mp)
             return PipelineStatus::ERROR;
-        m_mp->xlink_channel_id = m_pipe.m_id;
+        m_mp->pipe_id = m_pipe.m_id;
 
         m_mp->private_data = &m_pipe;
         m_mp->message_callback = (message_callback_t)(&Pipeline::Impl::pipeline_callback);

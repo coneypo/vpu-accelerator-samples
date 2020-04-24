@@ -16,7 +16,6 @@ extern "C" {
 }
 #endif
 
-#define XLINK_DEVICE_PATH	"/tmp/xlink_mock"
 #define XLINK_DEVICE_TYPE	PCIE_DEVICE
 typedef struct {
     GAsyncQueue* meta_queue;
@@ -62,7 +61,7 @@ mp_module_t
         mp_metaparser_commands, /* module directives */
         MP_CORE_MODULE, /* module type */
         nullptr, /* init master */
-        nullptr, /* init module */
+        nullptr, /*init module*/
         nullptr, /* keyshot_process*/
         nullptr, /* message_process */
         init_callback, /* init_callback */
@@ -201,7 +200,7 @@ src_src_callback(mediapipe_t* mp, GstBuffer* buffer, guint8* data, gsize size, g
     auto frameId = meta->frame_number;
     UNUSED(frameId);
     auto headerSize = header->meta_size + sizeof(header) + (meta->num_rois * sizeof(ROI));
-
+    GST_LOG("MEDIAPIPE|TRACE_FRAME|RECEIVE|%u|%u|%u|%u", meta->packet_type, mp->pipe_id, meta->num_rois, meta->frame_number);
     for (int i = 0; i < meta->num_rois; i++) {
         //GstVideoRegionOfInterestMeta* meta = gst_buffer_add_video_region_of_interest_meta(
         //   buffer, "label", border[i].left, border[i].top, border[i].width, border[i].height);
