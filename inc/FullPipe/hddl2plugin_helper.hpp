@@ -30,8 +30,11 @@
 
 #define HDDLPLUGIN_PROFILE
 #define INFER_ROI
+#define MULTI_ROI
+#define INFER_FP16
 
-const int32_t INFER_REQUEST_NUM = 4;
+
+const int32_t INFER_REQUEST_NUM = 2;
 
 // using namespace InferenceEngine;
 namespace IE = InferenceEngine;
@@ -203,8 +206,17 @@ public:
 #if 0
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)}};
 #else
+
+#ifndef INFER_ROI
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)},
                                      {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}};
+#else
+        IE::ROI roiIE{0, 0, 0, widthInput, heightInput};
+        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(_remoteMemoryFd)},
+                                     {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12},
+                                     {IE::HDDL2_PARAM_KEY(ROI), roiIE}};
+#endif
+
 #endif
 
         //todo fix me
@@ -264,7 +276,16 @@ public:
         preprocInfo.setColorFormat(IE::ColorFormat::NV12);
 
         // ---- Set remote NV12 blob with preprocessing information
-        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob, preprocInfo);
+        _ptrInferRequest->SetBlob(_inputName, _ptrRemoteBlob, preprocInfo);    
+#endif
+
+#ifdef INFER_FP16
+
+        auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
+        auto outputBlob = _ptrInferRequest->GetBlob(outputBlobName);
+        auto& desc = outputBlob->getTensorDesc();
+
+        desc.setPrecision(IE::Precision::FP32);  
 #endif
 
 #ifdef HDDLPLUGIN_PROFILE  
@@ -297,7 +318,7 @@ public:
         // --- Get output
         printf("[debug] start dump output file\n");
 
-#ifdef HDDLPLUGIN_PROFILE        
+#ifdef HDDLPLUGIN_PROFILE
         start = std::chrono::steady_clock::now();
 #endif
         //todo fix me
@@ -327,14 +348,14 @@ public:
         file.write(ptrOutputBlob->buffer(), outputSize);
 #endif
         printf("[debug] end dump output file\n");
-        assert(ptrOutputBlob->getTensorDesc().getPrecision() == IE::Precision::U8);
 
         return ptrOutputBlob;
     }
 
     inline void inferAsync(IE::InferRequest::Ptr ptrInferRequest, InferCallback_t callback, 
-    int remoteMemoryFd = 0, size_t heightInput = 0, size_t widthInput = 0, const ROI &roi = ROI{})
+                int remoteMemoryFd = 0, size_t heightInput = 0, size_t widthInput = 0, const ROI &roi = ROI{})
     {
+        //todo, fix me
         if (0 == remoteMemoryFd)
         {
             remoteMemoryFd = _remoteMemoryFd;
@@ -343,9 +364,17 @@ public:
         {
             heightInput = _heightInput;
         }
+        else
+        {
+            _heightInput = heightInput;
+        }
         if (0 == widthInput)
         {
             widthInput = _widthInput;
+        }
+        else
+        {
+            _widthInput = widthInput;
         }
 
 //todo, only for test
@@ -385,7 +414,7 @@ public:
 #endif
 
 
-        IE::TensorDesc inputTensorDesc = IE::TensorDesc(IE::Precision::U8, {1, 3, _heightInput, _widthInput}, IE::Layout::NCHW);
+        IE::TensorDesc inputTensorDesc = IE::TensorDesc(IE::Precision::U8, {1, 3, heightInput, widthInput}, IE::Layout::NCHW);
         // IE::TensorDesc inputTensorDescTemp = _executableNetwork.GetInputsInfo().begin()->second->getTensorDesc();
         // assert(inputTensorDesc == inputTensorDescTemp);
         auto ptrRemoteBlob = _ptrContextIE->CreateBlob(inputTensorDesc, blobParamMap);
@@ -410,6 +439,15 @@ public:
 
         // ---- Set remote NV12 blob with preprocessing information
         ptrInferRequest->SetBlob(_inputName, ptrRemoteBlob, preprocInfo);
+
+#ifdef INFER_FP16
+
+        auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
+        auto outputBlob = ptrInferRequest->GetBlob(outputBlobName);
+        auto& desc = outputBlob->getTensorDesc();
+
+        desc.setPrecision(IE::Precision::FP32);  
+#endif
 
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
@@ -693,6 +731,7 @@ public:
         return;
     }
 
+#ifndef MULTI_ROI
     //todo, fix me
     inline void postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
@@ -736,7 +775,48 @@ public:
 
         return;
     }
+#else //#ifndef MULTI_ROI
+    //todo, fix me
+    inline void postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
+    {
+        //todo, fix me
+        // std::vector<int>& vecIdx = _vecIdx;
+        // std::vector<std::string>& vecLabel = _vecLabel;
+        // std::vector<float>& vecConfidence = _vecConfidence;
+        // vecIdx.clear();
+        // vecLabel.clear();
+        // vecConfidence.clear();
 
+        auto blobDequant = deQuantize(ptrBlob, 0.151837, 67);
+        size_t outputSize = 1000;
+        
+        float *ptrFP32_ROI = blobDequant->buffer().as<float*>();
+        float max = 0.0f;
+        float sum = 0.0f;
+        int idx = 0;
+        for (int j = 0; j < outputSize; j++)
+        {
+            sum += exp(ptrFP32_ROI[j]);
+            if (ptrFP32_ROI[j] > max)
+            {
+                idx = j;
+                max = ptrFP32_ROI[j];
+            }
+        }
+
+        ROI roi;
+        roi.labelIdClassification = idx;
+        // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
+        // _vecROI[i].label = labels[idx];
+        roi.labelClassification = m_labels.imagenet_labelstring(idx);
+        roi.confidenceClassification = exp(max) / sum;
+        printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
+        
+        vecROI.push_back(roi);
+
+        return;
+    }
+#endif //#ifndef MULTI_ROI
     template <int N>
     inline static int alignTo(int x)
     {
@@ -808,7 +888,7 @@ public:
     {
     public:
         InferRequestPool_t();
-        explicit InferRequestPool_t(IE::ExecutableNetwork executableNetwork, int32_t numInferRequest)
+        explicit InferRequestPool_t(IE::ExecutableNetwork& executableNetwork, int32_t numInferRequest)
         : _cntInferRequest{numInferRequest}, _maxSize{static_cast<size_t>(numInferRequest)}
         {
             for (int32_t i = 0; i < numInferRequest; i++)
@@ -866,8 +946,8 @@ public:
         }
 
     private:
-        using T = IE::InferRequest::Ptr;
-        bool push(T value)
+        using Type = IE::InferRequest::Ptr;
+        bool push(Type value)
         {
             std::unique_lock<std::mutex> lk(_mutex);             
             _cv_full.wait(lk,[this]{return (_queue.size() <= _maxSize || true == _close);});
@@ -880,7 +960,7 @@ public:
             return true;
         }
 
-        // bool tryPush(T value)
+        // bool tryPush(Type value)
         // {
         //     std::lock_guard<std::mutex> lk(_mutex);
         //     if (true == _close)
@@ -896,7 +976,7 @@ public:
         //     return true;
         // }
 
-        bool pop(T& value)
+        bool pop(Type& value)
         {
             std::unique_lock<std::mutex> lk(_mutex);
             _cv_empty.wait(lk,[this]{return (!_queue.empty() || true == _close);});
@@ -910,7 +990,7 @@ public:
             return true;
         } 
 
-        // bool tryPop(T& value)
+        // bool tryPop(Type& value)
         // {
         //     std::lock_guard<std::mutex> lk(_mutex);
         //     if (true == _close)
@@ -944,7 +1024,7 @@ public:
 
     private:
         mutable std::mutex _mutex;
-        std::queue<T> _queue;
+        std::queue<Type> _queue;
         std::condition_variable _cv_empty;
         std::condition_variable _cv_full;
         std::size_t _maxSize; //max queue size

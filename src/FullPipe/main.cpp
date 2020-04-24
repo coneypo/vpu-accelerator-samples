@@ -270,9 +270,13 @@ int main(){
 #ifdef USE_FAKE_IE_NODE
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
-    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], config.detConfig.model, "detection", 
+#ifdef INFER_FP16
+    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
+                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_fp16), "detNode");
+#else
+    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
-
+#endif
     // auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,sockConfig.numOfStreams, 
     // vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
     if(sockConfig.numOfStreams > 1){
@@ -308,8 +312,16 @@ int main(){
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
 #else //#ifdef USE_FAKE_IE_NODE
 #ifndef VALIDATION_DUMP
-    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
-    vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+
+#ifdef INFER_FP16
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_fp16), "clsNode");
+#else
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+#endif
+    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
+    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;

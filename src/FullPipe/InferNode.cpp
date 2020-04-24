@@ -77,6 +77,16 @@ void InferNodeWorker::process(std::size_t batchIdx)
             m_fps = 1000.0f / m_durationAve;
             m_cntFrame++;
 
+#if 1
+            if(m_cntFrame == 1)
+            {
+                FILE* fp = fopen("dump-output-sync.bin", "wb");
+                fwrite(ptrOutputBlob->buffer(), 1, ptrOutputBlob->byteSize(), fp);
+                fclose(fp);
+            }
+
+#endif
+
             std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
             InferMeta *ptrInferMeta = new InferMeta;
             // auto &vecObjects = m_helperHDDL2._vecObjects;
@@ -112,7 +122,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
             auto startForFps = std::chrono::steady_clock::now();
             auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-            auto callback = [=](){
+            auto callback = [=]()
+            {
                 auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                 auto start = std::chrono::steady_clock::now();
@@ -132,7 +143,14 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
                 m_fps = 1000.0f / m_durationAve;
                 m_cntFrame++;
-
+#if 1
+                if(m_cntFrame == 1)
+                {
+                    FILE* fp = fopen("dump-output-async.bin", "wb");
+                    fwrite(ptrOutputBlob->buffer(), 1, ptrOutputBlob->byteSize(), fp);
+                    fclose(fp);
+                }
+#endif
                 std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                 InferMeta *ptrInferMeta = new InferMeta;
                 // auto &vecObjects = m_helperHDDL2._vecObjects;
@@ -171,7 +189,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
             auto end = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-            printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+            printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
 
 #endif //#ifndef INFER_ASYNC
@@ -240,9 +258,12 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                     start = std::chrono::steady_clock::now();
-                    // std::vector<ROI>  vecROI;
+#ifdef MULTI_ROI
+                    std::vector<ROI>  vecROITemp;
+                    m_helperHDDL2.postproc(ptrOutputBlob, vecROITemp);
+#else
                     m_helperHDDL2.postproc(ptrOutputBlob, vecROI);
-
+#endif
                     end = std::chrono::steady_clock::now();
                     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                     printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
@@ -258,7 +279,17 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROI.size());
                     assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecROI.size());
+#ifdef MULTI_ROI
 
+                    for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                    {
+                        std::vector<std::string> fields;
+                        boost::split(fields, vecROITemp[0].labelClassification, boost::is_any_of(","));
+                        ptrInferMeta->rois[i].labelClassification = fields[0];
+                        ptrInferMeta->rois[i].confidenceClassification = vecROITemp[0].confidenceClassification;
+                        printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
+                    }
+#else
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
                         std::vector<std::string> fields;
@@ -267,6 +298,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                         ptrInferMeta->rois[i].confidenceClassification = vecROI[i].confidenceClassification;
                         printf("[debug] roi label is : %s\n", vecROI[i].labelClassification.c_str());
                     }
+#endif
                     ptrInferMeta->durationClassification = m_durationAve;
             
                     // std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -286,8 +318,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     auto startForFps = std::chrono::steady_clock::now();
                     auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-                    auto callback = [=](){
-
+                    auto callback = [=]()
+                    {
                         auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                         auto start = std::chrono::steady_clock::now();
@@ -336,7 +368,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     auto end = std::chrono::steady_clock::now();
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
 #endif //#ifndef INFER_ASYNC
                 }

@@ -1,9 +1,9 @@
 {
     "Detection":{
-        "Model":"/home/kmb/cong/graph/opt/yolotiny/yolotiny.blob"
+        "Model":"/home/kmb/cong/graph/alpha/tiny_yolo_v2_uint8_int8_weights_pertensor.blob"
     },
     "Classification":{
-        "Model":"/home/kmb/cong/graph/opt/resnet/resnet.blob"
+        "Model":"/home/kmb/cong/graph/alpha/resnet50_uint8_int8_weights_pertensor.blob"
     },
     "Decode":[
         {
