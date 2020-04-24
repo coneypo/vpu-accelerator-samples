@@ -361,10 +361,10 @@ public:
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(remoteMemoryFd)},
                                      {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}};
 #else
-        IE::ROI roi{0, 0, 0, widthInput, heightInput};
+        IE::ROI roiIE{0, 0, 0, widthInput, heightInput};
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(remoteMemoryFd)},
-                                     {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}
-                                     {IE::HDDL2_PARAM_KEY(ROI), roi}};
+                                     {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12},
+                                     {IE::HDDL2_PARAM_KEY(ROI), roiIE}};
 #endif
 
         //todo fix me
@@ -425,14 +425,14 @@ public:
         printf("[debug] start inference\n");
 
 #ifdef HDDLPLUGIN_PROFILE        
-        auto start = std::chrono::steady_clock::now();
+        start = std::chrono::steady_clock::now();
 #endif
-        ptrInferRequest->wait();
+        ptrInferRequest->Wait(10000);
         ptrInferRequest->SetCompletionCallback(callback);
-        ptrInferRequest->startAsync();
+        ptrInferRequest->StartAsync();
 #ifdef HDDLPLUGIN_PROFILE  
-        auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         printf("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
         printf("[debug] end inference\n");
@@ -678,6 +678,7 @@ public:
                 max = ptrFP32_ROI[j];
             }
         }
+        ROI roi;
         roi.labelIdClassification = idx;
         std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
         roi.labelClassification = labels[idx];
@@ -687,7 +688,7 @@ public:
         //todo fix me
         assert(vecROI.size() == 0);
 
-        vecRoi.push_back(roi);
+        vecROI.push_back(roi);
 
         return;
     }

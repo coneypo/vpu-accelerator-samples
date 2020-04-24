@@ -110,6 +110,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
             vecBlobInput.clear();
 #else //#ifndef INFER_ASYNC
 
+            auto startForFps = std::chrono::steady_clock::now();
             auto ptrInferRequest = m_helperHDDL2.getInferRequest();
             auto callback = [=](){
                 auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
@@ -142,7 +143,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     roi.y = vecObjects[i].y;
                     roi.width = vecObjects[i].width;
                     roi.height = vecObjects[i].height;
-                    roi.labelClassification = "unkown";
+                    roi.labelClassification = "unknown";
                     roi.pts = vecBlobInput[0]->frameId;
                     roi.confidenceClassification = 0;
                     // roi.indexROI = i;
@@ -162,14 +163,11 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 blob->frameId = vecBlobInput[0]->frameId;
                 blob->streamId = vecBlobInput[0]->streamId;
                 sendOutput(blob, 0, ms(0));
-                vecBlobInput.clear();
-
             };
             auto start = std::chrono::steady_clock::now();
-            auto startForFps = start;
-            m_helperHDDL2.inferAsync(ptrInferRequest, callback
-                fd, input_height, input_width
-            );
+            
+            m_helperHDDL2.inferAsync(ptrInferRequest, callback,
+                fd, input_height, input_width);
 
             auto end = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -286,6 +284,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     }
 
+                    auto startForFps = std::chrono::steady_clock::now();
                     auto ptrInferRequest = m_helperHDDL2.getInferRequest();
                     auto callback = [=](){
 
