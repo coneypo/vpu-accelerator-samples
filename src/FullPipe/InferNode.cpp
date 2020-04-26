@@ -7,18 +7,23 @@
 #define INFER_ASYNC
 
 InferNode::InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
-                     WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) : hva::hvaNode_t{inPortNum, outPortNum, totalThreadNum},
-                                                                                                                            m_id{id}, m_graphPath{graphPath}, m_mode{mode}, m_postproc(postproc)
+            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
+            : hva::hvaNode_t{inPortNum, outPortNum, totalThreadNum},
+            m_vWID{vWID}, m_graphPath{graphPath}, m_mode{mode}, m_postproc(postproc)
 {
 }
 
 std::shared_ptr<hva::hvaNodeWorker_t> InferNode::createNodeWorker() const
 {
-    return std::shared_ptr<hva::hvaNodeWorker_t>{new InferNodeWorker{const_cast<InferNode *>(this), m_id, m_graphPath, m_mode, m_postproc}};
+    std::lock_guard<std::mutex> lock{m_mutex};
+    printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
+    return std::shared_ptr<hva::hvaNodeWorker_t>{
+        new InferNodeWorker{const_cast<InferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc}};
 }
 
 InferNodeWorker::InferNodeWorker(hva::hvaNode_t *parentNode,
-                                 WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc}, m_mode{mode}
+                                 WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
+                                 : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc}, m_mode{mode}
 {
 }
 
@@ -122,8 +127,15 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
             auto startForFps = std::chrono::steady_clock::now();
             auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-            auto callback = [=]()
+
+
+
+            auto callback = [=]() mutable
             {
+                cntAsyncEnd++;
+                printf("[debug] detection async end, cnt is: %d\n", (int)cntAsyncEnd);
+
+                printf("[debug] detection callback start\n");
                 auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                 auto start = std::chrono::steady_clock::now();
@@ -143,7 +155,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
                 m_fps = 1000.0f / m_durationAve;
                 m_cntFrame++;
-#if 1
+#if 0
                 if(m_cntFrame == 1)
                 {
                     FILE* fp = fopen("dump-output-async.bin", "wb");
@@ -181,11 +193,17 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 blob->frameId = vecBlobInput[0]->frameId;
                 blob->streamId = vecBlobInput[0]->streamId;
                 sendOutput(blob, 0, ms(0));
+                vecBlobInput.clear();
+                printf("[debug] detection callback end, frame id is: %d\n", vecBlobInput[0]->frameId);
+                return;
             };
             auto start = std::chrono::steady_clock::now();
-            
+
             m_helperHDDL2.inferAsync(ptrInferRequest, callback,
                 fd, input_height, input_width);
+
+            cntAsyncStart++;
+            printf("[debug] detection async start, cnt is: %d\n", (int32_t)cntAsyncStart);
 
             auto end = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -318,8 +336,12 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     auto startForFps = std::chrono::steady_clock::now();
                     auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-                    auto callback = [=]()
+                    auto callback = [=]() mutable
                     {
+                        cntAsyncEnd++;
+                        printf("[debug] classification async end, cnt is: %d\n", (int)cntAsyncEnd);
+
+                        printf("[debug] classification callback start\n");
                         auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                         auto start = std::chrono::steady_clock::now();
@@ -358,6 +380,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
 #ifdef GUI_INTEGRATION
                         sendOutput(vecBlobInput[0], 1, ms(0));
 #endif
+                        printf("[debug] classification callback end, frame id is %d\n", vecBlobInput[0]->frameId);
+                        vecBlobInput.clear();
                         return;
                     };
 
@@ -365,6 +389,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     auto start = std::chrono::steady_clock::now();
                     m_helperHDDL2.inferAsync(ptrInferRequest, callback,
                         fd, input_height, input_width, vecROI[0]);
+                    cntAsyncStart++;
+                    printf("[debug] classification async start, cnt is: %d\n", (int32_t)cntAsyncStart);
 
                     auto end = std::chrono::steady_clock::now();
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -395,6 +421,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 #endif
                 
             }
+            printf("[debug] classification loop end, frame id is %d\n", vecBlobInput[0]->frameId);
 
         }
         else

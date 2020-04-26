@@ -271,7 +271,7 @@ int main(){
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
 #ifdef INFER_FP16
-    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
+    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_fp16), "detNode");
 #else
     auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
@@ -291,7 +291,7 @@ int main(){
 #endif
 
 #ifndef USE_OBJECT_TRACKING
-    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, config.FRCConfig), "FRCNode");
+    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
 #else
     auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
     vWID, 0, "objectTracking", "zero_term_imageless"), "trackingNode");
@@ -314,7 +314,7 @@ int main(){
 #ifndef VALIDATION_DUMP
 
 #ifdef INFER_FP16
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
                                                            &HDDL2pluginHelper_t::postprocResnet50_fp16), "clsNode");
 #else
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",

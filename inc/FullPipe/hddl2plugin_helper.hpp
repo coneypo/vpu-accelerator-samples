@@ -34,7 +34,7 @@
 #define INFER_FP16
 
 
-const int32_t INFER_REQUEST_NUM = 2;
+const int32_t INFER_REQUEST_NUM = 4;
 
 // using namespace InferenceEngine;
 namespace IE = InferenceEngine;

@@ -18,15 +18,18 @@ public:
     };
 
     InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
-              WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc);
+            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc);
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
 
 private:
-    WorkloadID m_id;
+    std::vector<WorkloadID> m_vWID;
     std::string m_graphPath;
     std::string m_mode;
     HDDL2pluginHelper_t::PostprocPtr_t m_postproc;
+    
+    mutable std::atomic<int32_t> m_cntNodeWorker{0};
+    mutable std::mutex m_mutex;
 };
 
 class InferNodeWorker : public hva::hvaNodeWorker_t{
@@ -37,6 +40,7 @@ public:
 
     virtual void init() override;
 
+private:
     HDDL2pluginHelper_t m_helperHDDL2;
     // std::vector<ROI> m_vecROI;
     std::string m_mode;
@@ -44,6 +48,9 @@ public:
     float m_fps {0.0f};
     float m_durationAve {0.0f};
     uint64_t m_cntFrame {0ul};
+
+    std::atomic<int32_t> cntAsyncEnd{0};
+    std::atomic<int32_t> cntAsyncStart{0};
 
 private:
     // std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;
