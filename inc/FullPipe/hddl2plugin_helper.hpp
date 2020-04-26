@@ -30,7 +30,7 @@
 
 #define HDDLPLUGIN_PROFILE
 #define INFER_ROI
-#define MULTI_ROI
+#define SINGLE_ROI_POSTPROC
 #define INFER_FP16
 
 
@@ -390,7 +390,16 @@ public:
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(remoteMemoryFd)},
                                      {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}};
 #else
-        IE::ROI roiIE{0, 0, 0, widthInput, heightInput};
+        IE::ROI roiIE;
+        if(0 == roi.width || 0 == roi.height)
+        {
+            roiIE = IE::ROI{0, 0, 0, widthInput, heightInput};
+        }
+        else
+        {
+            roiIE = IE::ROI{static_cast<size_t>(0), static_cast<size_t>(roi.x), 
+                            static_cast<size_t>(roi.y), static_cast<size_t>(roi.width), static_cast<size_t>(roi.height)};
+        }
         IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(remoteMemoryFd)},
                                      {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12},
                                      {IE::HDDL2_PARAM_KEY(ROI), roiIE}};
@@ -511,6 +520,8 @@ public:
     }
     inline void putInferRequest(IE::InferRequest::Ptr ptrInferRequest)
     {
+        // ptrInferRequest->Wait(10000);
+        // ptrInferRequest->SetCompletionCallback([](){}); //why does not this work
         _ptrInferRequestPool->put(ptrInferRequest);
         return;
     }
@@ -731,7 +742,7 @@ public:
         return;
     }
 
-#ifndef MULTI_ROI
+#ifndef SINGLE_ROI_POSTPROC
     //todo, fix me
     inline void postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
@@ -775,7 +786,7 @@ public:
 
         return;
     }
-#else //#ifndef MULTI_ROI
+#else //#ifndef SINGLE_ROI_POSTPROC
     //todo, fix me
     inline void postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI>& vecROI)
     {
@@ -816,7 +827,7 @@ public:
 
         return;
     }
-#endif //#ifndef MULTI_ROI
+#endif //#ifndef SINGLE_ROI_POSTPROC
     template <int N>
     inline static int alignTo(int x)
     {

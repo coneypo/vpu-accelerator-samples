@@ -49,8 +49,8 @@ private:
     float m_durationAve {0.0f};
     uint64_t m_cntFrame {0ul};
 
-    std::atomic<int32_t> cntAsyncEnd{0};
-    std::atomic<int32_t> cntAsyncStart{0};
+    std::atomic<int32_t> m_cntAsyncEnd{0};
+    std::atomic<int32_t> m_cntAsyncStart{0};
 
 private:
     // std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;

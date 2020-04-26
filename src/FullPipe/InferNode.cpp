@@ -132,10 +132,10 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
             auto callback = [=]() mutable
             {
-                cntAsyncEnd++;
-                printf("[debug] detection async end, cnt is: %d\n", (int)cntAsyncEnd);
+                m_cntAsyncEnd++;
+                printf("[debug] detection async end, cnt is: %d\n", (int)m_cntAsyncEnd);
 
-                printf("[debug] detection callback start\n");
+                printf("[debug] detection callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
                 auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                 auto start = std::chrono::steady_clock::now();
@@ -202,8 +202,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
             m_helperHDDL2.inferAsync(ptrInferRequest, callback,
                 fd, input_height, input_width);
 
-            cntAsyncStart++;
-            printf("[debug] detection async start, cnt is: %d\n", (int32_t)cntAsyncStart);
+            m_cntAsyncStart++;
+            printf("[debug] detection async start, cnt is: %d\n", (int32_t)m_cntAsyncStart);
 
             auto end = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -276,7 +276,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                     start = std::chrono::steady_clock::now();
-#ifdef MULTI_ROI
+#ifdef SINGLE_ROI_POSTPROC
                     std::vector<ROI>  vecROITemp;
                     m_helperHDDL2.postproc(ptrOutputBlob, vecROITemp);
 #else
@@ -297,7 +297,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROI.size());
                     assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecROI.size());
-#ifdef MULTI_ROI
+#ifdef SINGLE_ROI_POSTPROC
 
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
@@ -316,7 +316,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                         ptrInferMeta->rois[i].confidenceClassification = vecROI[i].confidenceClassification;
                         printf("[debug] roi label is : %s\n", vecROI[i].labelClassification.c_str());
                     }
-#endif
+#endif //#ifdef SINGLE_ROI_POSTPROC
                     ptrInferMeta->durationClassification = m_durationAve;
             
                     // std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -326,76 +326,90 @@ void InferNodeWorker::process(std::size_t batchIdx)
 #endif
 #else //#ifndef INFER_ASYNC
 
+                    auto startForFps = std::chrono::steady_clock::now();
+
                     //todo, fix me
+                    
                     std::shared_ptr<std::mutex> ptrMutex = std::make_shared<std::mutex>();
-                    int32_t cntCallback = 0;
+                    std::shared_ptr<int32_t> ptrCntCallback{new int32_t};
+                    *ptrCntCallback = 0;
+
                     for (int cntROI = 0; cntROI < vecROI.size(); cntROI++)
                     {
+                        auto ptrInferRequest = m_helperHDDL2.getInferRequest();
+                        auto callback = [=]() mutable
+                        {
+                            m_cntAsyncEnd++;
+                            printf("[debug] classification async end, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int)m_cntAsyncEnd);
 
-                    }
+                            printf("[debug] classification callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
+                            auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
-                    auto startForFps = std::chrono::steady_clock::now();
-                    auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-                    auto callback = [=]() mutable
-                    {
-                        cntAsyncEnd++;
-                        printf("[debug] classification async end, cnt is: %d\n", (int)cntAsyncEnd);
+                            auto start = std::chrono::steady_clock::now();
+                            
+                            std::vector<ROI>& vecROI = ptrInferMeta->rois;
+                            std::vector<ROI> vecROITemp;
+                            m_helperHDDL2.postproc(ptrOutputBlob, vecROITemp);
 
-                        printf("[debug] classification callback start\n");
-                        auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
+                            m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
 
+                            auto end = std::chrono::steady_clock::now();
+                            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                            printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                            
+                            printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROITemp.size());
+                            assert(1 == vecROITemp.size());
+
+                            // for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                            {
+                                std::vector<std::string> fields;
+                                boost::split(fields, vecROITemp[0].labelClassification, boost::is_any_of(","));
+                                vecROI[cntROI].labelClassification = fields[0];
+                                vecROI[cntROI].confidenceClassification = vecROITemp[0].confidenceClassification;
+                                printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
+                            }
+
+                            {
+                                std::lock_guard<std::mutex> lock{*ptrMutex}; 
+                                auto& cntCallback= *ptrCntCallback;                           
+                                (cntCallback)++;
+
+                                if(cntCallback == vecROI.size())
+                                {
+                                    end = std::chrono::steady_clock::now();
+                                    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
+                                    m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
+                                    m_fps = 1000.0f / m_durationAve;
+                                    m_cntFrame++;
+
+                                    printf("classification whole duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                                    ptrInferMeta->durationClassification = m_durationAve;
+                            
+                                    // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                                    sendOutput(vecBlobInput[0], 0, ms(0));
+            #ifdef GUI_INTEGRATION
+                                    sendOutput(vecBlobInput[0], 1, ms(0));
+            #endif
+                                }
+
+                            }
+                            vecBlobInput.clear();
+                            printf("[debug] classification callback end, frame id is %d\n", vecBlobInput[0]->frameId);
+                            return;
+                        };
+
+                        //todo fix me
                         auto start = std::chrono::steady_clock::now();
-                        
-                        std::vector<ROI>  vecROITemp;
-                        m_helperHDDL2.postproc(ptrOutputBlob, vecROITemp);
-
-                        m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
+                        m_helperHDDL2.inferAsync(ptrInferRequest, callback,
+                            fd, input_height, input_width, vecROI[cntROI]);
+                        m_cntAsyncStart++;
+                        printf("[debug] classification async start, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int32_t)m_cntAsyncStart);
 
                         auto end = std::chrono::steady_clock::now();
                         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                        printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
-                        
-                        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
-                        m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
-                        m_fps = 1000.0f / m_durationAve;
-                        m_cntFrame++;
+                        printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
-                        printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
-
-                        printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROITemp.size());
-                        assert(1 == vecROITemp.size());
-
-                        for (int i = 0; i < ptrInferMeta->rois.size(); i++)
-                        {
-                            std::vector<std::string> fields;
-                            boost::split(fields, vecROITemp[0].labelClassification, boost::is_any_of(","));
-                            ptrInferMeta->rois[i].labelClassification = fields[0];
-                            ptrInferMeta->rois[i].confidenceClassification = vecROITemp[0].confidenceClassification;
-                            printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
-                        }
-                        ptrInferMeta->durationClassification = m_durationAve;
-                
-                        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                        sendOutput(vecBlobInput[0], 0, ms(0));
-#ifdef GUI_INTEGRATION
-                        sendOutput(vecBlobInput[0], 1, ms(0));
-#endif
-                        printf("[debug] classification callback end, frame id is %d\n", vecBlobInput[0]->frameId);
-                        vecBlobInput.clear();
-                        return;
-                    };
-
-                    //todo fix me
-                    auto start = std::chrono::steady_clock::now();
-                    m_helperHDDL2.inferAsync(ptrInferRequest, callback,
-                        fd, input_height, input_width, vecROI[0]);
-                    cntAsyncStart++;
-                    printf("[debug] classification async start, cnt is: %d\n", (int32_t)cntAsyncStart);
-
-                    auto end = std::chrono::steady_clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
-
+                    }
 #endif //#ifndef INFER_ASYNC
                 }
             }
