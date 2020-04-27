@@ -24,7 +24,7 @@
 #define JPEG_VAAPI_STATUS_CHECK(STATUS, LOG, SURFACE)	\
 {							\
     if(STATUS != VA_STATUS_SUCCESS){  			\
-        std::cout<<LOG<<std::endl;    			\
+        HVA_ERROR(LOG);    			\
         m_pool->reset(SURFACE);				\
         return;						\
     }							\

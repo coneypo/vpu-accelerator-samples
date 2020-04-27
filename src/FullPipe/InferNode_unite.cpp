@@ -43,6 +43,7 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
         {
             // const auto& pbuf = vInput[0]->get<int,VideoMeta>(0)->getPtr();
             // std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            HVA_DEBUG("Detection node received blob with frame id $u and stream id %u", m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
 
             auto ptrVideoBuf = m_vecBlobInput[0]->get<int, VideoMeta>(0);
 
@@ -102,9 +103,11 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
             blob->streamId = m_vecBlobInput[0]->streamId;
             sendOutput(blob, 0, ms(0));
             m_vecBlobInput.clear();
+            HVA_DEBUG("Detection node completed sending output with frame id $u and stream id %u", blob->frameId, blob->streamId);
         }
         else if (m_uniteHelper.graphName == "resnet" || m_uniteHelper.graphName == "classification")
         {
+            HVA_DEBUG("Classification node received blob with frame id $u and stream id %u", m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
             auto ptrBufInfer = m_vecBlobInput[0]->get<int, InferMeta>(0);
             auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
 
@@ -207,6 +210,8 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
 #endif //#ifdef VALIDATION_DUMP
 #endif //#ifdef GUI_INTEGRATION
             m_vecBlobInput.clear();
+            HVA_DEBUG("Classification node completed sending output with frame id $u and stream id %u", m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
+
         }
         else{
             std::this_thread::sleep_for(std::chrono::milliseconds(50));

@@ -48,6 +48,7 @@ bool checkValidNetFile(std::string filepath){
     std::string::size_type suffix_pos = filepath.find(".blob");
     if(suffix_pos == std::string::npos){
         std::cout<<"Invalid network suffix. Expect *.xml"<<std::endl;
+        HVA_ERROR("Invalid network suffix. Expect *.xml");
         return false;
     }
     // std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
@@ -55,6 +56,7 @@ bool checkValidNetFile(std::string filepath){
     auto p = boost::filesystem::path(filepath);
     if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
         std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+        HVA_ERROR("File %s does not exists", filepath);
         return false;
     }
 
@@ -71,6 +73,7 @@ bool checkValidVideo(std::string filepath){
     auto p = boost::filesystem::path(filepath);
     if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
         std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+        HVA_ERROR("File %s does not exists", filepath);
         return false;
     }
     return true;
@@ -87,6 +90,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
     auto poller = HddlUnite::Poller::create();
     auto connection = HddlUnite::Connection::create(poller);
     std::cout<<"Set socket to listening"<<std::endl;
+    HVA_DEBUG("Set socket to listening");
     if (!connection->listen(socket_address)) {
         return -1;
     }
@@ -98,7 +102,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
         switch (event.type) {
             case HddlUnite::Event::Type::CONNECTION_IN:
                 connection->accept();
-                std::cout<<"Incoming connection accepted"<<std::endl;
+                HVA_DEBUG("Incoming connection accepted");
                 break;
             case HddlUnite::Event::Type::MESSAGE_IN: {
 
@@ -111,8 +115,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                     if (!data_connection->read(&length, sizeof(length))) {
                         break;
                     }
-                    std::cout<<"Length received is "<<length<<std::endl;
-
+                    HVA_DEBUG("Length received is %d", length);
                     if (length <= 0) {
                         break;
                     }
@@ -121,7 +124,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                     if (!data_connection->read(&message[0], length)) {
                         break;
                     }
-                    std::cout<<"message received is "<<message<<std::endl;
+                    HVA_DEBUG("message received is $s", message);
                 }
 
                 if(message=="STOP"){
@@ -135,24 +138,24 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                         std::lock_guard<std::mutex> lg(g_mutex);
                         boost::split(config->unixSocket, message, boost::is_any_of(","));
                         for (unsigned i = 0; i < config->unixSocket.size();++i){
-                            std::cout << "Value of config[" << i << "]: " << config->unixSocket[i] << std::endl;
+                            HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i]);
                         }
                             config->numOfStreams = config->unixSocket.size();
                         // for(unsigned i = 0; i< config->numOfStreams; ++i){
                         //     config->unixSocket[i] = sockets[i];
                         // }
                         *ctrlMsg = ControlMessage::ADDR_RECVED;
-                        std::cout<<"Control message set to addr_recved"<<std::endl;
+                        HVA_INFO("Control message set to addr_recved");
                     }
                     g_cv.notify_all();
-                    std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
+                    HVA_INFO("Going to stop receive routine after 5 s");
                     std::this_thread::sleep_for(ms(5000));
                     running = false;
                 }
                 break;
             }
             case HddlUnite::Event::Type::CONNECTION_OUT:
-                std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
+                HVA_INFO("Going to stop receive routine after 5 s");
                 std::this_thread::sleep_for(ms(5000));
                 running = false;
                 /* stop pipeline */
@@ -173,11 +176,16 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
 
 int main(){
 
+    hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
+    // hvaLogger.dumpToFile("test.log", false);
+    // hvaLogger.enableProfiling();
+
     gst_init(0, NULL);
 
     PipelineConfigParser configParser;
     if(!configParser.parse("config.json")){
         std::cout<<"Failed to parse config.json"<<std::endl;
+        HVA_ERROR("Failed to parse config.json");
         return 0;
     }
 
@@ -212,6 +220,7 @@ int main(){
         if(sockConfig.numOfStreams == 0){
             g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
             std::cout<<"Control message addr_recved received and cleared"<<std::endl;
+            HVA_INFO("Control message addr_recved received and cleared");
             ctrlMsg = ControlMessage::EMPTY;
         }
     }
@@ -227,6 +236,7 @@ int main(){
                     uint64_t WID = 0;
                     if(vCont[i]->init(config.vDecConfig[i], WID) != 0 || WID == 0){
                         std::cout<<"Fail to init cont!"<<std::endl;
+                        HVA_ERROR("Fail to init cont!");
                         return;
                     }
 
@@ -238,17 +248,17 @@ int main(){
                     WIDCv.notify_all();
 
                     std::this_thread::sleep_for(ms(2000));
-                    std::cout<<"Dec source start feeding."<<std::endl;
+                    HVA_INFO("Dec source start feeding.");
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(vCont[i]->read(blob)){
                         int* fd = blob->get<int, VideoMeta>(0)->getPtr();
-                        std::cout<<"FD received is "<<*fd<<"with streamid "<<blob->streamId<<" and frameid "<<blob->frameId<<std::endl;
+                        HVA_DEBUG("FD received is %d with streamid %d and frame id %d", *fd, blob->streamId, blob->frameId);
 
                         pl.sendToPort(blob,"detNode",0,ms(0));
 
                         blob.reset(new hva::hvaBlob_t());
-                        std::cout<<"Sent fd "<<*fd<<" completed"<<std::endl;
+                        HVA_DEBUG("Sent fd %d from decoder completes",*fd);
                     }
 
                     {
@@ -257,7 +267,7 @@ int main(){
                     }
                     g_cv.notify_all();
 
-                    std::cout<<"Finished"<<std::endl;
+                    HVA_INFO("Decoder finished");
                     return;
                 }));
     }
@@ -267,6 +277,7 @@ int main(){
     WIDLock.unlock();
 
     std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
+    HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
 #ifdef USE_FAKE_IE_NODE
     auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
@@ -403,11 +414,13 @@ int main(){
         std::unique_lock<std::mutex> lk(g_mutex);
         g_cv.wait(lk,[&](){ return ControlMessage::STOP_RECVED == ctrlMsg;});
         std::cout<<"Control message stop_recved received and cleared"<<std::endl;
+        HVA_INFO("Control message stop_recved received and cleared");
         ctrlMsg = ControlMessage::EMPTY;
 
         std::this_thread::sleep_for(ms(2000)); //temp WA to let last decoded framed finish
 
         std::cout<<"Going to stop pipeline."<<std::endl;
+        HVA_INFO("Going to stop pipeline");
 
         pl.stop();
 
@@ -419,11 +432,11 @@ int main(){
         std::this_thread::sleep_for(ms(1000));
 
         for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
-            std::cout<<"Going to join "<<i<<"th dec source"<<std::endl;
+            HVA_DEBUG("Going to join %dth decoder", i);
             vTh[i]->join();
         }
 
-        std::cout<<"\nDec source joined "<<std::endl;
+        HVA_INFO("All dec sources joined");
 
 #ifdef GUI_INTEGRATION
         t.join();

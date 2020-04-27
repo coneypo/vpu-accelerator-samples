@@ -20,7 +20,8 @@ GstPipeContainer::GstPipeContainer(unsigned idx):pipeline(nullptr), file_source(
 int GstPipeContainer::init(const Config& config, uint64_t& WID){
     m_config = config;
     if(!validateConfig()){
-        std::cout<<"Config invalid!"<<std::endl;
+        std::cout<<"Decoder config invalid!"<<std::endl;
+        HVA_ERROR("Decoder config invalid");
         return -1;
     }
 
@@ -63,13 +64,16 @@ int GstPipeContainer::initH264Pipeline(uint64_t& WID){
             || !capsfilter
 #endif
             ){
+        HVA_ERROR("Fail to make one of the gstreamer plugins!");
         return -1;
     }
 
     // GstCaps* caps = gst_caps_from_string("video/x-raw, format=(string)NV12");
     GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
-    if (!caps)
+    if (!caps){
+        HVA_ERROR("Fail to make gst caps");
         return -3;
+    }
     g_object_set(capsfilter, "caps", caps, NULL);
     gst_caps_unref (caps);
     
@@ -95,6 +99,7 @@ int GstPipeContainer::initH264Pipeline(uint64_t& WID){
             app_sink, NULL);
 
     if(!gst_element_link_many(file_source, parser, bypass, dec, capsfilter, app_sink, NULL)){
+        HVA_ERROR("Fail to link gst plugins");
         return -2;
     }
 #endif
@@ -118,6 +123,7 @@ int GstPipeContainer::initH264Pipeline(uint64_t& WID){
 
     WID = queryWID();
     if(WID == 0){
+        HVA_ERROR("Failed to query WID");
         return -4;
     }
 
@@ -148,13 +154,16 @@ int GstPipeContainer::initH265Pipeline(uint64_t& WID){
             || !capsfilter
 #endif
             ){
+        HVA_ERROR("Fail to make one of the gstreamer plugins!");
         return -1;
     }
 
     // GstCaps* caps = gst_caps_from_string("video/x-raw, format=(string)NV12");
     GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
-    if (!caps)
+    if (!caps){
+        HVA_ERROR("Fail to make gst caps");
         return -3;
+    }
     g_object_set(capsfilter, "caps", caps, NULL);
     gst_caps_unref (caps);
     
@@ -180,6 +189,7 @@ int GstPipeContainer::initH265Pipeline(uint64_t& WID){
             app_sink, NULL);
 
     if(!gst_element_link_many(file_source, parser, bypass, dec, capsfilter, app_sink, NULL)){
+        HVA_ERROR("Fail to link gst plugins");
         return -2;
     }
 #endif
@@ -203,6 +213,7 @@ int GstPipeContainer::initH265Pipeline(uint64_t& WID){
 
     WID = queryWID();
     if(WID == 0){
+        HVA_ERROR("Failed to query WID");
         return -4;
     }
 
@@ -247,13 +258,16 @@ int GstPipeContainer::initContainerPipeline(uint64_t& WID){
             || !capsfilter
 #endif
             ){
+        HVA_ERROR("Fail to make one of the gstreamer plugins!");
         return -1;
     }
 
     // GstCaps* caps = gst_caps_from_string("video/x-raw, format=(string)NV12");
     GstCaps* caps = gst_caps_from_string("video/x-raw(memory:DMABuf), format=(string)NV12");
-    if (!caps)
+    if (!caps){
+        HVA_ERROR("Fail to make gst caps");
         return -3;
+    }
     g_object_set(capsfilter, "caps", caps, NULL);
     gst_caps_unref (caps);
     
@@ -278,9 +292,11 @@ int GstPipeContainer::initContainerPipeline(uint64_t& WID){
             app_sink, NULL);
 
     if(!gst_element_link_many(file_source, demux, NULL)){
+        HVA_ERROR("Fail to link file src to demux");
         return -2;
     }
     if(!gst_element_link_many(parser, bypass, dec, capsfilter, app_sink, NULL)){
+        HVA_ERROR("Fail to link gst plugins");
         return -2;
     }
 
@@ -334,6 +350,7 @@ int GstPipeContainer::initContainerPipeline(uint64_t& WID){
 
     WID = queryWID();
     if(WID == 0){
+        HVA_ERROR("Failed to query WID");
         return -4;
     }
 
@@ -347,7 +364,7 @@ uint64_t GstPipeContainer::queryWID(){
     GstQuery* query = gst_query_new_custom (GST_QUERY_CUSTOM, structure);
 
     if(!gst_element_query(bypass, query)){
-        std::cout<<"Fail to query workload context!"<<std::endl;
+        HVA_ERROR("Fail to query WID through gst_element_query");
         gst_query_unref(query);
         return 0;
     }
@@ -358,14 +375,14 @@ uint64_t GstPipeContainer::queryWID(){
     const GstStructure* WIDRet = gst_query_get_structure (query);
 
     if(!gst_structure_get_uint64(WIDRet,"WorkloadContextId", &ret)){
-        std::cout<<"Fail to get Workload Contex ID from gst structure!"<<std::endl;
+        HVA_ERROR("Fail to get Workload Contex ID from gst structure!");
         gst_query_unref(query);
         return 0;
     }
 
     m_WID = ret;
 
-    std::cout<<"WID Received: "<<m_WID<<std::endl;
+    HVA_DEBUG("WID Received: %ul", m_WID);
 
     gst_query_unref(query);
 
@@ -430,7 +447,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 
     // bail out if EOS
     if (gst_app_sink_is_eos(GST_APP_SINK(app_sink))){
-        std::cout<<"EOS reached"<<std::endl;
+        HVA_INFO("EOS received");
         gst_element_seek_simple(pipeline, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT), 0 * GST_SECOND);
         return read(blob);
         // return false;
@@ -445,7 +462,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 #endif
     GstSample* sampleRead = gst_app_sink_pull_sample(GST_APP_SINK(app_sink));
     if(!sampleRead){
-        std::cout<<"Read sample failed!"<<std::endl;
+        HVA_ERROR("Fail to read gstSample from appsink!");
         return false;
     }
     // std::cout<<"current sample ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
@@ -468,7 +485,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         // Does not Drop frame
         GstBuffer* buf = gst_sample_get_buffer(sampleRead);
         if (!buf){
-            std::cout<<"Retrieve buffer failed!"<<std::endl;
+            HVA_ERROR("Fail to retrieve buffer from gstSample");
             return false;
         }
 
@@ -487,7 +504,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         GstMemory *mem = gst_buffer_get_memory(buf, 0);
         if(mem == nullptr){
             gst_memory_unref(mem);
-            std::cout<<"Get gstmemory from gstbuffer failed: nullptr!"<<std::endl;
+            HVA_ERROR("Fail to get gstmemory from gstbuffer: nullptr!");
             return false;
         }
         // std::cout<<"current mem ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
@@ -496,22 +513,22 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
         unsigned long offset = 0;
         unsigned long maxSize = 0;
         unsigned long currentSize = gst_memory_get_sizes(mem, &offset, &maxSize);
-        std::cout<<"current size: "<<currentSize<<" max size: "<<maxSize<<" offset: "<<offset<<std::endl;
+        GST_DEBUG("Current gstmem size: %ul, max size: %ul and offset: %ul", currentSize, maxSize, offset);
 
         if (!gst_is_dmabuf_memory(mem)) {
             gst_memory_unref(mem);
-            std::cout<<"Get gstmemory from gstbuffer failed: not dmabuf!"<<std::endl;
+            HVA_ERROR("Fail to get dmabuf from gstmem: not dmabuf!");
             return false;
         } 
         else {
             fd = gst_dmabuf_memory_get_fd(mem);
             if (fd <= 0) {
                 gst_memory_unref(mem);
-                std::cout<<"Get fd from gstmemory failed!"<<std::endl;
+                HVA_ERROR("Fail to get fd from gstmemory!");
                 return false;
             }
 
-            std::cout<<"FD from dmabuf is "<<fd<<" with frame id "<<m_frameIdx<<std::endl;
+            HVA_DEBUG("FD from dmabuf is %ul with frame id %u", fd, m_frameIdx);
         }
 
         // int fd = -1;
@@ -555,7 +572,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
                 , beforeRead, ms(0)
 #endif
                 },[mem, sampleRead](int* fd, VideoMeta* meta){
-                    std::cout<<"Preparing to destruct fd "<<*fd<<std::endl;
+                    HVA_DEBUG("Preparing to destruct fd %ul", *fd);
                     // std::cout<<"before mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;
                     // std::cout<<"before sample buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(sampleRead)<<std::endl;
                     gst_memory_unref(mem);
@@ -577,11 +594,13 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 bool GstPipeContainer::validateConfig(){
     if(m_config.filename.empty()){
         std::cout<<"Filename empty!"<<std::endl;
+        HVA_ERROR("Video filename empty!");
         return false;
     }
 
     if("h264"!=m_config.codec && "h265"!=m_config.codec && "mp4"!=m_config.codec ){
         std::cout<<"Unsupported codec format"<<std::endl;
+        HVA_ERROR("Unsupported codec format from decoder");
         return false;
     }
 
