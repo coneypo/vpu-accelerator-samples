@@ -13,10 +13,12 @@
 #include <inc/api/hvaCompiled.hpp>
 #include <inc/api/hvaBlob.hpp>
 #include <inc/api/hvaExecutor.hpp>
-#include <3rdparty/ade/include/ade/graph.hpp>
-#include <3rdparty/ade/include/ade/typed_graph.hpp>
+#include <3rdparty/ade/sources/ade/include/ade/graph.hpp>
+#include <3rdparty/ade/sources/ade/include/ade/typed_graph.hpp>
 #include <inc/api/hvaEvent.hpp>
 #include <inc/api/hvaEventManager.hpp>
+#include <signal.h>
+#include <inc/api/hvaLogger.hpp>
 
 #include <TestConfig.h>
 
@@ -27,6 +29,7 @@ class hvaInPort_t;
 class hvaNode_t;
 
 using hvaTGraph_t = ade::TypedGraph<NodeMeta, NatureMeta, NodeNameMeta, IsCompiledMeta>;
+using hvaSystemSignalHandler = std::function<void(hvaPipeline_t*, int, siginfo_t *, void *)>;
 
 class hvaExecutor_t;
 
@@ -77,6 +80,8 @@ public:
     hvaStatus_t emitEvent(hvaEvent_t event, void* data);
 
     hvaStatus_t waitForEvent(hvaEvent_t event);
+
+    hvaStatus_t registerSystemSignalHandler(int signum, hvaSystemSignalHandler sigHandler);
 #ifdef KL_TEST
 public:
 #else
@@ -87,6 +92,10 @@ private:
     hvaExecutor_t& addExecutor(std::size_t duplicateNum, ms loopingInterval, const hvaBatchingConfig_t* batchingConfig);
 
     void addWorkerToExecutor(const ade::NodeHandle& nh, hvaExecutor_t& ect, std::string parentName);
+
+    static std::pair<hvaPipeline_t*, hvaSystemSignalHandler>& getContainedPipelineSigHandler();
+
+    static void signalHandler(int sig, siginfo_t *info, void *ucontext);
 
     ade::Graph m_graph;
     std::unique_ptr<hvaTGraph_t> m_pTGraph;
