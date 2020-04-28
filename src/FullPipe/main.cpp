@@ -23,18 +23,14 @@
 #include <PipelineConfig.hpp>
 #include "object_tracking_node.hpp"
 #include <validationDumpNode.hpp>
+#include <Sender.hpp>
 
 #define STREAMS 1
 #define MAX_STREAMS 64
-#define GUI_INTEGRATION
 // #define USE_FAKE_IE_NODE
 #define USE_OBJECT_TRACKING
 #define USE_UNITE_API_IE
 using ms = std::chrono::milliseconds;
-
-#ifdef GUI_INTEGRATION
-#include <Sender.hpp>
-#endif 
 
 enum ControlMessage{
     EMPTY = 0,
@@ -200,22 +196,17 @@ int main(){
             return -1;
     }
 
-#ifdef GUI_INTEGRATION
     SocketsConfig_t sockConfig;
     sockConfig.numOfStreams = 0;
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
-#endif
 
-#ifdef GUI_INTEGRATION
     std::thread t(receiveRoutine, config.guiSocket.c_str(), &ctrlMsg, &sockConfig);
-#endif
 
     std::mutex WIDMutex;
     std::condition_variable WIDCv;
     unsigned WIDReadyCnt = 0;
     hva::hvaPipeline_t pl;
 
-#ifdef GUI_INTEGRATION
     {
         std::unique_lock<std::mutex> lk(g_mutex);
         if(sockConfig.numOfStreams == 0){
@@ -230,7 +221,7 @@ int main(){
     std::vector<GstPipeContainer*> vCont(sockConfig.numOfStreams);
     std::vector<uint64_t> vWID(sockConfig.numOfStreams, 0); 
     std::this_thread::sleep_for(ms(1000));
-#endif
+
     for(unsigned i = 0; i < sockConfig.numOfStreams; ++i){
         vTh.push_back(new std::thread([&, i](){
                     vCont[i] = new GstPipeContainer(i);
@@ -326,8 +317,6 @@ int main(){
     }
 #endif
 
-#ifdef GUI_INTEGRATION
-
 #ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
 #else //#ifdef USE_FAKE_IE_NODE
@@ -386,16 +375,6 @@ int main(){
         pl.addNode(std::make_shared<SenderNode>(1,1,1,sockConfig.unixSocket), "sendNode");
     }
 
-#else //#ifdef GUI_INTEGRATION
-
-#ifdef USE_FAKE_IE_NODE
-    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
-#else //#ifdef USE_FAKE_IE_NODE
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 1, 1, WID, config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-#endif //#ifdef USE_FAKE_IE_NODE
-
-#endif //#ifdef GUI_INTEGRATION
     auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,sockConfig.numOfStreams,vWID), "jpegNode");
 
     if(sockConfig.numOfStreams > 1){
@@ -422,12 +401,10 @@ int main(){
 #endif
 
     pl.linkNode("clsNode", 0, "jpegNode", 0);
-#ifdef GUI_INTEGRATION
     pl.linkNode("clsNode", 1, "sendNode", 0);
 #ifdef VALIDATION_DUMP
     pl.linkNode("clsNode", 2, "validationDumpNode", 0);
 #endif //#ifdef VALIDATION_DUMP
-#endif //#ifdef GUI_INTEGRATION
 
     pl.prepare();
 
@@ -462,9 +439,7 @@ int main(){
 
         HVA_INFO("All dec sources joined");
 
-#ifdef GUI_INTEGRATION
         t.join();
-#endif
         break;
 
     }while(true);

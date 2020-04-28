@@ -4,7 +4,6 @@
 #include <tuple>
 
 #define TOTAL_ROIS 2
-#define GUI_INTEGRATION
 
 InferNode_unite::InferNode_unite(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
             std::vector<WorkloadID> vWID, std::string graphPath, std::string graphName, int32_t inputSizeNN, int32_t outputSize):
@@ -224,12 +223,10 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
 
             // std::this_thread::sleep_for(std::chrono::milliseconds(100));
             sendOutput(m_vecBlobInput[0], 0, ms(0));
-#ifdef GUI_INTEGRATION
             sendOutput(m_vecBlobInput[0], 1, ms(0));
 #ifdef VALIDATION_DUMP
             sendOutput(m_vecBlobInput[0], 2, ms(0));
 #endif //#ifdef VALIDATION_DUMP
-#endif //#ifdef GUI_INTEGRATION
             m_vecBlobInput.clear();
             HVA_DEBUG("Classification node completed sending output with frame id $u and stream id %u", m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
 
