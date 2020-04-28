@@ -74,7 +74,11 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
                 m_dummy = cv::Mat(input_height, input_width, CV_8UC3);
             }
 
+            HVA_DEBUG("Received %u detected objects at frameid %u and streamid %u", detected_objects.size(), m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
+
             auto tracked_objects = m_tracker->Track(m_dummy, detected_objects);
+
+            HVA_DEBUG("Tracked %u objects at frameid %u and streamid %u", tracked_objects.size(), m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
 
             // Re-create ROI information based on tracking result.
             // No information will be kept except for the rectangle coordination detection label.
@@ -93,14 +97,14 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
                     roi.width = to.rect.width;
                     roi.height = to.rect.height;
                     roi.trackingId = to.tracking_id;
-                    roi.labelClassification = "unknown";
+                    roi.labelClassification = to.class_label; //"unknown";
                     roi.pts = static_cast<size_t>(m_vecBlobInput[0]->frameId);
                     ptrInferMeta->rois.push_back(roi);
                 }
             }
         }
 
-        assert(num_rois == ptrInferMeta->rois.size());
+        // assert(num_rois == ptrInferMeta->rois.size()); // disabled due to in dropped frames has no roi
 
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

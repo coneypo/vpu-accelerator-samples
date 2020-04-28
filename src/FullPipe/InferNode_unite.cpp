@@ -43,67 +43,85 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
         {
             // const auto& pbuf = vInput[0]->get<int,VideoMeta>(0)->getPtr();
             // std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            HVA_DEBUG("Detection node received blob with frame id $u and stream id %u", m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
+            HVA_DEBUG("Detection node received blob with frame id %u and stream id %u", m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
 
             auto ptrVideoBuf = m_vecBlobInput[0]->get<int, VideoMeta>(0);
 
             uint64_t fd = *((uint64_t*)ptrVideoBuf->getPtr());
 
             VideoMeta* ptrVideoMeta = ptrVideoBuf->getMeta();
-            int input_height = ptrVideoMeta->videoHeight;
-            int input_width = ptrVideoMeta->videoWidth;
-
-            input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
-            input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
-
-            auto start = std::chrono::steady_clock::now();
-            auto startForFps = start;
-            m_uniteHelper.update(input_width, input_height, fd);
-            m_uniteHelper.callInferenceOnBlobs();
-            auto end = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-            printf("update&infer duration is %ld, mode is %s\n", duration, m_mode.c_str());
-
-            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
-            m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
-            m_fps = 1000.0f / m_durationAve;
-            printf("[debug] %s fps is %f\n", m_mode.c_str(), m_fps);
-            m_cntFrame++;
-            std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
-            InferMeta* ptrInferMeta = new InferMeta;
-            auto& vecObjects = m_uniteHelper._vecOjects;
-            for(unsigned i =0; i < vecObjects.size(); ++i){
-                ROI roi;
-                roi.x = vecObjects[i].x;
-                roi.y = vecObjects[i].y;
-                roi.width = vecObjects[i].width;
-                roi.height = vecObjects[i].height;
-                roi.confidenceDetection = vecObjects[i].confidence;
-                roi.labelClassification = "unkown";
-                roi.pts = m_vecBlobInput[0]->frameId;
-                roi.confidenceClassification = 0;
-                // roi.indexROI = i;
-                ptrInferMeta->rois.push_back(roi);
+            if(ptrVideoMeta->drop){
+                HVA_DEBUG("Detection node dropped frame id %u and stream id %u", m_vecBlobInput[0]->frameId, m_vecBlobInput[0]->streamId);
+                std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                InferMeta *ptrInferMeta = new InferMeta;
+                blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
+                            if(payload != nullptr){
+                                delete payload;
+                            }
+                            delete meta;
+                        });
+                blob->push(m_vecBlobInput[0]->get<int, VideoMeta>(0));
+                blob->frameId = m_vecBlobInput[0]->frameId;
+                blob->streamId = m_vecBlobInput[0]->streamId;
+                sendOutput(blob, 0, ms(0));
+                m_vecBlobInput.clear();
             }
+            else{
+                int input_height = ptrVideoMeta->videoHeight;
+                int input_width = ptrVideoMeta->videoWidth;
 
-            printf("[debug] detection frame id is %d, roi num is %ld\n", m_vecBlobInput[0]->frameId, ptrInferMeta->rois.size());
+                input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
+                input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
 
-            ptrInferMeta->frameId = m_vecBlobInput[0]->frameId;
-            ptrInferMeta->totalROI = vecObjects.size();
-            ptrInferMeta->durationDetection = m_durationAve;
-            ptrInferMeta->inferFps = m_fps;
-            blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
-                        if(payload != nullptr){
-                            delete payload;
-                        }
-                        delete meta;
-                    });
-            blob->push(m_vecBlobInput[0]->get<int, VideoMeta>(0));
-            blob->frameId = m_vecBlobInput[0]->frameId;
-            blob->streamId = m_vecBlobInput[0]->streamId;
-            sendOutput(blob, 0, ms(0));
-            m_vecBlobInput.clear();
-            HVA_DEBUG("Detection node completed sending output with frame id $u and stream id %u", blob->frameId, blob->streamId);
+                auto start = std::chrono::steady_clock::now();
+                auto startForFps = start;
+                m_uniteHelper.update(input_width, input_height, fd);
+                m_uniteHelper.callInferenceOnBlobs();
+                auto end = std::chrono::steady_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                printf("update&infer duration is %ld, mode is %s\n", duration, m_mode.c_str());
+
+                duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
+                m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
+                m_fps = 1000.0f / m_durationAve;
+                printf("[debug] %s fps is %f\n", m_mode.c_str(), m_fps);
+                m_cntFrame++;
+                std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                InferMeta* ptrInferMeta = new InferMeta;
+                auto& vecObjects = m_uniteHelper._vecOjects;
+                for(unsigned i =0; i < vecObjects.size(); ++i){
+                    ROI roi;
+                    roi.x = vecObjects[i].x;
+                    roi.y = vecObjects[i].y;
+                    roi.width = vecObjects[i].width;
+                    roi.height = vecObjects[i].height;
+                    roi.confidenceDetection = vecObjects[i].confidence;
+                    roi.labelClassification = "unkown";
+                    roi.pts = m_vecBlobInput[0]->frameId;
+                    roi.confidenceClassification = 0;
+                    // roi.indexROI = i;
+                    ptrInferMeta->rois.push_back(roi);
+                }
+
+                printf("[debug] detection frame id is %d, roi num is %ld\n", m_vecBlobInput[0]->frameId, ptrInferMeta->rois.size());
+
+                ptrInferMeta->frameId = m_vecBlobInput[0]->frameId;
+                ptrInferMeta->totalROI = vecObjects.size();
+                ptrInferMeta->durationDetection = m_durationAve;
+                ptrInferMeta->inferFps = m_fps;
+                blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
+                            if(payload != nullptr){
+                                delete payload;
+                            }
+                            delete meta;
+                        });
+                blob->push(m_vecBlobInput[0]->get<int, VideoMeta>(0));
+                blob->frameId = m_vecBlobInput[0]->frameId;
+                blob->streamId = m_vecBlobInput[0]->streamId;
+                sendOutput(blob, 0, ms(0));
+                m_vecBlobInput.clear();
+                HVA_DEBUG("Detection node completed sending output with frame id $u and stream id %u", blob->frameId, blob->streamId);
+            }
         }
         else if (m_uniteHelper.graphName == "resnet" || m_uniteHelper.graphName == "classification")
         {
@@ -125,12 +143,12 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
 
             if (num_rois > 0ul)
             {
-                if (ptrInferMeta->drop)
+                if (ptrVideoMeta->drop)
                 {
                     //todo fix me
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
-                        ptrInferMeta->rois[i].labelClassification = "unknown";
+                        // ptrInferMeta->rois[i].labelClassification = "unknown"; //kl: already set in track node
                         printf("[debug] roi label is : unknown\n");
                     }
                 }
@@ -184,6 +202,9 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
                         ptrInferMeta->rois[o.oid].labelClassification = o.class_label;
                         ptrInferMeta->rois[o.oid].labelIdClassification = o.class_id;
                         ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
+                    }
+                    for(const auto& o: new_objs){
+                        ptrInferMeta->rois[o.oid].trackingStatus = HvaPipeline::TrackingStatus::NEW; //to be used by jpeg
                     }
                 }       
             }

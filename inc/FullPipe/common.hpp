@@ -31,6 +31,7 @@ struct VideoMeta{
     ms frameStart;
     ms frameEnd;
 #endif
+    bool drop;
 };
 
 struct ROI {
@@ -52,7 +53,7 @@ struct ROI {
 
     //for tracking
     uint64_t trackingId {0};
-    HvaPipeline::TrackingStatus trackingStatus {HvaPipeline::TrackingStatus::NEW};
+    HvaPipeline::TrackingStatus trackingStatus {HvaPipeline::TrackingStatus::LOST}; //default to lost so jpeg won't encode by default
 };
 
 struct InferMeta{
@@ -65,7 +66,7 @@ struct InferMeta{
     float durationDetection{0.0f};
     float durationClassification{0.0f};
 
-    bool drop{false};
+    // bool drop{false};
 };
 
 #endif //#ifndef COMMON_HPP

@@ -21,8 +21,7 @@ void FrameControlNodeWorker::process(std::size_t batchIdx){
 
     if(vInput.size() != 0){
         HVA_DEBUG("FRC received blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
-        auto ptrBufInfer = vInput[0]->get<int, InferMeta>(0);
-        InferMeta* ptrInferMeta = ptrBufInfer->getMeta();
+        VideoMeta* pVideoMeta = vInput[0]->get<int, VideoMeta>(0)->getMeta();
         bool drop = true;
         if(m_dropXFrame == 0 || m_cnt ==0){
             // sendOutput(vInput[0], 0, ms(0));
@@ -34,7 +33,7 @@ void FrameControlNodeWorker::process(std::size_t batchIdx){
                 drop = false;
             }
         }
-        ptrInferMeta->drop = drop;
+        pVideoMeta->drop = drop;
         sendOutput(vInput[0], 0, ms(0));
         incCount();
         HVA_DEBUG("FRC sent blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);

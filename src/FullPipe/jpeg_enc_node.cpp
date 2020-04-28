@@ -872,12 +872,12 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
     }
 
     InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
-    if(meta->drop){
+    VideoMeta* videoMeta = vInput[0]->get<int, VideoMeta>(1)->getMeta();
+    if(videoMeta->drop){
         // drop the frame from doing jpeg enc
         HVA_DEBUG("Jpeg encoder blob dropped frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
         return;
     }
-    VideoMeta* videoMeta = vInput[0]->get<int, VideoMeta>(1)->getMeta();
     std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf = vInput[0]->get<int, VideoMeta>(1);
     const int* fd = pBuf->getPtr();
 
@@ -909,7 +909,8 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
         }
 
         
-        if (meta->rois[i_roi].x == 0 && meta->rois[i_roi].y == 0 && meta->rois[i_roi].width == 0 && meta->rois[i_roi].height == 0){
+        if ((meta->rois[i_roi].x == 0 && meta->rois[i_roi].y == 0 && meta->rois[i_roi].width == 0 && meta->rois[i_roi].height == 0)
+            || (meta->rois[i_roi].trackingStatus != HvaPipeline::TrackingStatus::NEW)){
             continue;
         }
 

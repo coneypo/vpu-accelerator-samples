@@ -28,7 +28,8 @@
 #define MAX_STREAMS 64
 #define GUI_INTEGRATION
 // #define USE_FAKE_IE_NODE
-// #define USE_OBJECT_TRACKING
+#define USE_OBJECT_TRACKING
+#define USE_UNITE_API_IE
 using ms = std::chrono::milliseconds;
 
 #ifdef GUI_INTEGRATION
@@ -124,7 +125,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                     if (!data_connection->read(&message[0], length)) {
                         break;
                     }
-                    HVA_DEBUG("message received is $s", message);
+                    HVA_DEBUG("message received is %s", message.c_str());
                 }
 
                 if(message=="STOP"){
@@ -138,7 +139,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                         std::lock_guard<std::mutex> lg(g_mutex);
                         boost::split(config->unixSocket, message, boost::is_any_of(","));
                         for (unsigned i = 0; i < config->unixSocket.size();++i){
-                            HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i]);
+                            HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i].c_str());
                         }
                             config->numOfStreams = config->unixSocket.size();
                         // for(unsigned i = 0; i< config->numOfStreams; ++i){
@@ -177,7 +178,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
 int main(){
 
     hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
-    // hvaLogger.dumpToFile("test.log", false);
+    hvaLogger.dumpToFile("test.log", false);
     // hvaLogger.enableProfiling();
 
     gst_init(0, NULL);
@@ -247,7 +248,7 @@ int main(){
                     }
                     WIDCv.notify_all();
 
-                    std::this_thread::sleep_for(ms(2000));
+                    std::this_thread::sleep_for(ms(5000));
                     HVA_INFO("Dec source start feeding.");
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
@@ -255,7 +256,7 @@ int main(){
                         int* fd = blob->get<int, VideoMeta>(0)->getPtr();
                         HVA_DEBUG("FD received is %d with streamid %d and frame id %d", *fd, blob->streamId, blob->frameId);
 
-                        pl.sendToPort(blob,"detNode",0,ms(0));
+                        pl.sendToPort(blob,"FRCNode",0,ms(0));
 
                         blob.reset(new hva::hvaBlob_t());
                         HVA_DEBUG("Sent fd %d from decoder completes",*fd);
@@ -278,16 +279,24 @@ int main(){
 
     std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
     HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
+    auto &FRCNode = pl.setSource(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
 #ifdef USE_FAKE_IE_NODE
-    auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
+    auto& detNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
+
+#ifdef USE_UNITE_API_IE
+    auto &detNode = pl.addNode(std::make_shared<InferNode_unite>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
+                                                             416*416*3,13*13*125), "detNode");
+#else //#ifdef USE_UNITE_API_IE
 #ifdef INFER_FP16
-    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
+    auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_fp16), "detNode");
 #else
-    auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
+    auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
 #endif
+
+#endif //#ifdef USE_UNITE_API_IE
     // auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,sockConfig.numOfStreams, 
     // vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
     if(sockConfig.numOfStreams > 1){
@@ -305,7 +314,7 @@ int main(){
     auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
 #else
     auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
-    vWID, 0, "objectTracking", "zero_term_imageless"), "trackingNode");
+    vWID, 0, "objectTracking", "short_term_imageless"), "trackingNode");
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -343,8 +352,22 @@ int main(){
         clsNode.configBatch(batchingConfig);
     }
 #else //#ifndef VALIDATION_DUMP
-    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,3,sockConfig.numOfStreams, 
-    vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+
+#ifdef USE_UNITE_API_IE
+    auto &clsNode = pl.addNode(std::make_shared<InferNode_unite>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification", 
+                                                             224*224*3, 1000), "clsNode");
+#else //#ifdef USE_UNITE_API_IE
+
+#ifdef INFER_FP16
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_fp16), "clsNode");
+#else
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+#endif
+#endif //#ifdef USE_UNITE_API_IE
+    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
+    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -390,9 +413,10 @@ int main(){
 #endif //#ifdef VALIDATION_DUMP
 
 #ifndef USE_OBJECT_TRACKING
-    pl.linkNode("detNode", 0, "FRCNode", 0);
-    pl.linkNode("FRCNode", 0, "clsNode", 0);
+    pl.linkNode("FRCNode", 0, "detNode", 0);
+    pl.linkNode("detNode", 0, "clsNode", 0);
 #else
+    pl.linkNode("FRCNode", 0, "detNode", 0);
     pl.linkNode("detNode", 0, "trackingNode", 0);
     pl.linkNode("trackingNode", 0, "clsNode", 0);
 #endif

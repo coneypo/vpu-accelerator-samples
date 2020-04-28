@@ -382,7 +382,7 @@ uint64_t GstPipeContainer::queryWID(){
 
     m_WID = ret;
 
-    HVA_DEBUG("WID Received: %ul", m_WID);
+    HVA_DEBUG("WID Received: %u", m_WID);
 
     gst_query_unref(query);
 
@@ -437,7 +437,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
     }
 
     if(m_bStopped){
-        std::cout<<"Stop Gstreamer signal received"<<std::endl;
+        HVA_INFO("Stop Gstreamer signal received");
         return false;
     }
 
@@ -571,6 +571,7 @@ bool GstPipeContainer::read(std::shared_ptr<hva::hvaBlob_t>& blob){
 #ifdef VALIDATION_DUMP
                 , beforeRead, ms(0)
 #endif
+                , false
                 },[mem, sampleRead](int* fd, VideoMeta* meta){
                     HVA_DEBUG("Preparing to destruct fd %ul", *fd);
                     // std::cout<<"before mem buffer ref count: "<<GST_MINI_OBJECT_REFCOUNT(mem)<<std::endl;

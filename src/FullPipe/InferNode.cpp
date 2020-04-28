@@ -45,107 +45,49 @@ void InferNodeWorker::process(std::size_t batchIdx)
             int32_t fd = *((int32_t *)ptrVideoBuf->getPtr());
 
             VideoMeta *ptrVideoMeta = ptrVideoBuf->getMeta();
-            int input_height = ptrVideoMeta->videoHeight;
-            int input_width = ptrVideoMeta->videoWidth;
 
-            input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
-            input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
-
-#ifndef INFER_ASYNC
-            auto start = std::chrono::steady_clock::now();
-            auto startForFps = start;
-            m_helperHDDL2.update(fd, input_height, input_width);
-            auto end = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-            printf("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
-
-            start = std::chrono::steady_clock::now();
-            auto ptrOutputBlob = m_helperHDDL2.infer();
-
-            end = std::chrono::steady_clock::now();
-            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-            printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
-
-            start = std::chrono::steady_clock::now();
-            std::vector<ROI> vecObjects;
-            m_helperHDDL2.postproc(ptrOutputBlob, vecObjects);
-            end = std::chrono::steady_clock::now();
-            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-            printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
-
-            // end = std::chrono::steady_clock::now();
-            // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-            // printf("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
-            
-            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
-            m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
-            m_fps = 1000.0f / m_durationAve;
-            m_cntFrame++;
-
-#if 1
-            if(m_cntFrame == 1)
-            {
-                FILE* fp = fopen("dump-output-sync.bin", "wb");
-                fwrite(ptrOutputBlob->buffer(), 1, ptrOutputBlob->byteSize(), fp);
-                fclose(fp);
+            if(ptrVideoMeta->drop){
+                std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                InferMeta *ptrInferMeta = new InferMeta;
+                blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
+                            if(payload != nullptr){
+                                delete payload;
+                            }
+                            delete meta;
+                        });
+                blob->push(vecBlobInput[0]->get<int, VideoMeta>(0));
+                blob->frameId = vecBlobInput[0]->frameId;
+                blob->streamId = vecBlobInput[0]->streamId;
+                sendOutput(blob, 0, ms(0));
             }
+            else{
+                int input_height = ptrVideoMeta->videoHeight;
+                int input_width = ptrVideoMeta->videoWidth;
 
-#endif
+                input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
+                input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
 
-            std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
-            InferMeta *ptrInferMeta = new InferMeta;
-            // auto &vecObjects = m_helperHDDL2._vecObjects;
-            for (unsigned i = 0; i < vecObjects.size(); ++i)
-            {
-                ROI roi;
-                roi.x = vecObjects[i].x;
-                roi.y = vecObjects[i].y;
-                roi.width = vecObjects[i].width;
-                roi.height = vecObjects[i].height;
-                roi.labelClassification = "unkown";
-                roi.pts = vecBlobInput[0]->frameId;
-                roi.confidenceClassification = 0;
-                // roi.indexROI = i;
-                ptrInferMeta->rois.push_back(roi);
-            }
-            ptrInferMeta->frameId = vecBlobInput[0]->frameId;
-            ptrInferMeta->totalROI = vecObjects.size();
-            ptrInferMeta->durationDetection = m_durationAve;
-            ptrInferMeta->inferFps = m_fps;
-            blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
-                        if(payload != nullptr){
-                            delete payload;
-                        }
-                        delete meta;
-                    });
-            blob->push(vecBlobInput[0]->get<int, VideoMeta>(0));
-            blob->frameId = vecBlobInput[0]->frameId;
-            blob->streamId = vecBlobInput[0]->streamId;
-            sendOutput(blob, 0, ms(0));
-            vecBlobInput.clear();
-#else //#ifndef INFER_ASYNC
-
-            auto startForFps = std::chrono::steady_clock::now();
-            auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-
-
-
-            auto callback = [=]() mutable
-            {
-                m_cntAsyncEnd++;
-                printf("[debug] detection async end, cnt is: %d\n", (int)m_cntAsyncEnd);
-
-                printf("[debug] detection callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
-                auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
-
+    #ifndef INFER_ASYNC
                 auto start = std::chrono::steady_clock::now();
-                std::vector<ROI> vecObjects;
-                m_helperHDDL2.postproc(ptrOutputBlob, vecObjects);
+                auto startForFps = start;
+                m_helperHDDL2.update(fd, input_height, input_width);
                 auto end = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                printf("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
-                m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
+                start = std::chrono::steady_clock::now();
+                auto ptrOutputBlob = m_helperHDDL2.infer();
+
+                end = std::chrono::steady_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+
+                start = std::chrono::steady_clock::now();
+                std::vector<ROI> vecObjects;
+                m_helperHDDL2.postproc(ptrOutputBlob, vecObjects);
+                end = std::chrono::steady_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                 // end = std::chrono::steady_clock::now();
                 // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -155,14 +97,17 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
                 m_fps = 1000.0f / m_durationAve;
                 m_cntFrame++;
-#if 0
+
+    #if 1
                 if(m_cntFrame == 1)
                 {
-                    FILE* fp = fopen("dump-output-async.bin", "wb");
+                    FILE* fp = fopen("dump-output-sync.bin", "wb");
                     fwrite(ptrOutputBlob->buffer(), 1, ptrOutputBlob->byteSize(), fp);
                     fclose(fp);
                 }
-#endif
+
+    #endif
+
                 std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                 InferMeta *ptrInferMeta = new InferMeta;
                 // auto &vecObjects = m_helperHDDL2._vecObjects;
@@ -173,7 +118,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     roi.y = vecObjects[i].y;
                     roi.width = vecObjects[i].width;
                     roi.height = vecObjects[i].height;
-                    roi.labelClassification = "unknown";
+                    roi.labelClassification = "unkown";
                     roi.pts = vecBlobInput[0]->frameId;
                     roi.confidenceClassification = 0;
                     // roi.indexROI = i;
@@ -194,21 +139,92 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 blob->streamId = vecBlobInput[0]->streamId;
                 sendOutput(blob, 0, ms(0));
                 vecBlobInput.clear();
-                printf("[debug] detection callback end, frame id is: %d\n", vecBlobInput[0]->frameId);
-                return;
-            };
-            auto start = std::chrono::steady_clock::now();
+    #else //#ifndef INFER_ASYNC
 
-            m_helperHDDL2.inferAsync(ptrInferRequest, callback,
-                fd, input_height, input_width);
+                auto startForFps = std::chrono::steady_clock::now();
+                auto ptrInferRequest = m_helperHDDL2.getInferRequest();
 
-            m_cntAsyncStart++;
-            printf("[debug] detection async start, cnt is: %d\n", (int32_t)m_cntAsyncStart);
 
-            auto end = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-            printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
+                auto callback = [=]() mutable
+                {
+                    m_cntAsyncEnd++;
+                    printf("[debug] detection async end, cnt is: %d\n", (int)m_cntAsyncEnd);
+
+                    printf("[debug] detection callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
+                    auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
+
+                    auto start = std::chrono::steady_clock::now();
+                    std::vector<ROI> vecObjects;
+                    m_helperHDDL2.postproc(ptrOutputBlob, vecObjects);
+                    auto end = std::chrono::steady_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                    printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+
+                    m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
+
+                    // end = std::chrono::steady_clock::now();
+                    // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                    // printf("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    
+                    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
+                    m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
+                    m_fps = 1000.0f / m_durationAve;
+                    m_cntFrame++;
+    #if 0
+                    if(m_cntFrame == 1)
+                    {
+                        FILE* fp = fopen("dump-output-async.bin", "wb");
+                        fwrite(ptrOutputBlob->buffer(), 1, ptrOutputBlob->byteSize(), fp);
+                        fclose(fp);
+                    }
+    #endif
+                    std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
+                    InferMeta *ptrInferMeta = new InferMeta;
+                    // auto &vecObjects = m_helperHDDL2._vecObjects;
+                    for (unsigned i = 0; i < vecObjects.size(); ++i)
+                    {
+                        ROI roi;
+                        roi.x = vecObjects[i].x;
+                        roi.y = vecObjects[i].y;
+                        roi.width = vecObjects[i].width;
+                        roi.height = vecObjects[i].height;
+                        roi.labelClassification = "unknown";
+                        roi.pts = vecBlobInput[0]->frameId;
+                        roi.confidenceClassification = 0;
+                        // roi.indexROI = i;
+                        ptrInferMeta->rois.push_back(roi);
+                    }
+                    ptrInferMeta->frameId = vecBlobInput[0]->frameId;
+                    ptrInferMeta->totalROI = vecObjects.size();
+                    ptrInferMeta->durationDetection = m_durationAve;
+                    ptrInferMeta->inferFps = m_fps;
+                    blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
+                                if(payload != nullptr){
+                                    delete payload;
+                                }
+                                delete meta;
+                            });
+                    blob->push(vecBlobInput[0]->get<int, VideoMeta>(0));
+                    blob->frameId = vecBlobInput[0]->frameId;
+                    blob->streamId = vecBlobInput[0]->streamId;
+                    sendOutput(blob, 0, ms(0));
+                    vecBlobInput.clear();
+                    printf("[debug] detection callback end, frame id is: %d\n", vecBlobInput[0]->frameId);
+                    return;
+                };
+                auto start = std::chrono::steady_clock::now();
+
+                m_helperHDDL2.inferAsync(ptrInferRequest, callback,
+                    fd, input_height, input_width);
+
+                m_cntAsyncStart++;
+                printf("[debug] detection async start, cnt is: %d\n", (int32_t)m_cntAsyncStart);
+
+                auto end = std::chrono::steady_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+            }
 
 #endif //#ifndef INFER_ASYNC
 
@@ -242,7 +258,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
             // }
             if (vecROI.size() > 0)
             {
-                if (ptrInferMeta->drop)
+                if (ptrVideoMeta->drop)
                 {
 
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
