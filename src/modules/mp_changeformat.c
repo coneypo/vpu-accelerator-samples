@@ -226,7 +226,7 @@ change_to265(gpointer user_data)
     GstElement *enc3_caps = gst_bin_get_by_name(GST_BIN((mp)->pipeline),
                             "enc3_caps");
     GstCaps *caps =
-        gst_caps_from_string("video/x-h265,stream-format=byte-stream,profile=high");
+        gst_caps_from_string("video/x-h265,stream-format=byte-stream");
     gst_element_set_state(enc3_caps, GST_STATE_NULL);
     MEDIAPIPE_SET_PROPERTY(ret, mp, "enc3_caps", "caps", caps, NULL);
     gst_element_set_state(enc3_caps, GST_STATE_PLAYING);
