@@ -4,8 +4,8 @@ set -e
 AppModel="bypass"
 PipelineNum=1
 
-ByPassTemplate="filesrc location=\${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=\${socket_name} ! osdparser  ! mfxsink name=\${display_sink} sync=false"
-StreamingTemplate="filesrc location=\${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false"
+ByPassTemplate="filesrc location=\${media_file} ! qtdemux ! h264parse ! mfxh264dec ! inference syncmode=index socketname=\${socket_name} ! osdparser  ! mfxsink name=\${display_sink} sync=false"
+StreamingTemplate="filesrc location=\${media_file} ! qtdemux ! h264parse ! tee name=t0 ! queue ! remoteoffloadbin.(vaapih264dec !  videoconvert ! gvadetect model=\${detection_model} ! queue ! gvawatermark ! videoconvert ! videoroimetadetach  ) ! roisink socketname=\${socket_name} sync=false t0. ! queue ! mfxh264dec ! inference syncmode=pts socketname=\${socket_name} ! osdparser  ! mfxsink name=\${display_sink} sync=false"
 
 Seperator=","
 ConfigPrefix="{"
@@ -19,6 +19,8 @@ HvaSocketConfig=""
 AppConfig="\"app\":{\"timeout\":0, \"mode\":\"replay\"}"
 
 declare -a VideoFileList 
+HvaSocket=""
+HvaCwd=""
 
 
 usage()
@@ -34,13 +36,16 @@ generate_decode_config()
     DecodeSuffix="]"
     DecodeContext=""
 
-    #echo "Gstreamer default pipeline for bypass mode: ${ByPassTemplate}"
     declare -a ChannelConfig
     for i in $(seq 1 $PipelineNum);
     do
-        read -p "Input your gstreamer pipeline ${i}:[press enter to use default]" PipelineStr 
+        read -p "Input your gstreamer pipeline ${i}[press enter to use default template]:" PipelineStr 
         if [[ -z $PipelineStr ]]; then
-            PipelineStr=$ByPassTemplate
+            if [ $AppModel == "bypass" ]; then
+                 PipelineStr=$ByPassTemplate
+	    else
+                 PipelineStr=$StreamingTemplate
+	    fi
         fi
     
         read -p  "Enter video file path:" VideoFilePath
@@ -49,7 +54,7 @@ generate_decode_config()
             exit
         fi
     
-        ChannelParams="{\"media_file\": \"$VideoFilePath\",  \"socket_name\":\"/temp/hddl_app_pipeline_$i.sock\", \"display_sink\":\"mysink\"}"
+        ChannelParams="{\"media_file\": \"$VideoFilePath\",  \"socket_name\":\"/tmp/hddl_app_pipeline_$i.sock\", \"display_sink\":\"mysink\"}"
         ChannelConfig[$i]="{ \"pipe\": \"$PipelineStr\", \"param\": $ChannelParams }"
 	VideoFileList[$i]=$VideoFilePath
     
@@ -94,7 +99,7 @@ generate_hva_field()
     
     
     read -p "set hva environment variable LIBVA_DRIVERS_PATH:" HvaLibvaPath 
-    if [[ -z $HvaLibvaPath || ! -d $HvaLibvaPath ]]; then
+    if [[ -z $HvaLibvaPath || ! -d $HvaLibvaPath || ! -f $HvaLibvaPath/hddl_bypass_drv_video.so ]]; then
         echo "Invaild LIBVA_DRIVERS_PATH value"
         exit
     fi
@@ -102,7 +107,7 @@ generate_hva_field()
 
     
     read -p "set hva environment variable GST_PLUGIN_PATH:" HvaGstPluginPath
-    if [[ -z $HvaGstPluginPath || ! -d $HvaGstPluginPath ]]; then
+    if [[ -z $HvaGstPluginPath || ! -d $HvaGstPluginPath || ! -f $HvaGstPluginPath\libgstvaapi.so || ! -f $HvaGstPluginPath\libgstbypass.so ]]; then
         echo "Invaild GST_PLUGIN_PATH"
         exit
     fi
@@ -150,16 +155,16 @@ generate_hva_config()
 
     HvaDecodeConfig="\"Decode\":["
 
-    HvaGuiConfig="\"GUI\":{\"Socket\": \"$HvaSocketConfig\"}"
+    HvaGuiConfig="\"GUI\":{\"Socket\": \"$HvaSocket\"}"
 
 
     read -p "Enter FRC DropEveryXFrame value[4]:" HvaFRCDropEveryXFrame
-    if [[ -z $HvaFRCDropEveryXFrame]]; then
+    if [[ -z $HvaFRCDropEveryXFrame ]]; then
         HvaFRCDropEveryXFrame=4
     fi
 
     read -p "Enter FRC DropXFrame value[4]:" HvaFRCDropXFrame
-    if [[ -z $HvaFRCDropXFrame]]; then
+    if [[ -z $HvaFRCDropXFrame ]]; then
         HvaFRCDropXFrame=4
     fi
 
@@ -168,35 +173,36 @@ generate_hva_config()
 
     for i in $(seq 1 $PipelineNum);
     do
-        echo "set decoding configurations for video: $VideoFileList[$i]" 
+        echo "Enter decoding configurations for video ${VideoFileList[$i]}" 
         read -p "set DropEveryXFrame value[4]:" HvaDropEveryXFrame
         if [[ -z $HvaDropEveryXFrame ]]; then
             HvaDropEveryXFrame=4
         fi
 
-        read -p "set DropXFrame value[0]:" HvaDropXFrame
+        read -p "Enter DropXFrame value[0]:" HvaDropXFrame
         if [[ -z $HvaDropXFrame ]]; then
             HvaDropXFrame=0
         fi
 
-        read -p "set codec[h264]:" HvaCodec
+        read -p "Enter codec[h264]:" HvaCodec
         if [[ -z $HvaCodec ]]; then
             HvaCodec=0
         fi
     
-        DecodeParam="{\"Video\": \"$VideoFileList[$i]\", \"DropEveryXFrame\":$HvaDropEveryXFrame, \"DropXFrame\":$HvaDropXFrame, \"Codec\":\"$HvaCodec\"}"
+        DecodeParam="{\"Video\": \"${VideoFileList[$i]}\", \"DropEveryXFrame\":$HvaDropEveryXFrame, \"DropXFrame\":$HvaDropXFrame, \"Codec\":\"$HvaCodec\"}"
     
         if [ $i == 1 ]; then
             HvaDecodeConfig+="$DecodeParam"
         else
-            DecodeContext+="$Seperator $DecodeParam"
+            HvaDecodeConfig+="$Seperator $DecodeParam"
         fi
     done
     HvaDecodeConfig+="]"
 
     HvaFileConfig="$HvaPrefix $HvaDetectionConfig $Seperator $HvaClassificationConfig $Seperator $HvaDecodeConfig $Seperator $HvaGuiConfig $Seperator $HvaFRCConfig $HvaSuffix"
     echo $HvaFileConfig
-    echo $HvaFileConfig | jq . > config_tmp.json
+    echo $HvaFileConfig | jq . > $HvaCwd/config.json
+    echo "Hva config config.json is successfully created in $HvaCwd."
 }
 
 
@@ -226,15 +232,18 @@ done
 
 
 
-echo $AppModel
-
+echo "This tool is used to created configuration files for hddl application"
 generate_decode_config
+
 if [ "$AppModel" == "bypass" ]; then
     generate_hva_field
     generate_hva_config
     Config="$ConfigPrefix $DecodeConfig $Seperator $AppConfig $Seperator $HvaConfig $ConfigSuffix"
     echo $Config | jq . > config_generated.json
+    echo "Hddl bypass application configuration config_generated.json is successfully created."
+
 elif [ "$AppModel" == "streaming" ]; then
     Config="$ConfigPrefix $DecodeConfig $Seperator $AppConfig $ConfigSuffix"
     echo $Config | jq . > config_generated.json
+    echo "Hddl streaming application configuration config_generated.json is successfully created."
 fi
