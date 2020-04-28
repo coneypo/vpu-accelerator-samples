@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 AppModel="bypass"
 PipelineNum=1
@@ -14,8 +15,10 @@ ConfigSuffix="}"
 
 DecodeConfig=""
 HvaConfig=""
+HvaSocketConfig=""
 AppConfig="\"app\":{\"timeout\":0, \"mode\":\"replay\"}"
 
+declare -a VideoFileList 
 
 
 usage()
@@ -48,6 +51,7 @@ generate_decode_config()
     
         ChannelParams="{\"media_file\": \"$VideoFilePath\",  \"socket_name\":\"/temp/hddl_app_pipeline_$i.sock\", \"display_sink\":\"mysink\"}"
         ChannelConfig[$i]="{ \"pipe\": \"$PipelineStr\", \"param\": $ChannelParams }"
+	VideoFileList[$i]=$VideoFilePath
     
         if [ $i == 1 ]; then
             DecodeContext+="${ChannelConfig[$i]}"
@@ -58,7 +62,7 @@ generate_decode_config()
     DecodeConfig="$DecodePrefix $DecodeContext $DecodeSuffix"
 }
 
-generate_hva_config()
+generate_hva_field()
 {
     HvaPrefix="\"hva\":{"
     HvaSuffix="}"
@@ -124,7 +128,84 @@ generate_hva_config()
     HvaConfig="$HvaPrefix $HvaCmdConfig $Seperator $HvaSocketConfig $Seperator $HvaCwdConfig $Seperator $HvaEnvironmentConfig  $HvaSuffix"
 }
 
+generate_hva_config()
+{
+    HvaPrefix="{"
+    HvaSuffix="}"
 
+    read -p "Enter Detection model path:" HvaDetectionModelPath
+    if [[ -z $HvaDetectionModelPath || ! -f $HvaDetectionModelPath ]]; then
+        echo "Invaild detection model path"
+        exit
+    fi
+    HvaDetectionConfig="\"Detection\":{\"Model\": \"$HvaDetectionModelPath\"}"
+
+    read -p "Enter classification model path:" HvaClassificationModelPath
+    if [[ -z $HvaClassificationModelPath || ! -f $HvaClassificationModelPath ]]; then
+        echo "Invaild classification model path"
+        exit
+    fi
+    HvaClassificationConfig="\"Classification\":{\"Model\": \"$HvaClassificationModelPath\"}"
+ 
+
+    HvaDecodeConfig="\"Decode\":["
+
+    HvaGuiConfig="\"GUI\":{\"Socket\": \"$HvaSocketConfig\"}"
+
+
+    read -p "Enter FRC DropEveryXFrame value[4]:" HvaFRCDropEveryXFrame
+    if [[ -z $HvaFRCDropEveryXFrame]]; then
+        HvaFRCDropEveryXFrame=4
+    fi
+
+    read -p "Enter FRC DropXFrame value[4]:" HvaFRCDropXFrame
+    if [[ -z $HvaFRCDropXFrame]]; then
+        HvaFRCDropXFrame=4
+    fi
+
+    HvaFRCConfig="\"FRC\":{\"DropEveryXFrame\": $HvaFRCDropEveryXFrame, \"DropXFrame\": $HvaFRCDropXFrame}"
+
+
+    for i in $(seq 1 $PipelineNum);
+    do
+        echo "set decoding configurations for video: $VideoFileList[$i]" 
+        read -p "set DropEveryXFrame value[4]:" HvaDropEveryXFrame
+        if [[ -z $HvaDropEveryXFrame ]]; then
+            HvaDropEveryXFrame=4
+        fi
+
+        read -p "set DropXFrame value[0]:" HvaDropXFrame
+        if [[ -z $HvaDropXFrame ]]; then
+            HvaDropXFrame=0
+        fi
+
+        read -p "set codec[h264]:" HvaCodec
+        if [[ -z $HvaCodec ]]; then
+            HvaCodec=0
+        fi
+    
+        DecodeParam="{\"Video\": \"$VideoFileList[$i]\", \"DropEveryXFrame\":$HvaDropEveryXFrame, \"DropXFrame\":$HvaDropXFrame, \"Codec\":\"$HvaCodec\"}"
+    
+        if [ $i == 1 ]; then
+            HvaDecodeConfig+="$DecodeParam"
+        else
+            DecodeContext+="$Seperator $DecodeParam"
+        fi
+    done
+    HvaDecodeConfig+="]"
+
+    HvaFileConfig="$HvaPrefix $HvaDetectionConfig $Seperator $HvaClassificationConfig $Seperator $HvaDecodeConfig $Seperator $HvaGuiConfig $Seperator $HvaFRCConfig $HvaSuffix"
+    echo $HvaFileConfig
+    echo $HvaFileConfig | jq . > config_tmp.json
+}
+
+
+
+
+if [[ "$1" == "" ]]; then
+    usage
+    exit
+fi
 
 while [ "$1" != "" ]; do
     case $1 in
@@ -145,12 +226,15 @@ done
 
 
 
+echo $AppModel
 
 generate_decode_config
-
-generate_hva_config
-
-Config="$ConfigPrefix $DecodeConfig $Seperator $AppConfig $Seperator $HvaConfig	$ConfigSuffix"
-
-
-echo $Config | jq . > config_generated.json
+if [ "$AppModel" == "bypass" ]; then
+    generate_hva_field
+    generate_hva_config
+    Config="$ConfigPrefix $DecodeConfig $Seperator $AppConfig $Seperator $HvaConfig $ConfigSuffix"
+    echo $Config | jq . > config_generated.json
+elif [ "$AppModel" == "streaming" ]; then
+    Config="$ConfigPrefix $DecodeConfig $Seperator $AppConfig $ConfigSuffix"
+    echo $Config | jq . > config_generated.json
+fi
