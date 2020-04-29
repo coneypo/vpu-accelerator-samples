@@ -16,39 +16,39 @@ public:
 
     T take()
     {
-        std::unique_lock<std::mutex> lock(_mutex);
-        _nonEmpty.wait(lock, [this] { return !this->_queue.empty(); });
-        T ret(std::move(_queue.front()));
-        _queue.pop();
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_notEmpty.wait(lock, [this] { return !this->m_queue.empty(); });
+        T ret(std::move(m_queue.front()));
+        m_queue.pop();
         return ret;
     }
 
     bool tryTake(T& obj, int timeout)
     {
-        std::unique_lock<std::mutex> lock(_mutex);
-        if (!_nonEmpty.wait_for(lock, std::chrono::milliseconds(timeout), [this] { return !this->_queue.empty(); })) {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if (!m_notEmpty.wait_for(lock, std::chrono::milliseconds(timeout), [this] { return !this->m_queue.empty(); })) {
             return false;
         } else {
-            obj = std::move(_queue.front());
-            _queue.pop();
+            obj = std::move(m_queue.front());
+            m_queue.pop();
             return true;
         }
     }
 
     void put(const T& x)
     {
-        std::lock_guard<std::mutex> lock(_mutex);
-        if ( _queue.size() >= m_capacity){
-            _queue.pop();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_queue.size() >= m_capacity){
+            m_queue.pop();
         }
-        _queue.push(x);
-        _nonEmpty.notify_one();
+        m_queue.push(x);
+        m_notEmpty.notify_one();
     }
 
     size_t size()
     {
-        std::lock_guard<std::mutex> lock(_mutex);
-        return _queue.size();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_queue.size();
     }
 
     void setCapacity(size_t capacity)
@@ -61,9 +61,9 @@ public:
 
 private:
     BlockingQueue() = default;
-    std::mutex _mutex;
-    std::condition_variable _nonEmpty;
-    std::queue<T> _queue;
+    std::mutex m_mutex;
+    std::condition_variable m_notEmpty;
+    std::queue<T> m_queue;
     size_t m_capacity { 3 };
 };
 

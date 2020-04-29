@@ -23,13 +23,11 @@ public:
 
     inline void setDropFrames(uint64_t dropped)
     {
-        if (dropped != -1)
-            m_droppedFrames = dropped;
+        m_droppedFrames = dropped;
     }
     inline void setRenderFrames(uint64_t rendered)
     {
-        if (rendered != -1)
-            m_renderedFrames = rendered;
+        m_renderedFrames = rendered;
     }
     inline double getDropFps()
     {
