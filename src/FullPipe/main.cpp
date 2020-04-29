@@ -29,7 +29,7 @@
 #define MAX_STREAMS 64
 // #define USE_FAKE_IE_NODE
 #define USE_OBJECT_TRACKING
-#define USE_UNITE_API_IE
+// #define USE_UNITE_API_IE
 using ms = std::chrono::milliseconds;
 
 enum ControlMessage{
@@ -306,7 +306,8 @@ int main(){
 #else
     auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
     vWID, 0, "objectTracking", "short_term_imageless"), "trackingNode");
-    if(sockConfig.numOfStreams > 1){
+    // if(sockConfig.numOfStreams > 1)
+    {
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
         batchingConfig.batchSize = 1;

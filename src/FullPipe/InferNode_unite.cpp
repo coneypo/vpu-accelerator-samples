@@ -142,16 +142,16 @@ void InferNodeWorker_unite::process(std::size_t batchIdx)
 
             if (num_rois > 0ul)
             {
-                if (ptrVideoMeta->drop)
-                {
-                    //todo fix me
-                    for (int i = 0; i < ptrInferMeta->rois.size(); i++)
-                    {
-                        // ptrInferMeta->rois[i].labelClassification = "unknown"; //kl: already set in track node
-                        printf("[debug] roi label is : unknown\n");
-                    }
-                }
-                else
+                // if (ptrVideoMeta->drop)
+                // {
+                //     //todo fix me
+                //     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                //     {
+                //         // ptrInferMeta->rois[i].labelClassification = "unknown"; //kl: already set in track node
+                //         printf("[debug] roi label is : unknown\n");
+                //     }
+                // }
+                // else
                 {
                     Objects input_objects;
                     for (int32_t i = 0 ; i < num_rois; i++)

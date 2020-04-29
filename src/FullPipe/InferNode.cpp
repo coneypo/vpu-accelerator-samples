@@ -4,6 +4,7 @@
 
 #define TOTAL_ROIS 2
 #define INFER_ASYNC
+#define VALIDATION_DUMP
 
 InferNode::InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
             std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
@@ -63,6 +64,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 blob->frameId = vecBlobInput[0]->frameId;
                 blob->streamId = vecBlobInput[0]->streamId;
                 sendOutput(blob, 0, ms(0));
+                HVA_DEBUG("Detection completed sending blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
             }
             else{
                 int input_height = ptrVideoMeta->videoHeight;
@@ -228,6 +230,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 auto end = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                 printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                HVA_DEBUG("Detection completed sending blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
             }
 
 #endif //#ifndef INFER_ASYNC
@@ -464,6 +467,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 #ifdef GUI_INTEGRATION
                                         sendOutput(vecBlobInput[0], 1, ms(0));
                 #endif
+                #ifdef VALIDATION_DUMP
+                                        sendOutput(vecBlobInput[0], 2, ms(0));
+                #endif //#ifdef VALIDATION_DUMP
                                     }
 
                                 }
@@ -503,6 +509,10 @@ void InferNodeWorker::process(std::size_t batchIdx)
         #ifdef GUI_INTEGRATION
                         sendOutput(vecBlobInput[0], 1, ms(0));
         #endif
+
+        #ifdef VALIDATION_DUMP
+                        sendOutput(vecBlobInput[0], 2, ms(0));
+        #endif //#ifdef VALIDATION_DUMP
                     }
 #endif //#ifndef INFER_ASYNC
                 }
@@ -527,6 +537,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 // std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 sendOutput(vecBlobInput[0], 0, ms(0));
                 sendOutput(vecBlobInput[0], 1, ms(0));
+#ifdef VALIDATION_DUMP
+                sendOutput(vecBlobInput[0], 2, ms(0));
+#endif //#ifdef VALIDATION_DUMP
                 
             }
             printf("[debug] classification loop end, frame id is %d\n", vecBlobInput[0]->frameId);
