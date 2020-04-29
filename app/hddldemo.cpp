@@ -188,7 +188,7 @@ void HDDLDemo::initConfig()
     m_pipeline = ConfigParser::instance()->getPipelines();
     m_timeout = ConfigParser::instance()->getTimeout();
     m_cols = std::ceil(std::sqrt(m_pipeline.size()));
-    m_rows = std::ceil(m_pipeline.size() *1.0 / m_cols);
+    m_rows = std::ceil(m_pipeline.size() * 1.0 / m_cols);
     //launch hva process and send channel socket address to it
     if (ConfigParser::instance()->isHvaConfigured()) {
         setupHvaProcess();
@@ -275,10 +275,14 @@ void HDDLDemo::sendSignalToHvaPipeline()
     //    exit(EXIT_FAILURE);
     //}
 
-    std::string msgToSend = {};
+    std::string msgToSend = "";
     for (auto& pipeParam : ConfigParser::instance()->getPipelineParams()) {
         auto channelSocket = pipeParam["socket_name"];
         msgToSend = msgToSend + "," + channelSocket;
+    }
+    if (msgToSend.empty()) {
+        qDebug() << "Failed to get channel socket!";
+        exit(EXIT_FAILURE);
     }
     msgToSend.erase(0, 1);
 
