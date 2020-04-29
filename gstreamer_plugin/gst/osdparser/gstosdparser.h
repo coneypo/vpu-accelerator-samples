@@ -46,13 +46,11 @@
 #ifndef __GST_OSDPARSER_H__
 #define __GST_OSDPARSER_H__
 
-#include <algo/blendwrapper.h>
+
 #include <gst/gst.h>
-#include <gstmfxsurface.h>
 
 G_BEGIN_DECLS
 
-/* #defines don't like whitespacey bits */
 #define GST_TYPE_OSDPARSER \
     (gst_osd_parser_get_type())
 #define GST_OSDPARSER(obj) \
@@ -69,12 +67,7 @@ typedef struct _GstOsdParserClass GstOsdParserClass;
 
 struct _GstOsdParser {
     GstElement element;
-
     GstPad *sinkpad, *srcpad;
-
-    //frame handler
-    FrameHandler blend_handle;
-    FrameHandler crop_handle;
 };
 
 struct _GstOsdParserClass {

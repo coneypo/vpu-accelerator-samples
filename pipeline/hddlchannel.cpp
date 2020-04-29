@@ -85,8 +85,8 @@ void HddlChannel::processAction(PipelineAction action)
 void HddlChannel::fetchRoiData()
 {
 
-    std::shared_ptr<cv::UMat> src;
-    if (BlockingQueue<std::shared_ptr<cv::UMat>>::instance().tryTake(src, 100)) {
+    std::shared_ptr<cv::Mat> src;
+    if (BlockingQueue<std::shared_ptr<cv::Mat>>::instance().tryTake(src, 100)) {
         cv::Mat image;
         cv::resize(*src, image, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
         QByteArray* ba = new QByteArray((char*)image.data, image.total() * image.elemSize());

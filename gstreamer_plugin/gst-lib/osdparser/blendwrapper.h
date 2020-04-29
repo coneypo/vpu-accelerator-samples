@@ -15,17 +15,21 @@
  * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __COMMON_CONFIG_H__
-#define __COMMON_CONFIG_H__
+#ifndef __BLEND_WRAPPER_H__
+#define __BLEND_WRAPPER_H__
 
-#include <interface/videodefs.h>
-#include <interface/vpphost.h>
-#include <interface/vppinterface.h>
-#include <ocl/oclmemory.h>
-#include <ocl/oclutils.h>
+#include "boundingbox.h"
 
-#ifndef ALIGN_POW2
-#define ALIGN_POW2(a, b) ((a + (b - 1)) & ~(b - 1))
+#include <gst/gstbuffer.h>
+#include <gst/gstpad.h>
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
+void blend(GstBuffer* buffer, BoundingBox* boxList, gint size, gboolean enableCrop);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -7,7 +7,7 @@ include(ExternalProject)
 #required dependencies
 find_package(Qt5 COMPONENTS Core Gui Widgets Network REQUIRED)
 find_package(Boost REQUIRED system filesystem program_options)
-find_package(OpenCV 4.0.0 EXACT REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(OpenCL REQUIRED)
 find_package(Threads)
 

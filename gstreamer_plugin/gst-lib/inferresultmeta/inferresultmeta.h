@@ -1,10 +1,11 @@
 #ifndef __GST_MY_META_H__
 #define __GST_MY_META_H__
 
+#include "boundingbox.h"
+
 #include <gst/gst.h>
 #include <gst/gstmeta.h>
 
-#include "interface/boundingbox.h"
 
 G_BEGIN_DECLS
 

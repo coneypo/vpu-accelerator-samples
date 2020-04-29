@@ -13,6 +13,7 @@ target_include_directories(${pluginname} PRIVATE .
         ${PLUGIN_ROOT_DIR}/gst-lib)
 
 target_include_directories(${pluginname} PUBLIC
+        ${PLUGIN_ROOT_DIR}/gst-lib/common
         ${PLUGIN_ROOT_DIR}/gst-lib/inferresultmeta)
 
 

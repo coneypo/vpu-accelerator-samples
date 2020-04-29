@@ -38,6 +38,9 @@ public:
     void put(const T& x)
     {
         std::lock_guard<std::mutex> lock(_mutex);
+        if ( _queue.size() >= m_capacity){
+            _queue.pop();
+        }
         _queue.push(x);
         _nonEmpty.notify_one();
     }
@@ -48,6 +51,11 @@ public:
         return _queue.size();
     }
 
+    void setCapacity(size_t capacity)
+    {
+        m_capacity = capacity;
+    }
+
     BlockingQueue(const BlockingQueue&) = delete;
     BlockingQueue& operator=(const BlockingQueue&) = delete;
 
@@ -56,6 +64,7 @@ private:
     std::mutex _mutex;
     std::condition_variable _nonEmpty;
     std::queue<T> _queue;
+    size_t m_capacity { 3 };
 };
 
 #endif
