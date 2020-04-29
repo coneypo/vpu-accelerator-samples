@@ -15,6 +15,7 @@ ConfigSuffix="}"
 
 DecodeConfig=""
 HvaConfig=""
+HvaSocket=""
 HvaSocketConfig=""
 AppConfig="\"app\":{\"timeout\":0, \"mode\":\"replay\"}"
 
@@ -56,7 +57,7 @@ generate_decode_config()
     
         ChannelParams="{\"media_file\": \"$VideoFilePath\",  \"socket_name\":\"/tmp/hddl_app_pipeline_$i.sock\", \"display_sink\":\"mysink\"}"
         ChannelConfig[$i]="{ \"pipe\": \"$PipelineStr\", \"param\": $ChannelParams }"
-	VideoFileList[$i]=$VideoFilePath
+	    VideoFileList[$i]=$VideoFilePath
     
         if [ $i == 1 ]; then
             DecodeContext+="${ChannelConfig[$i]}"
@@ -72,21 +73,21 @@ generate_hva_field()
     HvaPrefix="\"hva\":{"
     HvaSuffix="}"
     
-    read -p "Enter hva cmd[./FullPipe]:" HvaCmd 
+    read -p "Enter your path to start hva pipeline[./FullPipe]:" HvaCmd 
     if [[ -z $HvaCmd ]]; then
         HvaCmd="./FullPipe"
     fi
     HvaCmdConfig="\"cmd\": \"$HvaCmd\""
     
     
-    read -p "Enter hva socket name[/tmp/hva_ipc.sock]:" HvaSocket
+    read -p "Enter hva socket listenning for GUI messages. This will be consistent in generated config files[/tmp/gstreamer_ipc_second.sock]:" HvaSocket
     if [[ -z $HvaSocket ]]; then
-        HvaSocket="/tmp/hva_ipc.sock"
+        HvaSocket="/tmp/gstreamer_ipc_second.sock"
     fi
     HvaSocketConfig="\"socket_name\": \"$HvaSocket\""
     
     
-    read -p "Enter hva working directory:" HvaCwd
+    read -p "Enter the working directory of hva pipeline. This is also the path containing config.json used by hva pipeline:" HvaCwd
     if [[ -z $HvaCwd || ! -d $HvaCwd ]]; then
         echo "Invaild hva working directory"
         exit
@@ -111,17 +112,26 @@ generate_hva_field()
         echo "Invaild GST_PLUGIN_PATH"
         exit
     fi
-    HvaEnvironmentContext[1]="{\"key\": \"LIBVA_DRIVERS_PATH\",\"value\": \"$HvaGstPluginPath\"}"
+    HvaEnvironmentContext[1]="{\"key\": \"GST_PLUGIN_PATH\",\"value\": \"$HvaGstPluginPath\"}"
     
     
-    read -p "set hva environment variable CONFIG_PATH:" HvaConfigPath
-    if [[ -z $HvaConfigPath || ! -f $HvaConfigPath/connection.cfg ]]; then
+    read -p "set hva environment variable CONFIG_PATH, which is requested by vaapi shim and should contain connection.cfg in its value:" HvaConfigPath
+    if [[ -z $HvaConfigPath || ! -f $HvaConfigPath ]]; then
         echo "Invaild CONFIG_PATH"
         exit
     fi
-    HvaEnvironmentContext[2]="{\"key\": \"LIBVA_DRIVERS_PATH\",\"value\": \"$HvaConfigPath\"}"
-    HvaEnvironmentContext[3]="{\"key\": \"GST_VAAPI_ALL_DRIVERS\",\"value\": 1}"
-    HvaEnvironmentContext[4]="{\"key\": \"BYPASS_BATCH_MODE\",\"value\": 1}"
+
+    read -p "set hva environment variable LD_LIBRARY_PATH, which is the system search path for shared libraries at runtime:" HvaLdLibPath
+    if [[ -z $HvaLdLibPath ]]; then
+        echo "Invaild LD_LIBRARY_PATH"
+        exit
+    fi
+
+    HvaEnvironmentContext[2]="{\"key\": \"CONFIG_PATH\",\"value\": \"$HvaConfigPath\"}"
+    HvaEnvironmentContext[3]="{\"key\": \"GST_VAAPI_ALL_DRIVERS\",\"value\": \"1\"}"
+    HvaEnvironmentContext[4]="{\"key\": \"BYPASS_BATCH_MODE\",\"value\": \"1\"}"
+    HvaEnvironmentContext[5]="{\"key\": \"LIBVA_DRIVER_NAME\",\"value\": \"hddl_bypass\"}"
+    HvaEnvironmentContext[6]="{\"key\": \"LD_LIBRARY_PATH\",\"value\": \"$HvaLdLibPath\"}"
 
     HvaEnvironmentConfig=""
     for i in "${HvaEnvironmentContext[@]}"
@@ -158,14 +168,14 @@ generate_hva_config()
     HvaGuiConfig="\"GUI\":{\"Socket\": \"$HvaSocket\"}"
 
 
-    read -p "Enter FRC DropEveryXFrame value[4]:" HvaFRCDropEveryXFrame
+    read -p "Enter FRC DropEveryXFrame value[3]:" HvaFRCDropEveryXFrame
     if [[ -z $HvaFRCDropEveryXFrame ]]; then
-        HvaFRCDropEveryXFrame=4
+        HvaFRCDropEveryXFrame=3
     fi
 
-    read -p "Enter FRC DropXFrame value[4]:" HvaFRCDropXFrame
+    read -p "Enter FRC DropXFrame value[2]:" HvaFRCDropXFrame
     if [[ -z $HvaFRCDropXFrame ]]; then
-        HvaFRCDropXFrame=4
+        HvaFRCDropXFrame=2
     fi
 
     HvaFRCConfig="\"FRC\":{\"DropEveryXFrame\": $HvaFRCDropEveryXFrame, \"DropXFrame\": $HvaFRCDropXFrame}"
@@ -173,20 +183,20 @@ generate_hva_config()
 
     for i in $(seq 1 $PipelineNum);
     do
-        echo "Enter decoding configurations for video ${VideoFileList[$i]}" 
-        read -p "set DropEveryXFrame value[4]:" HvaDropEveryXFrame
+        echo "set decoding configurations for video: ${VideoFileList[$i]}" 
+        read -p "set DropEveryXFrame value occured at video source[4]:" HvaDropEveryXFrame
         if [[ -z $HvaDropEveryXFrame ]]; then
             HvaDropEveryXFrame=4
         fi
 
-        read -p "Enter DropXFrame value[0]:" HvaDropXFrame
+        read -p "set DropXFrame value occured at video source[0]:" HvaDropXFrame
         if [[ -z $HvaDropXFrame ]]; then
             HvaDropXFrame=0
         fi
 
-        read -p "Enter codec[h264]:" HvaCodec
+        read -p "set codec, currently support h264, h265 or mp4 only[h264]:" HvaCodec
         if [[ -z $HvaCodec ]]; then
-            HvaCodec=0
+            HvaCodec="h264"
         fi
     
         DecodeParam="{\"Video\": \"${VideoFileList[$i]}\", \"DropEveryXFrame\":$HvaDropEveryXFrame, \"DropXFrame\":$HvaDropXFrame, \"Codec\":\"$HvaCodec\"}"
@@ -200,9 +210,7 @@ generate_hva_config()
     HvaDecodeConfig+="]"
 
     HvaFileConfig="$HvaPrefix $HvaDetectionConfig $Seperator $HvaClassificationConfig $Seperator $HvaDecodeConfig $Seperator $HvaGuiConfig $Seperator $HvaFRCConfig $HvaSuffix"
-    echo $HvaFileConfig
-    echo $HvaFileConfig | jq . > $HvaCwd/config.json
-    echo "Hva config config.json is successfully created in $HvaCwd."
+    echo $HvaFileConfig | jq . > config.json
 }
 
 
@@ -231,14 +239,27 @@ while [ "$1" != "" ]; do
 done
 
 
-
 echo "This tool is used to created configuration files for hddl application"
+
+if dpkg --get-selections | grep -q "^jq[[:space:]]*install$" >/dev/null; then
+    echo "Found jq in system..."
+else
+    echo "jq was not installed. Now installing jq..."
+    if sudo apt-get -qq install jq; then
+        echo "Successfully installed jq"
+    else
+        echo "Failed to install jq. Exit"
+        exit
+    fi
+fi
+
 generate_decode_config
 
 if [ "$AppModel" == "bypass" ]; then
     generate_hva_field
     generate_hva_config
     Config="$ConfigPrefix $DecodeConfig $Seperator $AppConfig $Seperator $HvaConfig $ConfigSuffix"
+    # echo $Config
     echo $Config | jq . > config_generated.json
     echo "Hddl bypass application configuration config_generated.json is successfully created."
 
