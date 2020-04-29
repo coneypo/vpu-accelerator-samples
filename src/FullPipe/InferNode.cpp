@@ -24,6 +24,11 @@ InferNodeWorker::InferNodeWorker(hva::hvaNode_t *parentNode,
                                  WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
                                  : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc}, m_mode{mode}
 {
+    if (m_mode == "classification")
+    {
+        printf("initialize ObjectSelector\n");
+        m_object_selector.reset(new ObjectSelector());
+    }
 }
 
 void InferNodeWorker::process(std::size_t batchIdx)
@@ -230,7 +235,6 @@ void InferNodeWorker::process(std::size_t batchIdx)
         }
         else if (m_mode == "classification")
         {
-
             auto ptrBufInfer = vecBlobInput[0]->get<int, InferMeta>(0);
             auto ptrBufVideo = vecBlobInput[0]->get<int, VideoMeta>(1);
 
@@ -257,21 +261,23 @@ void InferNodeWorker::process(std::size_t batchIdx)
             // }
             if (vecROI.size() > 0)
             {
-                if (ptrVideoMeta->drop)
+#if 0 //disable drop flag
+                if (ptrInferMeta->drop)
                 {
-
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
                         ptrInferMeta->rois[i].labelClassification = "unknown";
                         printf("[debug] roi label is : unknown\n");
                     }
                     ptrInferMeta->durationClassification = m_durationAve;
-            
+
+                    m_orderKeeper.bypass(ptrInferMeta->frameId);
                     // std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     sendOutput(vecBlobInput[0], 0, ms(0));
                     sendOutput(vecBlobInput[0], 1, ms(0));
                 }
                 else
+#endif 
                 {
 
 #ifndef INFER_ASYNC
@@ -337,88 +343,166 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     sendOutput(vecBlobInput[0], 1, ms(0));
 
 #else //#ifndef INFER_ASYNC
-
-                    auto startForFps = std::chrono::steady_clock::now();
-
-                    //todo, fix me
-                    
-                    std::shared_ptr<std::mutex> ptrMutex = std::make_shared<std::mutex>();
-                    std::shared_ptr<int32_t> ptrCntCallback{new int32_t};
-                    *ptrCntCallback = 0;
-
-                    for (int cntROI = 0; cntROI < vecROI.size(); cntROI++)
+                    //preprocess for object selection
+                    std::shared_ptr<Objects> ptr_input_objects = std::make_shared<Objects>();
+                    for (int32_t i = 0; i < vecROI.size(); i++)
                     {
-                        auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-                        auto callback = [=]() mutable
+                        auto& roi = ptrInferMeta->rois[i];
+                        ptr_input_objects->push_back({i, cv::Rect(roi.x, roi.y, roi.width, roi.height),
+                                                roi.trackingId, -1, "", 0.0});
+                    }
+
+
+                    m_orderKeeper.lock(ptrInferMeta->frameId);
+                    
+                    // Select new and tracked objects.
+                    std::shared_ptr<Objects> ptr_new_objs = std::make_shared<Objects>();
+                    std::shared_ptr<Objects> ptr_tracked = std::make_shared<Objects>();
+                    std::tie(*ptr_new_objs, *ptr_tracked) = m_object_selector->preprocess(*ptr_input_objects);
+
+                    std::shared_ptr<std::vector<ROI>> ptr_input_vecROI = std::make_shared<std::vector<ROI>>();
+                    // input_vecROI.clear();
+                    for (auto& o : *ptr_new_objs)
+                    {
+                        ROI roi = ptrInferMeta->rois[o.oid];
+                        ptr_input_vecROI->push_back(roi);
+                    }
+
+                    if(ptr_input_vecROI->size() > 0)
+                    {
+                        auto startForFps = std::chrono::steady_clock::now();
+
+                        //todo, fix me
+                        
+                        std::shared_ptr<std::mutex> ptrMutex = std::make_shared<std::mutex>();
+                        std::shared_ptr<int32_t> ptrCntCallback{new int32_t};
+                        *ptrCntCallback = 0;
+
+                        for (int cntROI = 0; cntROI < ptr_input_vecROI->size(); cntROI++)
                         {
-                            m_cntAsyncEnd++;
-                            printf("[debug] classification async end, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int)m_cntAsyncEnd);
+                            auto ptrInferRequest = m_helperHDDL2.getInferRequest();
+                            auto callback = [=]() mutable
+                            {
+                                m_cntAsyncEnd++;
+                                printf("[debug] classification async end, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int)m_cntAsyncEnd);
 
-                            printf("[debug] classification callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
-                            auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
+                                printf("[debug] classification callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
+                                auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
+                                auto start = std::chrono::steady_clock::now();
+                                
+                                std::vector<ROI>& vecROI = *ptr_input_vecROI;
+                                std::vector<ROI> vecROITemp;
+                                m_helperHDDL2.postproc(ptrOutputBlob, vecROITemp);
+
+                                m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
+
+                                auto end = std::chrono::steady_clock::now();
+                                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+                                printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                                
+                                printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROITemp.size());
+                                assert(1 == vecROITemp.size());
+
+                                // for (int i = 0; i < ptrInferMeta->rois.size(); i++)
+                                {
+                                    std::vector<std::string> fields;
+                                    boost::split(fields, vecROITemp[0].labelClassification, boost::is_any_of(","));
+                                    vecROI[cntROI].labelClassification = fields[0];
+                                    vecROI[cntROI].confidenceClassification = vecROITemp[0].confidenceClassification;
+                                    printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
+                                }
+
+                                {
+                                    std::lock_guard<std::mutex> lock{*ptrMutex}; 
+                                    auto& cntCallback= *ptrCntCallback;                           
+                                    (cntCallback)++;
+
+                                    if(cntCallback == vecROI.size())
+                                    {
+
+                                        end = std::chrono::steady_clock::now();
+                                        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
+                                        m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
+                                        m_fps = 1000.0f / m_durationAve;
+                                        m_cntFrame++;
+
+                                        printf("classification whole duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                                        ptrInferMeta->durationClassification = m_durationAve;
+
+                                        // fetch output object info
+                                        for (size_t i = 0 ; i < vecROI.size() ; i++)
+                                        {
+                                            std::vector<std::string> fields;
+                                            boost::split(fields, vecROI[i].labelClassification, boost::is_any_of(","));
+                                            (*ptr_new_objs)[i].class_id = vecROI[i].labelIdClassification;
+                                            (*ptr_new_objs)[i].class_label = fields[0];
+                                            (*ptr_new_objs)[i].confidence_classification = static_cast<double>(vecROI[i].confidenceClassification);
+                                        }
+                                        // final output objects
+
+                                        printf("[debug] postprocess start, frame id is: %d\n", ptrInferMeta->frameId);
+                                        for(const auto& o : *ptr_new_objs)
+                                        {
+                                            printf("[debug] new object, track id is: %ld\n", o.tracking_id);
+                                        }
+                                        for(const auto& o : *ptr_tracked)
+                                        {
+                                            printf("[debug] tracked object, track id is: %ld\n", o.tracking_id);
+                                        }
+                                        auto final_objects = m_object_selector->postprocess(*ptr_new_objs, *ptr_tracked);
+                                        m_orderKeeper.unlock(ptrInferMeta->frameId);
+                                        for (auto& o : final_objects)
+                                        {
+                                            ptrInferMeta->rois[o.oid].labelClassification = o.class_label;
+                                            ptrInferMeta->rois[o.oid].labelIdClassification = o.class_id;
+                                            ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
+                                        }
+
+                                        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                                        sendOutput(vecBlobInput[0], 0, ms(0));
+                #ifdef GUI_INTEGRATION
+                                        sendOutput(vecBlobInput[0], 1, ms(0));
+                #endif
+                                    }
+
+                                }
+                                vecBlobInput.clear();
+                                printf("[debug] classification callback end, frame id is %d\n", vecBlobInput[0]->frameId);
+                                return;
+                            };
+
+                            //todo fix me
                             auto start = std::chrono::steady_clock::now();
-                            
-                            std::vector<ROI>& vecROI = ptrInferMeta->rois;
-                            std::vector<ROI> vecROITemp;
-                            m_helperHDDL2.postproc(ptrOutputBlob, vecROITemp);
-
-                            m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
+                            m_helperHDDL2.inferAsync(ptrInferRequest, callback,
+                                fd, input_height, input_width, vecROI[cntROI]);
+                            m_cntAsyncStart++;
+                            printf("[debug] classification async start, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int32_t)m_cntAsyncStart);
 
                             auto end = std::chrono::steady_clock::now();
                             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                            printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
-                            
-                            printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROITemp.size());
-                            assert(1 == vecROITemp.size());
+                            printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                        }
+                    }
+                    else
+                    {                        
+                        ptrInferMeta->durationClassification = m_durationAve;
+                    
+                        auto final_objects = m_object_selector->postprocess(*ptr_new_objs, *ptr_tracked);
+                        m_orderKeeper.unlock(ptrInferMeta->frameId);
 
-                            // for (int i = 0; i < ptrInferMeta->rois.size(); i++)
-                            {
-                                std::vector<std::string> fields;
-                                boost::split(fields, vecROITemp[0].labelClassification, boost::is_any_of(","));
-                                vecROI[cntROI].labelClassification = fields[0];
-                                vecROI[cntROI].confidenceClassification = vecROITemp[0].confidenceClassification;
-                                printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
-                            }
+                        for (auto& o : final_objects)
+                        {
+                            ptrInferMeta->rois[o.oid].labelClassification = o.class_label;
+                            ptrInferMeta->rois[o.oid].labelIdClassification = o.class_id;
+                            ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
+                        }
 
-                            {
-                                std::lock_guard<std::mutex> lock{*ptrMutex}; 
-                                auto& cntCallback= *ptrCntCallback;                           
-                                (cntCallback)++;
-
-                                if(cntCallback == vecROI.size())
-                                {
-                                    end = std::chrono::steady_clock::now();
-                                    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
-                                    m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
-                                    m_fps = 1000.0f / m_durationAve;
-                                    m_cntFrame++;
-
-                                    printf("classification whole duration is %ld, mode is %s\n", duration, m_mode.c_str());
-                                    ptrInferMeta->durationClassification = m_durationAve;
-                            
-                                    // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                                    sendOutput(vecBlobInput[0], 0, ms(0));
-                                    sendOutput(vecBlobInput[0], 1, ms(0));
-                                }
-
-                            }
-                            vecBlobInput.clear();
-                            printf("[debug] classification callback end, frame id is %d\n", vecBlobInput[0]->frameId);
-                            return;
-                        };
-
-                        //todo fix me
-                        auto start = std::chrono::steady_clock::now();
-                        m_helperHDDL2.inferAsync(ptrInferRequest, callback,
-                            fd, input_height, input_width, vecROI[cntROI]);
-                        m_cntAsyncStart++;
-                        printf("[debug] classification async start, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int32_t)m_cntAsyncStart);
-
-                        auto end = std::chrono::steady_clock::now();
-                        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                        printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
-
+                        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        sendOutput(vecBlobInput[0], 0, ms(0));
+        #ifdef GUI_INTEGRATION
+                        sendOutput(vecBlobInput[0], 1, ms(0));
+        #endif
                     }
 #endif //#ifndef INFER_ASYNC
                 }
@@ -438,6 +522,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 
                 ptrInferMeta->durationClassification = m_durationAve;
             
+                m_orderKeeper.bypass(ptrInferMeta->frameId);
+
                 // std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 sendOutput(vecBlobInput[0], 0, ms(0));
                 sendOutput(vecBlobInput[0], 1, ms(0));

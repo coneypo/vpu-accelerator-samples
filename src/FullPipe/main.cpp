@@ -357,7 +357,8 @@ int main(){
 #endif //#ifdef USE_UNITE_API_IE
     // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
     // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
-    if(sockConfig.numOfStreams > 1){
+    // if(sockConfig.numOfStreams > 1)
+    {
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
         batchingConfig.batchSize = 1;
@@ -403,7 +404,7 @@ int main(){
     pl.linkNode("clsNode", 0, "jpegNode", 0);
     pl.linkNode("clsNode", 1, "sendNode", 0);
 #ifdef VALIDATION_DUMP
-    pl.linkNode("clsNode", 2, "validationDumpNode", 0);
+    // pl.linkNode("clsNode", 2, "validationDumpNode", 0);
 #endif //#ifdef VALIDATION_DUMP
 
     pl.prepare();

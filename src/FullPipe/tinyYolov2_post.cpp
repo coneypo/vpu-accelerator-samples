@@ -164,7 +164,7 @@ namespace YoloV2Tiny {
                         float y1 = cy + h * 0.5f;
                         scaleBack(preprocess_keep_ratio, x0, x1, y0, y1, image_width, image_height);
 
-                        DetectedObject_t object((x0 + x1) * 0.5, (y0 + y1) * 0.5, y1 - y0, x1 - x0, max_info.second);
+                        DetectedObject_t object((x0 + x1) * 0.5, (y0 + y1) * 0.5, y1 - y0, x1 - x0, max_info.second, max_info.first);
                         objects.push_back(object);
                     }
                 }

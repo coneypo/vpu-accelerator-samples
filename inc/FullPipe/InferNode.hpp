@@ -6,15 +6,16 @@
 #include <common.hpp>
 #include "unite_helper.hpp" 
 #include "hddl2plugin_helper.hpp"
+#include "object_selector.hpp"
 
 class InferNode : public hva::hvaNode_t{
 public:
     struct Config{
         std::string model; //required
-        std::string iePluginName;
-        unsigned batchSize;
-        unsigned inferReqNumber;
-        float threshold;
+        std::string iePluginName {"HDDL2"};
+        unsigned batchSize {1};
+        unsigned inferReqNumber {2};
+        float threshold {0.4f};
     };
 
     InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
@@ -51,6 +52,9 @@ private:
 
     std::atomic<int32_t> m_cntAsyncEnd{0};
     std::atomic<int32_t> m_cntAsyncStart{0};
+
+    ObjectSelector::Ptr m_object_selector;
+    HDDL2pluginHelper_t::OrderKeeper_t m_orderKeeper;
 
 private:
     // std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;

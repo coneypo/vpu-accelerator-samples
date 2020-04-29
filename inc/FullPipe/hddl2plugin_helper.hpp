@@ -10,6 +10,7 @@
 #include <memory>
 #include <chrono>
 #include <map>
+#include <set>
 #include <condition_variable>
 
 #include <inference_engine.hpp>
@@ -553,6 +554,7 @@ public:
             roi.height = object.height;
             roi.width = object.width;
             roi.confidenceDetection = object.confidence;
+            roi.labelIdDetection = object.labelId;
             vecROI.push_back(roi);
         }
 #else
@@ -1052,6 +1054,92 @@ public:
 
     };
 
+    class OrderKeeper_t
+    {
+    public:
+        OrderKeeper_t()
+        {
+        }
+
+        OrderKeeper_t(const OrderKeeper_t&) = delete;
+        OrderKeeper_t& operator=(const OrderKeeper_t&) = delete;
+
+        inline void lock(uint64_t id)
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            printf("[debug] order keeper lock\n");
+            if(id < _cntOrder)
+            {
+                printf("[warning] duplicated order id\n");
+            }
+            _cv.wait(lock, [&]{return id <= _cntOrder;});
+        }
+
+        inline void unlock(uint64_t id)
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            printf("[debug] order keeper unlock\n");
+            //todo, fix me
+            assert(id == _cntOrder);
+            if(id < _cntOrder)
+            {
+                printf("[warning] duplicated order id\n");
+            }
+            else
+            {
+                _cntOrder++;
+
+                while (_setFrameId.find(_cntOrder) != _setFrameId.end())
+                {
+                    _setFrameId.erase(_cntOrder);
+                    _cntOrder++;
+                }
+                _cv.notify_all();
+            }
+        }
+
+        inline void bypass(uint64_t id)
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            printf("[debug] order keeper bypass\n");
+            
+            if(id <= _cntOrder)
+            {
+                if(id < _cntOrder)
+                {
+                    printf("[warning] duplicated order id\n");
+                }
+                else // id == _cntOrder
+                {
+                    _cntOrder++;
+
+                    while (_setFrameId.find(_cntOrder) != _setFrameId.end())
+                    {
+                        _setFrameId.erase(_cntOrder);
+                        _cntOrder++;
+                    }
+
+                    _cv.notify_all();
+                }
+
+            }
+            else
+            {
+                _setFrameId.insert(id);
+            }
+            
+
+        }
+
+    private:
+        uint64_t _cntOrder{0};
+        std::mutex _mutex;
+        std::condition_variable _cv;
+        std::set<uint64_t> _setFrameId;
+    public:
+        using Ptr = std::shared_ptr<OrderKeeper_t>;
+    };
+
 private:
     IE::Core _ie;
     IE::RemoteContext::Ptr _ptrContextIE;
@@ -1073,6 +1161,7 @@ private:
     size_t _widthInput{0};
 
     PostprocPtr_t _ptrPostproc{nullptr};
+
 
 
 public:
