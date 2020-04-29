@@ -919,6 +919,7 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
             reApplyFreeSurface = false;
             SurfacePool::Surface* surface = nullptr;
             if(m_pool->tryGetFreeSurface(&surface, *fd, pBuf)){
+                HVA_DEBUG("New surface created for FD %u with frameid %u and streamid %u", *fd, vInput[0]->frameId, vInput[0]->streamId);
                 // VASurfaceID vaSurf = surface->surfaceId;
                 if(!surface->surfaceId){
                     HVA_ERROR("Surface got is invalid!");
@@ -1180,6 +1181,9 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                 do{
                     if(!saveToFile(usedSurface)){
                         HVA_ERROR("Failed to save jpeg tagged %u", m_jpegCtr.load());
+                    }
+                    else{
+                        HVA_DEBUG("Successfully saved jpeg to disk, current frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
                     }
 
                     m_pool->moveToFree(&usedSurface);

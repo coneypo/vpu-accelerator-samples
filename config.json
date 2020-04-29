@@ -36,6 +36,12 @@
             "DropXFrame": 0,
             "Codec": "h264"
         },
+	{
+            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+            "DropEveryXFrame": 4,
+            "DropXFrame": 0,
+            "Codec": "h264"
+        },
         {
             "Video":"/home/kmb/kezhen/h264_video/crowdrun_HD_60fps_15mbps_8b_g30_extend10times.264",
             "DropEveryXFrame": 4,
@@ -59,7 +65,7 @@
         "Socket":"/tmp/gstreamer_ipc_second.sock"
     },
     "FRC":{
-        "DropEveryXFrame":4,
-        "DropXFrame":3
+        "DropEveryXFrame":3,
+        "DropXFrame":2
     }
 }

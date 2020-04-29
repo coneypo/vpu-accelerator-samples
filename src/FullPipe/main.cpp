@@ -175,7 +175,7 @@ int main(){
 
     hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
     hvaLogger.dumpToFile("test.log", false);
-    // hvaLogger.enableProfiling();
+    hvaLogger.enableProfiling();
 
     gst_init(0, NULL);
 
