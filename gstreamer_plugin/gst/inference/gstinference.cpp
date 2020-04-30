@@ -233,6 +233,7 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
         if (!connect_client) {
             GST_WARNING("connect to client failed, yet continue playing...");
         }
+        ret = gst_pad_event_default(pad, parent, event);
         break;
     }
     default:
