@@ -38,7 +38,7 @@ friend class hvaPipeline_t;
 friend class hvaNode_t;
 friend class hvaBatchingConfig_t;
 public:
-    hvaInPort_t(hvaNode_t* parentNode, hvaOutPort_t* prevPort, size_t queueSize = 8);
+    hvaInPort_t(hvaNode_t* parentNode, hvaOutPort_t* prevPort, size_t queueSize = 64);
 
     hvaInPort_t(hvaNode_t* parentNode);
 

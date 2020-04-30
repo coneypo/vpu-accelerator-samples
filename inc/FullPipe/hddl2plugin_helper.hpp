@@ -35,7 +35,7 @@
 #define INFER_FP16
 
 
-const int32_t INFER_REQUEST_NUM = 4;
+const int32_t INFER_REQUEST_NUM = 1;
 
 // using namespace InferenceEngine;
 namespace IE = InferenceEngine;
@@ -60,7 +60,7 @@ public:
     {
     }
 
-    inline void setup()
+    inline void setup(int32_t numInferRequest = 1)
     {
         // _graphPath = "/home/kmb/cong/graph/resnet-50-dpu/resnet-50-dpu.blob";
 
@@ -102,8 +102,9 @@ public:
         printf("[debug] end load graph\n");
 
         // ---- Create infer request
-        _ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
-        _ptrInferRequestPool = std::make_shared<InferRequestPool_t> (_executableNetwork, INFER_REQUEST_NUM);
+        //todo, fix me
+        // _ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
+        _ptrInferRequestPool = std::make_shared<InferRequestPool_t> (_executableNetwork, numInferRequest);
     }
     //todo fix me
     inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>())

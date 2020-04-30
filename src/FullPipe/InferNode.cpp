@@ -54,6 +54,10 @@ void InferNodeWorker::process(std::size_t batchIdx)
             if(ptrVideoMeta->drop){
                 std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                 InferMeta *ptrInferMeta = new InferMeta;
+                ptrInferMeta->frameId = vecBlobInput[0]->frameId;
+                ptrInferMeta->totalROI = 0;
+                ptrInferMeta->durationDetection = m_durationAve;
+                ptrInferMeta->inferFps = m_fps;
                 blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
                             if(payload != nullptr){
                                 delete payload;
@@ -63,8 +67,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 blob->push(vecBlobInput[0]->get<int, VideoMeta>(0));
                 blob->frameId = vecBlobInput[0]->frameId;
                 blob->streamId = vecBlobInput[0]->streamId;
-                sendOutput(blob, 0, ms(0));
                 HVA_DEBUG("Detection completed sending blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
+                sendOutput(blob, 0, ms(0));
+                HVA_DEBUG("Detection completed sent blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
             }
             else{
                 int input_height = ptrVideoMeta->videoHeight;
@@ -214,7 +219,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     blob->push(vecBlobInput[0]->get<int, VideoMeta>(0));
                     blob->frameId = vecBlobInput[0]->frameId;
                     blob->streamId = vecBlobInput[0]->streamId;
+                    HVA_DEBUG("Detection completed sending blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     sendOutput(blob, 0, ms(0));
+                    HVA_DEBUG("Detection completed sent blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     vecBlobInput.clear();
                     printf("[debug] detection callback end, frame id is: %d\n", vecBlobInput[0]->frameId);
                     return;
@@ -555,5 +562,16 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
 void InferNodeWorker::init()
 {
-    m_helperHDDL2.setup();
+    if (m_mode == "detection")
+    {
+        m_helperHDDL2.setup(2);
+    }
+    else if (m_mode == "classification")
+    {
+        m_helperHDDL2.setup(1);
+    }
+    else
+    {
+        m_helperHDDL2.setup();
+    }
 }
