@@ -7,9 +7,9 @@ include(ExternalProject)
 #required dependencies
 find_package(Qt5 COMPONENTS Core Gui Widgets Network REQUIRED)
 find_package(Boost REQUIRED system filesystem program_options)
-find_package(OpenCV REQUIRED)
-find_package(OpenCL REQUIRED)
 find_package(Threads)
+
+
 
 pkg_check_modules(GLIB2 REQUIRED glib-2.0)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
@@ -22,6 +22,22 @@ option(ENABLE_HVA "enable hva framework" ON)
 if (ENABLE_HVA)
     add_definitions(-DENABLE_HVA)
 endif ()
+
+option(ENABLE_INTEL_VA_OPENCL "Inable intel va opencl extension" OFF)
+
+if (ENABLE_INTEL_VA_OPENCL)
+    add_definitions(-DENABLE_INTEL_VA_OPENCL )
+    set(INTEL_VA_ENABLED_OPENCV_DIR "" CACHE STRING "Intel VA enabled OpenCV dir")
+    string(COMPARE EQUAL "${INTEL_VA_ENABLED_OPENCV_DIR}" "" result)
+    if(result)
+        message(FATAL_ERROR "INTEL_VA_ENABLED_OPENCV_DIR not set!")
+    else()
+        set(OpenCV_DIR ${INTEL_VA_ENABLED_OPENCV_DIR})
+        find_package(OpenCL REQUIRED)
+    endif()
+
+endif ()
+find_package(OpenCV REQUIRED)
 
 
 set(CMAKE_CXX_STANDARD 11)

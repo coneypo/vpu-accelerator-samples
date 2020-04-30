@@ -19,6 +19,7 @@
 #define __BLEND_WRAPPER_H__
 
 #include "boundingbox.h"
+#include "gstosdparser.h"
 
 #include <gst/gstbuffer.h>
 #include <gst/gstpad.h>
@@ -27,7 +28,19 @@
 extern "C" {
 #endif
 
-void blend(GstBuffer* buffer, BoundingBox* boxList, gint size, gboolean enableCrop);
+void blend(GstOsdParser* filter, GstBuffer* buffer, BoundingBox* boxList, gint size, gboolean enableCrop);
+
+#ifdef ENABLE_INTEL_VA_OPENCL
+
+FrameHandler cvdlhandler_create();
+void cvdlhandler_destroy(FrameHandler handle);
+void cvdlhandler_init(FrameHandler handle, GstCaps* caps, const char* ocl_format);
+GstBuffer* cvdlhandler_get_free_buffer(FrameHandler handle);
+
+void cvdlhandler_generate_osd(FrameHandler handle, BoundingBox* boxList, gint size, GstBuffer** osd_buf);
+void cvdlhandler_process_osd(FrameHandler handle, GstBuffer* buffer, GstBuffer* osd_buf);
+void cvdlhandler_crop_frame(FrameHandler handle, GstBuffer* buffer, BoundingBox* box, guint32 num);
+#endif
 
 #ifdef __cplusplus
 }

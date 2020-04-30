@@ -131,6 +131,11 @@ static void gst_osd_parser_init(GstOsdParser* filter)
 
     gst_pad_set_event_function(filter->sinkpad, GST_DEBUG_FUNCPTR(gst_osd_parser_sink_event));
     gst_pad_set_chain_function(filter->sinkpad, GST_DEBUG_FUNCPTR(gst_osd_parser_chain));
+
+#ifdef ENABLE_INTEL_VA_OPENCL
+    filter->blend_handle = cvdlhandler_create();
+    filter->crop_handle = cvdlhandler_create();
+#endif
 }
 
 static void gst_osd_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec)
@@ -166,6 +171,12 @@ static gboolean gst_osd_parser_sink_event(GstPad* pad, GstObject* parent, GstEve
 
     switch (GST_EVENT_TYPE(event)) {
     case GST_EVENT_CAPS: {
+#ifdef ENABLE_INTEL_VA_OPENCL
+        GstCaps* caps;
+        gst_event_parse_caps(event, &caps);
+        cvdlhandler_init(filter->blend_handle, caps, "GRAY8");
+        cvdlhandler_init(filter->crop_handle, caps, "BGRA");
+#endif
         ret = gst_pad_event_default(pad, parent, event);
         break;
     }
@@ -178,6 +189,16 @@ static gboolean gst_osd_parser_sink_event(GstPad* pad, GstObject* parent, GstEve
 
 static void gst_osd_parser_clean(GstOsdParser* parser)
 {
+#ifdef ENABLE_INTEL_VA_OPENCL
+    if (parser->blend_handle) {
+        cvdlhandler_destroy(parser->blend_handle);
+    }
+    if (parser->crop_handle) {
+        cvdlhandler_destroy(parser->crop_handle);
+    }
+    parser->blend_handle = NULL;
+    parser->crop_handle = NULL;
+#endif
 }
 
 static void gst_osd_parser_finalize(GstOsdParser* parser)
@@ -196,7 +217,7 @@ static GstFlowReturn gst_osd_parser_chain(GstPad* pad, GstObject* parent, GstBuf
     GstOsdParser* filter = GST_OSDPARSER(parent);
     InferResultMeta* meta = gst_buffer_get_infer_result_meta(buf);
     if (meta) {
-        blend(buf, meta->boundingBox, meta->size, TRUE);
+        blend(filter, buf, meta->boundingBox, meta->size, TRUE);
     }
     return gst_pad_push(filter->srcpad, buf);
 }

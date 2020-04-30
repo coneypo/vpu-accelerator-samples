@@ -5,6 +5,12 @@ include(${CMAKE_SOURCE_DIR}/cmake/FindMediaSDK.cmake)
 
 aux_source_directory(${PLUGIN_ROOT_DIR}/gst-lib/osdparser DIR_SRCS)
 aux_source_directory(. DIR_SRCS)
+if (ENABLE_INTEL_VA_OPENCL)
+    configure_file("${PLUGIN_ROOT_DIR}/gst-lib/ocl/oclcommon.h.in"
+            "${CMAKE_BINARY_DIR}/ocl/oclcommon.h")
+    aux_source_directory(${PLUGIN_ROOT_DIR}/gst-lib/ocl DIR_SRCS)
+endif()
+
 
 add_library(${pluginname} SHARED ${DIR_SRCS})
 target_compile_options(${pluginname} PRIVATE -Wall -Wextra -Werror -fPIC -shared -fstack-protector-strong -Wformat -Wformat-security -Werror=format-security -fno-strict-overflow  -fno-delete-null-pointer-checks -fwrapv -D_FORTIFY_SOURCE=2)
@@ -28,6 +34,19 @@ target_link_libraries(${pluginname}
         gstinference
         hddldemoutils
         ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libgstmfx.so)
+
+if (ENABLE_INTEL_VA_OPENCL)
+    target_include_directories(${pluginname} PRIVATE
+            ${CMAKE_BINARY_DIR}/ocl
+            ${PLUGIN_ROOT_DIR}/gst-lib/ocl)
+
+    target_link_libraries(${pluginname}
+            OpenCL)
+
+    file(COPY ../../gst-lib/ocl/kernels
+            DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+endif()
+
 
 add_dependencies(${pluginname} msdk-gst hddldemoutils)
 

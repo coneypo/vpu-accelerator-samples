@@ -1,6 +1,5 @@
 #include "hddlchannel.h"
 #include "blockingqueue.h"
-#include "cropdefs.h"
 #include "fpsstat.h"
 #include "messagedispatcher.h"
 
@@ -87,9 +86,7 @@ void HddlChannel::fetchRoiData()
 
     std::shared_ptr<cv::Mat> src;
     if (BlockingQueue<std::shared_ptr<cv::Mat>>::instance().tryTake(src, 100)) {
-        cv::Mat image;
-        cv::resize(*src, image, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
-        QByteArray* ba = new QByteArray((char*)image.data, image.total() * image.elemSize());
+        QByteArray* ba = new QByteArray((char*)src->data, src->total() * src->elemSize());
         Q_EMIT roiReady(ba);
     }
 }

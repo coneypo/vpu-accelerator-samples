@@ -65,9 +65,24 @@ G_BEGIN_DECLS
 typedef struct _GstOsdParser GstOsdParser;
 typedef struct _GstOsdParserClass GstOsdParserClass;
 
+typedef struct _cvdl_handler {
+    GstBufferPool* mOsdPool;
+    void* mImgProcessor;
+    int mImageWidth;
+    int mImageHeight;
+    gboolean mInited;
+} CvdlHandler;
+
+typedef CvdlHandler* FrameHandler;
+
 struct _GstOsdParser {
     GstElement element;
     GstPad *sinkpad, *srcpad;
+
+#ifdef ENABLE_INTEL_VA_OPENCL
+    FrameHandler blend_handle;
+    FrameHandler crop_handle;
+#endif
 };
 
 struct _GstOsdParserClass {
