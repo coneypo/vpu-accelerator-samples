@@ -174,8 +174,8 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
 int main(){
 
     hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
-    hvaLogger.dumpToFile("test.log", false);
-    hvaLogger.enableProfiling();
+    // hvaLogger.dumpToFile("test.log", false);
+    // hvaLogger.enableProfiling();
 
     gst_init(0, NULL);
 

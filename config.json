@@ -66,6 +66,6 @@
     },
     "FRC":{
         "DropEveryXFrame":3,
-        "DropXFrame":2
+        "DropXFrame":1
     }
 }
