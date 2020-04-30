@@ -405,7 +405,7 @@ int main(){
     pl.linkNode("clsNode", 0, "jpegNode", 0);
     pl.linkNode("clsNode", 1, "sendNode", 0);
 #ifdef VALIDATION_DUMP
-    // pl.linkNode("clsNode", 2, "validationDumpNode", 0);
+    pl.linkNode("clsNode", 2, "validationDumpNode", 0);
 #endif //#ifdef VALIDATION_DUMP
 
     pl.prepare();

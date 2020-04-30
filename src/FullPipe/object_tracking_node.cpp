@@ -46,6 +46,7 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
     m_vecBlobInput = hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     if(m_vecBlobInput.size() != 0)
     {
+        printf("[debug] object tracking node start to process\n");
         auto ptrBufInfer = m_vecBlobInput[0]->get<int, InferMeta>(0);
         auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
 
@@ -97,7 +98,7 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
                     roi.width = to.rect.width;
                     roi.height = to.rect.height;
                     roi.trackingId = to.tracking_id;
-                    roi.labelClassification = to.class_label; //"unknown";
+                    roi.labelClassification = "unknown"; //"unknown";
                     roi.pts = static_cast<size_t>(m_vecBlobInput[0]->frameId);
                     ptrInferMeta->rois.push_back(roi);
                 }

@@ -464,9 +464,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                                         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
                                         sendOutput(vecBlobInput[0], 0, ms(0));
-                #ifdef GUI_INTEGRATION
                                         sendOutput(vecBlobInput[0], 1, ms(0));
-                #endif
+
                 #ifdef VALIDATION_DUMP
                                         sendOutput(vecBlobInput[0], 2, ms(0));
                 #endif //#ifdef VALIDATION_DUMP
@@ -506,9 +505,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         sendOutput(vecBlobInput[0], 0, ms(0));
-        #ifdef GUI_INTEGRATION
                         sendOutput(vecBlobInput[0], 1, ms(0));
-        #endif
 
         #ifdef VALIDATION_DUMP
                         sendOutput(vecBlobInput[0], 2, ms(0));
