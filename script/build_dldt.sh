@@ -68,7 +68,7 @@ function download_dldt () {
     echo "Download dldt ..."
     cd ${DOWNLOAD_DIR}
     if [ ! -d ${DOWNLOAD_DIR}/dldt ]; then
-        git clone git@gitlab-icv.inn.intel.com:inference-engine/dldt.git --branch master --single-branch ${DOWNLOAD_DIR}/dldt
+        git clone git@gitlab-icv.inn.intel.com:inference-engine/dldt.git --branch releases/2020/kmb/beta --single-branch ${DOWNLOAD_DIR}/dldt
     fi
     # cd dldt
 
@@ -99,7 +99,7 @@ function download_and_build_hddl2plugin () {
     echo "Download hddl2plugin ..."
     cd ${DOWNLOAD_DIR}
     if [ ! -d ${DOWNLOAD_DIR}/kmb-plugin ]; then
-        git clone git@gitlab-icv.inn.intel.com:inference-engine/kmb-plugin.git --branch master --single-branch ${DOWNLOAD_DIR}/kmb-plugin
+        git clone git@gitlab-icv.inn.intel.com:inference-engine/kmb-plugin.git --branch releases/2020/kmb/beta --single-branch ${DOWNLOAD_DIR}/kmb-plugin
     fi
     cd kmb-plugin
 
