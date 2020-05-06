@@ -100,18 +100,11 @@ AC_ARG_WITH([opencv-path],
                              AC_MSG_NOTICE([The opencv path you set is $with_opencv_path.])
                             ],
                             [with_opencv_path=null])
-AC_ARG_WITH([inference-path],
-            [AS_HELP_STRING([--with-inference-path],
-                            [support inference path input@<:@default=null@:>@])],
-                            [
-                             AC_MSG_NOTICE([The inference path you set is $with_inference_path.])
-                            ],
-                            [with_inference_path=null])
 
 AS_IF([test "x$with_opencv_path" != xnull],
       [
        AC_SUBST(OPENCV_CFLAGS,"-I$with_opencv_path/include/")
-       AC_SUBST(OPENCV_LIBS,"-L$with_inference_path/lib/aarch64 -L$with_opencv_path/lib/ -linference_engine -linference_engine_nn_builder -lngraph -lopencv_imgproc \
+       AC_SUBST(OPENCV_LIBS,"-L$with_opencv_path/lib/ -lopencv_imgproc \
                 -lopencv_gapi -lopencv_core -lopencv_video -lopencv_highgui -lopencv_imgcodecs")
        ])
 dnl check if compiler understands -Wall (if yes, add -Wall to GST_CFLAGS)
