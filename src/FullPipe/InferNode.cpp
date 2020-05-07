@@ -1,15 +1,19 @@
-#include <InferNode.hpp>
+#include "InferNode.hpp"
 #include <boost/algorithm/string.hpp>
 #include <chrono>
+
+#include "hvaLogger.hpp"
 
 #define TOTAL_ROIS 2
 #define INFER_ASYNC
 #define VALIDATION_DUMP
 
 InferNode::InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
-            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
+            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc, 
+            int32_t numInferRequest, float thresholdDetection) 
             : hva::hvaNode_t{inPortNum, outPortNum, totalThreadNum},
-            m_vWID{vWID}, m_graphPath{graphPath}, m_mode{mode}, m_postproc(postproc)
+            m_vWID{vWID}, m_graphPath{graphPath}, m_mode{mode}, m_postproc(postproc),
+            m_numInferRequest{numInferRequest}, m_thresholdDetection{thresholdDetection}
 {
 }
 
@@ -18,12 +22,15 @@ std::shared_ptr<hva::hvaNodeWorker_t> InferNode::createNodeWorker() const
     std::lock_guard<std::mutex> lock{m_mutex};
     printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
     return std::shared_ptr<hva::hvaNodeWorker_t>{
-        new InferNodeWorker{const_cast<InferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc}};
+        new InferNodeWorker{const_cast<InferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc, 
+                            m_numInferRequest, m_thresholdDetection}};
 }
 
 InferNodeWorker::InferNodeWorker(hva::hvaNode_t *parentNode,
-                                 WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
-                                 : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc}, m_mode{mode}
+                                WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc, 
+                                int32_t numInferRequest, float thresholdDetection) 
+                                : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc, thresholdDetection}, m_mode{mode},
+                                m_numInferRequest{numInferRequest}, m_thresholdDetection{thresholdDetection}
 {
     if (m_mode == "classification")
     {
@@ -172,7 +179,6 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                     printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
-                    m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
 
                     // end = std::chrono::steady_clock::now();
                     // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -224,6 +230,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     HVA_DEBUG("Detection completed sent blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     vecBlobInput.clear();
                     printf("[debug] detection callback end, frame id is: %d\n", vecBlobInput[0]->frameId);
+                    m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
                     return;
                 };
                 auto start = std::chrono::steady_clock::now();
@@ -405,7 +412,6 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                 std::vector<ROI> vecROITemp;
                                 m_helperHDDL2.postproc(ptrOutputBlob, vecROITemp);
 
-                                m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
 
                                 auto end = std::chrono::steady_clock::now();
                                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -481,6 +487,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                 }
                                 vecBlobInput.clear();
                                 printf("[debug] classification callback end, frame id is %d\n", vecBlobInput[0]->frameId);
+                                m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
                                 return;
                             };
 
@@ -562,13 +569,14 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
 void InferNodeWorker::init()
 {
+    HVA_DEBUG("infer request number is %d", m_numInferRequest);
     if (m_mode == "detection")
     {
-        m_helperHDDL2.setup(2);
+        m_helperHDDL2.setup(m_numInferRequest);
     }
     else if (m_mode == "classification")
     {
-        m_helperHDDL2.setup(1);
+        m_helperHDDL2.setup(m_numInferRequest);
     }
     else
     {

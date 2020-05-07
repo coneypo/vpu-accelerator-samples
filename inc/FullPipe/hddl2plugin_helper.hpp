@@ -21,8 +21,10 @@
 #include <HddlUnite.h>
 #include <RemoteMemory.h>
 
-#include "common.hpp"
+#include "hvaLogger.hpp"
 #include "hddl2plugin/hddl2_params.hpp"
+
+#include "common.hpp"
 #include "tinyYolov2_post.h"
 #include "region_yolov2tiny.h"
 #include "detection_helper.hpp"
@@ -51,12 +53,14 @@ public:
     HDDL2pluginHelper_t(const HDDL2pluginHelper_t &) = delete;
     HDDL2pluginHelper_t &operator=(const HDDL2pluginHelper_t &) = delete;
 
-    HDDL2pluginHelper_t(std::string graphPath, WorkloadID id = 0, PostprocPtr_t ptrPostproc = nullptr, size_t heightInput = 0, size_t widthInput = 0)
+    HDDL2pluginHelper_t(std::string graphPath, WorkloadID id = 0, PostprocPtr_t ptrPostproc = nullptr, float thresholdDetection = 0.6f, size_t heightInput = 0, 
+                        size_t widthInput = 0)
         : _graphPath{graphPath},
           _workloadId{id},
           _heightInput{heightInput},
           _widthInput{widthInput},
-          _ptrPostproc{ptrPostproc}
+          _ptrPostproc{ptrPostproc},
+          _thresholdDetection{thresholdDetection}
     {
     }
 
@@ -542,9 +546,11 @@ public:
     {
         //todo, fix me
 #if 1
+        
+        HVA_DEBUG("detection confidence threshold is %f", _thresholdDetection);
         std::vector<DetectedObject_t> vecObjects;
         vecObjects = ::YoloV2Tiny::TensorToBBoxYoloV2TinyCommon(ptrBlob, _heightInput, _widthInput,
-                                                                .6, YoloV2Tiny::fillRawNetOut);
+                                                                _thresholdDetection, YoloV2Tiny::fillRawNetOut);
 
         vecROI.clear();
         for (auto &object : vecObjects)
@@ -1160,6 +1166,9 @@ private:
     std::string _graphPath;
     size_t _heightInput{0};
     size_t _widthInput{0};
+
+    //todo, config
+    float _thresholdDetection{0.6f};
 
     PostprocPtr_t _ptrPostproc{nullptr};
 

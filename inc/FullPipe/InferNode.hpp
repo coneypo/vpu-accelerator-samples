@@ -15,11 +15,12 @@ public:
         std::string iePluginName {"HDDL2"};
         unsigned batchSize {1};
         unsigned inferReqNumber {2};
-        float threshold {0.4f};
+        float threshold {0.6f};
     };
 
     InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
-            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc);
+            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, 
+            HDDL2pluginHelper_t::PostprocPtr_t postproc, int32_t numInferRequest = 1, float thresholdDetection = 0.6f);
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
 
@@ -29,13 +30,18 @@ private:
     std::string m_mode;
     HDDL2pluginHelper_t::PostprocPtr_t m_postproc;
     
+    //todo, config
+    int32_t m_numInferRequest{1};
+    float m_thresholdDetection{0.6f};
+    
     mutable std::atomic<int32_t> m_cntNodeWorker{0};
     mutable std::mutex m_mutex;
 };
 
 class InferNodeWorker : public hva::hvaNodeWorker_t{
 public:
-    InferNodeWorker(hva::hvaNode_t *parentNode, WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc);
+    InferNodeWorker(hva::hvaNode_t *parentNode, WorkloadID id, std::string graphPath, std::string mode, 
+                    HDDL2pluginHelper_t::PostprocPtr_t postproc, int32_t numInferRequest = 1, float thresholdDetection = 0.6f);
 
     virtual void process(std::size_t batchIdx) override;
 
@@ -55,6 +61,10 @@ private:
 
     ObjectSelector::Ptr m_object_selector;
     HDDL2pluginHelper_t::OrderKeeper_t m_orderKeeper;
+    
+    //todo, config
+    int32_t m_numInferRequest{1};
+    float m_thresholdDetection{0.6f};
 
 private:
     // std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;

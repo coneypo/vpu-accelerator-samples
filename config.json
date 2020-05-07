@@ -1,71 +1,53 @@
 {
-    "Detection":{
-        "Model":"/home/kmb/cong/graph/alpha/tiny_yolo_v2_uint8_int8_weights_pertensor.blob"
+  "Detection": {
+    "Model": "/home/kmb/cong/graph/alpha/tiny_yolo_v2_uint8_int8_weights_pertensor.blob"
+  },
+  "Classification": {
+    "Model": "/home/kmb/cong/graph/alpha/resnet50_uint8_int8_weights_pertensor.blob"
+  },
+  "Decode": [
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
     },
-    "Classification":{
-        "Model":"/home/kmb/cong/graph/alpha/resnet50_uint8_int8_weights_pertensor.blob"
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
     },
-    "Decode":[
-        {
-            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h264"
-        },
-        {
-            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h264"
-        },
-        {
-            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h264"
-        },
-        {
-            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h264"
-        },
-        {
-            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h264"
-        },
-	{
-            "Video":"/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h264"
-        },
-        {
-            "Video":"/home/kmb/kezhen/h264_video/crowdrun_HD_60fps_15mbps_8b_g30_extend10times.264",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h264"
-        },
-        {
-            "Video":"/home/kmb/kezhen/h264_video/crowdrun_HD_60fps_15mbps_10b_g30_extend10times.265",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "h265"
-        },
-        {
-            "Video":"/home/kmb/kezhen/h264_video/file_example_MP4_1920_18MG.mp4",
-            "DropEveryXFrame": 4,
-            "DropXFrame": 0,
-            "Codec": "mp4"
-        }
-    ],
-    "GUI":{
-        "Socket":"/tmp/gstreamer_ipc_second.sock"
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
     },
-    "FRC":{
-        "DropEveryXFrame":3,
-        "DropXFrame":1
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
+    },
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
+    },
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
     }
+  ],
+  "GUI": {
+    "Socket": "/tmp/gstreamer_ipc_second.sock"
+  },
+  "FRC": {
+    "DropEveryXFrame": 3,
+    "DropXFrame": 2
+  }
 }
