@@ -4,6 +4,7 @@
 #include <hvaPipeline.hpp>
 #include <string>
 #include <common.hpp>
+#include <unordered_map>
 
 class FrameControlNode : public hva::hvaNode_t{
 public:
@@ -31,11 +32,12 @@ public:
     virtual void init() override;
 
 private:
-    void incCount();
+    void incCount(unsigned streamIdx);
 
     unsigned m_dropEveryXFrame;
     unsigned m_dropXFrame;
-    unsigned m_cnt;
+    // unsigned m_cnt;
+    std::unordered_map<unsigned, unsigned> m_cntMap;
 };
 
 #endif //#ifndef FRAME_CONTROL_NODE_HPP
