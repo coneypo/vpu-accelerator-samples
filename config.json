@@ -44,6 +44,18 @@
       "DropEveryXFrame": 4,
       "DropXFrame": 0,
       "Codec": "h264"
+    },
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
+    },
+    {
+      "Video": "/home/kmb/kezhen/build/gsthvasample/barrier_1080x720.h264",
+      "DropEveryXFrame": 4,
+      "DropXFrame": 0,
+      "Codec": "h264"
     }
   ],
   "GUI": {
