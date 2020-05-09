@@ -133,13 +133,13 @@ ocl_memory_alloc(OclPool* oclpool)
         ocl_mem->mem_size = OCL_MEMORY_WIDTH(ocl_mem) * OCL_MEMORY_HEIGHT(ocl_mem);
         break;
     case GST_VIDEO_FORMAT_BGR:
-        ocl_mem->frame.create(cv::Size(OCL_MEMORY_WIDTH(ocl_mem), OCL_MEMORY_HEIGHT(ocl_mem)), CV_8UC3);
+        ocl_mem->frame = cv::UMat(cv::Size(OCL_MEMORY_WIDTH(ocl_mem), OCL_MEMORY_HEIGHT(ocl_mem)), CV_8UC3);
         OCL_MEMORY_FOURCC(ocl_mem) = OCL_FOURCC_BGR3;
         ocl_mem->mem_size = OCL_MEMORY_WIDTH(ocl_mem) * OCL_MEMORY_HEIGHT(ocl_mem) * 3;
         break;
     case GST_VIDEO_FORMAT_BGRA:
         // For blender module
-        ocl_mem->frame.create(cv::Size(OCL_MEMORY_WIDTH(ocl_mem), OCL_MEMORY_HEIGHT(ocl_mem)), CV_8UC4);
+        ocl_mem->frame = cv::UMat(cv::Size(OCL_MEMORY_WIDTH(ocl_mem), OCL_MEMORY_HEIGHT(ocl_mem)), CV_8UC4);
         OCL_MEMORY_FOURCC(ocl_mem) = OCL_FOURCC_BGRA;
         ocl_mem->mem_size = OCL_MEMORY_WIDTH(ocl_mem) * OCL_MEMORY_HEIGHT(ocl_mem) * 4;
         break;
@@ -181,6 +181,7 @@ static GstFlowReturn
 ocl_pool_alloc(GstBufferPool* pool, GstBuffer** buffer,
     GstBufferPoolAcquireParams* params)
 {
+    (void)params;
     GstBuffer* ocl_buf;
     OclMemory* ocl_mem;
 

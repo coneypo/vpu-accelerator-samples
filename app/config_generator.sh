@@ -24,13 +24,44 @@ HvaSocket=""
 HvaCwd=""
 
 
-usage()
+function usage()
 {
-    echo "usage gen_config --num [pipelineNums] --model [bypass|streaming]"
+    echo "This script is used to generate config files for applications"
+    echo "Usage config_generator.sh --num [pipelineNums] --model [bypass|streaming]"
 }
 
 
-generate_decode_config()
+function find_file_in_dir_list()
+{
+
+    dirList=$1
+    fileName=$2
+
+    oldIFS=$IFS
+    IFS=:
+    result=0
+    for d in $dirList
+    do
+        [ -f "$d/$fileName" ] && result=1
+    done
+    IFS=$oldIFS
+    echo $result
+}
+
+function check_file_exist()
+{
+    fileName=$1
+    result=1
+    if [[ -z $fileName || ! -f $fileName ]]; then
+	result=0
+    fi
+    echo $result
+}
+
+
+
+
+function generate_decode_config()
 {
 
     DecodePrefix="\"decode\":["
@@ -49,11 +80,16 @@ generate_decode_config()
 	    fi
         fi
     
-        read -p  "Enter video file path:" VideoFilePath
-        if [[ -z $VideoFilePath || ! -f $VideoFilePath ]]; then
-            echo "Invalid video file path!"
-            exit
-        fi
+	res=0
+	while [[ $res -ne 1 ]]
+        do
+            read -p  "Enter video file path:" VideoFilePath
+	    res=$(check_file_exist $VideoFilePath)
+	    if [ $res -ne 1 ]; then
+                echo "Invalid video file path, please input it again!"
+	    fi
+	done
+
     
         ChannelParams="{\"media_file\": \"$VideoFilePath\",  \"socket_name\":\"/tmp/hddl_app_pipeline_$i.sock\", \"display_sink\":\"mysink\"}"
         ChannelConfig[$i]="{ \"pipe\": \"$PipelineStr\", \"param\": $ChannelParams }"
@@ -68,58 +104,83 @@ generate_decode_config()
     DecodeConfig="$DecodePrefix $DecodeContext $DecodeSuffix"
 }
 
-generate_hva_field()
+function generate_hva_field()
 {
     HvaPrefix="\"hva\":{"
     HvaSuffix="}"
-    
-    read -p "Enter your path to start hva pipeline[./FullPipe]:" HvaCmd 
-    if [[ -z $HvaCmd ]]; then
-        HvaCmd="./FullPipe"
-    fi
+    res=0
+    while [[ $res -ne 1 ]]
+    do
+        read -p "Enter your path to start hva pipeline[./FullPipe]:" HvaCmd 
+        if [[ -z $HvaCmd ]]; then
+            HvaCmd="./FullPipe"
+        fi
+	res=$(check_file_exist $HvaCmd)
+	if [ $res -ne 1 ]; then
+            echo "Can not find FullPipe, please input it again!"
+	fi
+    done
     HvaCmdConfig="\"cmd\": \"$HvaCmd\""
-    
-    
+
     read -p "Enter hva socket listenning for GUI messages. This will be consistent in generated config files[/tmp/gstreamer_ipc_second.sock]:" HvaSocket
     if [[ -z $HvaSocket ]]; then
         HvaSocket="/tmp/gstreamer_ipc_second.sock"
     fi
     HvaSocketConfig="\"socket_name\": \"$HvaSocket\""
     
-    
-    read -p "Enter the working directory of hva pipeline. This is also the path containing config.json used by hva pipeline:" HvaCwd
-    if [[ -z $HvaCwd || ! -d $HvaCwd ]]; then
-        echo "Invaild hva working directory"
-        exit
-    fi
+    res=0
+    while [[ $res -ne 1 ]]
+    do
+        read -p "Enter the working directory of hva pipeline. This is also the path containing config.json used by hva pipeline:" HvaCwd
+        if [[ -d $HvaCwd ]]; then
+	    res=1
+	else
+            echo "Can not find directory $HvaCwd, please input it again!"
+	fi
+    done
     HvaCwdConfig="\"working_directory\": \"$HvaCwd\""
     
     
     HvaEnvironmentPrefix="\"environment\": ["
     HvaEnvironmentSuffix="]"
     
-    
-    read -p "set hva environment variable LIBVA_DRIVERS_PATH:" HvaLibvaPath 
-    if [[ -z $HvaLibvaPath || ! -d $HvaLibvaPath || ! -f $HvaLibvaPath/hddl_bypass_drv_video.so ]]; then
-        echo "Invaild LIBVA_DRIVERS_PATH value"
-        exit
-    fi
+    res=0
+    while [[ $res -ne 1 ]]
+    do
+        read -p "set hva environment variable LIBVA_DRIVERS_PATH:" HvaLibvaPath 
+	res=$(find_file_in_dir_list $HvaLibvaPath hddl_bypass_drv_video.so)
+	if [ $res -ne 1 ]; then
+            echo "Can not find hddl_bypass_drv_video.so, please input it again!"
+	fi
+    done
     HvaEnvironmentContext[0]="{\"key\": \"LIBVA_DRIVERS_PATH\",\"value\": \"$HvaLibvaPath\"}"
 
-    
-    read -p "set hva environment variable GST_PLUGIN_PATH:" HvaGstPluginPath
-    if [[ -z $HvaGstPluginPath || ! -d $HvaGstPluginPath || ! -f $HvaGstPluginPath\libgstvaapi.so || ! -f $HvaGstPluginPath\libgstbypass.so ]]; then
-        echo "Invaild GST_PLUGIN_PATH"
-        exit
-    fi
+    res=0
+    while [[ $res -ne 1 ]]
+    do
+        read -p "set hva environment variable GST_PLUGIN_PATH:" HvaGstPluginPath
+	echo $HvaGstPluginPath
+	res1=$(find_file_in_dir_list $HvaGstPluginPath libgstvaapi.so)
+	res2=$(find_file_in_dir_list $HvaGstPluginPath libgstbypass.so)
+	if [ $res1 -eq 1 ] && [ $res2 -eq 1 ];then
+            res=1
+        fi
+
+	if [ $res -ne 1 ]; then
+            echo "Can not find libgstvaapi.so/libgstbypass.so, please input it again!"
+	fi
+    done
     HvaEnvironmentContext[1]="{\"key\": \"GST_PLUGIN_PATH\",\"value\": \"$HvaGstPluginPath\"}"
-    
-    
-    read -p "set hva environment variable CONFIG_PATH, which is requested by vaapi shim and should contain connection.cfg in its value:" HvaConfigPath
-    if [[ -z $HvaConfigPath || ! -f $HvaConfigPath ]]; then
-        echo "Invaild CONFIG_PATH"
-        exit
-    fi
+
+    res=0
+    while [[ $res -ne 1 ]]
+    do
+        read -p "set hva environment variable CONFIG_PATH, which is requested by vaapi shim and should contain connection.cfg in its value:" HvaConfigPath
+	res=$(check_file_exist $HvaConfigPath)
+	if [ $res -ne 1 ]; then
+            echo "Can not find connection.cfg, please input it again!"
+	fi
+    done
 
     read -p "set hva environment variable LD_LIBRARY_PATH, which is the system search path for shared libraries at runtime:" HvaLdLibPath
     if [[ -z $HvaLdLibPath ]]; then
@@ -128,10 +189,11 @@ generate_hva_field()
     fi
 
     HvaEnvironmentContext[2]="{\"key\": \"CONFIG_PATH\",\"value\": \"$HvaConfigPath\"}"
-    HvaEnvironmentContext[3]="{\"key\": \"GST_VAAPI_ALL_DRIVERS\",\"value\": \"1\"}"
-    HvaEnvironmentContext[4]="{\"key\": \"BYPASS_BATCH_MODE\",\"value\": \"1\"}"
+    HvaEnvironmentContext[3]="{\"key\": \"GST_VAAPI_ALL_DRIVERS\",\"value\": 1}"
+    HvaEnvironmentContext[4]="{\"key\": \"BYPASS_BATCH_MODE\",\"value\": 1}"
     HvaEnvironmentContext[5]="{\"key\": \"LIBVA_DRIVER_NAME\",\"value\": \"hddl_bypass\"}"
     HvaEnvironmentContext[6]="{\"key\": \"LD_LIBRARY_PATH\",\"value\": \"$HvaLdLibPath\"}"
+
 
     HvaEnvironmentConfig=""
     for i in "${HvaEnvironmentContext[@]}"
@@ -143,30 +205,37 @@ generate_hva_field()
     HvaConfig="$HvaPrefix $HvaCmdConfig $Seperator $HvaSocketConfig $Seperator $HvaCwdConfig $Seperator $HvaEnvironmentConfig  $HvaSuffix"
 }
 
-generate_hva_config()
+function generate_hva_config()
 {
     HvaPrefix="{"
     HvaSuffix="}"
 
-    read -p "Enter Detection model path:" HvaDetectionModelPath
-    if [[ -z $HvaDetectionModelPath || ! -f $HvaDetectionModelPath ]]; then
-        echo "Invaild detection model path"
-        exit
-    fi
+
+    res=0
+    while [[ $res -ne 1 ]]
+    do
+        read -p "Enter Detection model path:" HvaDetectionModelPath
+	res=$(check_file_exist $HvaDetectionModelPath)
+	if [ $res -ne 1 ]; then
+            echo "Invalid dectection model path, please input it again!"
+	fi
+    done
     HvaDetectionConfig="\"Detection\":{\"Model\": \"$HvaDetectionModelPath\"}"
 
-    read -p "Enter classification model path:" HvaClassificationModelPath
-    if [[ -z $HvaClassificationModelPath || ! -f $HvaClassificationModelPath ]]; then
-        echo "Invaild classification model path"
-        exit
-    fi
+    res=0
+    while [[ $res -ne 1 ]]
+    do
+        read -p "Enter classification model path:" HvaClassificationModelPath
+	res=$(check_file_exist $HvaClassificationModelPath)
+	if [ $res -ne 1 ]; then
+            echo "Invalid classification model path, please input it again!"
+	fi
+    done
     HvaClassificationConfig="\"Classification\":{\"Model\": \"$HvaClassificationModelPath\"}"
  
 
     HvaDecodeConfig="\"Decode\":["
-
     HvaGuiConfig="\"GUI\":{\"Socket\": \"$HvaSocket\"}"
-
 
     read -p "Enter FRC DropEveryXFrame value[3]:" HvaFRCDropEveryXFrame
     if [[ -z $HvaFRCDropEveryXFrame ]]; then
@@ -194,7 +263,7 @@ generate_hva_config()
             HvaDropXFrame=0
         fi
 
-        read -p "set codec, currently support h264, h265 or mp4 only[h264]:" HvaCodec
+	read -p "set codec, currently support h264, h265 or mp4 only[h264]:" HvaCodec
         if [[ -z $HvaCodec ]]; then
             HvaCodec="h264"
         fi
@@ -210,10 +279,9 @@ generate_hva_config()
     HvaDecodeConfig+="]"
 
     HvaFileConfig="$HvaPrefix $HvaDetectionConfig $Seperator $HvaClassificationConfig $Seperator $HvaDecodeConfig $Seperator $HvaGuiConfig $Seperator $HvaFRCConfig $HvaSuffix"
-    echo $HvaFileConfig | jq . > config.json
+    echo $HvaFileConfig | jq . > config_for_hva_sample.json
+    echo "config_for_hva_sample.json is successfully created in. Please mannually copy it to \$HvaCwd as config.json"
 }
-
-
 
 
 if [[ "$1" == "" ]]; then

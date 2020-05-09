@@ -22,4 +22,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         hddldemoutils)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
-install(FILES "config.txt" DESTINATION "./")
+
+

@@ -65,6 +65,10 @@
 GST_DEBUG_CATEGORY_STATIC(gst_osd_parser_debug);
 #define GST_CAT_DEFAULT gst_osd_parser_debug
 
+#ifndef UNUSED
+#define UNUSED(x) (void)x
+#endif
+
 /* Filter signals and args */
 enum {
     PROP_0
@@ -198,6 +202,8 @@ static void gst_osd_parser_clean(GstOsdParser* parser)
     }
     parser->blend_handle = NULL;
     parser->crop_handle = NULL;
+#else
+    UNUSED(parser);
 #endif
 }
 

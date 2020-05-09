@@ -256,6 +256,7 @@ GstFlowReturn ImageProcessor::process_image(GstBuffer* inbuf,
         break;
     case IMG_PROC_TYPE_OCL_CROP:
         ret = process_image_crop(inbuf, outbuf, crop);
+	break;
     default:
         ret = GST_FLOW_ERROR;
         break;

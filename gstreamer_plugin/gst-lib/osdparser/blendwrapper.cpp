@@ -81,6 +81,7 @@ void blend(GstOsdParser* filter, GstBuffer* buffer, BoundingBox* boxList, gint s
         GST_ERROR("Frame is reside in video memory, please correct caps in your pipeline!");
 #endif
     }
+    (void)filter;
 }
 
 static void putText(cv::Mat& mat, guint32 x, guint32 y, const std::string& text)
