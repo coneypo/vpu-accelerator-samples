@@ -405,7 +405,7 @@ void UniteHelper::setup() {
     videoWidth = HDDL2pluginHelper_t::alignTo<64>(videoWidth);
     videoWidthStride = videoWidth;
     HddlUnite::WorkloadContext::Ptr context = _workloadContextHelper.getWorkloadContext();
-    _inferDataPtr = HddlUnite::Inference::makeInferData(_auxBlob, context, needPP, 10);
+    _inferDataPtr = HddlUnite::Inference::makeInferData(_auxBlob, context, 10);
 
     _uniteGraphHelper = std::make_shared<HddlUnite_Graph_Helper>(graphName, graphPath, *context);
 
@@ -435,16 +435,17 @@ void UniteHelper::setup() {
             blobDesc.m_fd = _remoteMemoryFd;
             // blobDesc.m_format = HddlUnite::Inference::NV12;
             // blobDesc.m_dataSize  = videoWidthStride * videoHeight * 3/2;
-            blobDesc.m_res_width = videoWidth;
-            blobDesc.m_res_height = videoHeight;
-            blobDesc.m_width_stride = videoWidthStride;
-            blobDesc.m_plane_stride = videoWidthStride * videoHeight;
+            blobDesc.m_resWidth = videoWidth;
+            blobDesc.m_resHeight = videoHeight;
+            blobDesc.m_widthStride = videoWidthStride;
+            blobDesc.m_planeStride = videoWidthStride * videoHeight;
             blobDesc.m_rect.push_back(rect);
             if(!_inferDataPtr->createBlob(inputName, blobDesc, isInput))
             {
                 printf("[debug] error!\n");
             }
 
+            _inferDataPtr->setPPFlag(needPP);
             if (needPP)
             {
                 // need pp
@@ -759,6 +760,8 @@ void UniteHelper::update(int32_t videoWidth, int32_t videoHeight, uint64_t fd, c
         _remoteMemoryFd = fd;
     }
 
+    _inferDataPtr->setPPFlag(needPP);
+
     if (needPP)
     {
         inputSizePP = alignTo<64>(videoWidth)*alignTo<64>(videoHeight)*3/2;
@@ -780,10 +783,10 @@ void UniteHelper::update(int32_t videoWidth, int32_t videoHeight, uint64_t fd, c
     blobDesc.m_fd = _remoteMemoryFd;
     // blobDesc.m_format = HddlUnite::Inference::NV12;
     // blobDesc.m_dataSize  = videoWidthStride * videoHeight * 3/2;
-    blobDesc.m_res_width = videoWidth;
-    blobDesc.m_res_height = videoHeight;
-    blobDesc.m_width_stride = videoWidthStride;
-    blobDesc.m_plane_stride = alignTo<64>(videoWidth) * alignTo<64>(videoHeight);
+    blobDesc.m_resWidth = videoWidth;
+    blobDesc.m_resHeight = videoHeight;
+    blobDesc.m_widthStride = videoWidthStride;
+    blobDesc.m_planeStride = alignTo<64>(videoWidth) * alignTo<64>(videoHeight);
 
 
     if (vecROI.size() > 0)
