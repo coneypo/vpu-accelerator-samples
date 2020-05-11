@@ -738,10 +738,10 @@ public:
         }
         ROI roi;
         roi.labelIdClassification = idx;
-        std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
-        roi.labelClassification = labels[idx];
+        // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
+        roi.labelClassification = m_labels.imagenet_labelstring(idx);
         roi.confidenceClassification = exp(max) / sum;
-        printf("[debug] roi label is : %s\n", labels[idx].c_str());
+        printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
 
         //todo fix me
         assert(vecROI.size() == 0);
