@@ -373,7 +373,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     }
 
 
-                    m_orderKeeper.lock(ptrInferMeta->frameId);
+                    // m_orderKeeper.lock(ptrInferMeta->frameId);
                     
                     // Select new and tracked objects.
                     std::shared_ptr<Objects> ptr_new_objs = std::make_shared<Objects>();
@@ -470,10 +470,12 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                         {
                                             printf("[debug] tracked object, track id is: %ld\n", o.tracking_id);
                                         }
+                                        m_orderKeeper.lock(ptrInferMeta->frameId);
                                         auto final_objects = m_object_selector->postprocess(*ptr_new_objs, *ptr_tracked);
                                         m_orderKeeper.unlock(ptrInferMeta->frameId);
                                         for (auto& o : final_objects)
                                         {
+                                            printf("[debug] final objects oid is %d, label is %s\n", o.oid, o.class_label.c_str());
                                             ptrInferMeta->rois[o.oid].labelClassification = o.class_label;
                                             ptrInferMeta->rois[o.oid].labelIdClassification = o.class_id;
                                             ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
@@ -513,7 +515,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     else
                     {                        
                         ptrInferMeta->durationClassification = m_durationAve;
-                    
+                        
+                        m_orderKeeper.lock(ptrInferMeta->frameId);
                         auto final_objects = m_object_selector->postprocess(*ptr_new_objs, *ptr_tracked);
                         m_orderKeeper.unlock(ptrInferMeta->frameId);
 

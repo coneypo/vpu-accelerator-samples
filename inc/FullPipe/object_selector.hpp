@@ -63,6 +63,7 @@ private:
 private:
     int32_t update_period_;
     std::map<uint64_t, TrackInfo> track_info_map_;
+    std::map<uint64_t, TrackInfo> postproc_track_info_map_;
 
 public:
     using Ptr = std::shared_ptr<ObjectSelector>;
