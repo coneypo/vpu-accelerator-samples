@@ -281,7 +281,7 @@ int main(){
 #else //#ifdef USE_UNITE_API_IE
 #ifdef INFER_FP16
     auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
-                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_fp16), "detNode");
+                    &HDDL2pluginHelper_t::postprocYolotinyv2_fp16, config.detConfig.inferReqNumber, config.detConfig.threshold), "detNode");
 #else
     auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
@@ -350,7 +350,7 @@ int main(){
 
 #ifdef INFER_FP16
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_fp16), "clsNode");
+                    &HDDL2pluginHelper_t::postprocResnet50_fp16, config.clsConfig.inferReqNumber), "clsNode");
 #else
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
                                                            &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");

@@ -1,9 +1,12 @@
 {
   "Detection": {
-    "Model": "/home/kmb/cong/graph/alpha/tiny_yolo_v2_uint8_int8_weights_pertensor.blob"
+    "Model": "/home/kmb/cong/graph/alpha/tiny_yolo_v2_uint8_int8_weights_pertensor.blob",
+    "InferReqNumber": "1",
+    "Threshold": "0.61"
   },
   "Classification": {
-    "Model": "/home/kmb/cong/graph/alpha/resnet50_uint8_int8_weights_pertensor.blob"
+    "Model": "/home/kmb/cong/graph/alpha/resnet50_uint8_int8_weights_pertensor.blob",
+    "InferReqNumber": "2"
   },
   "Decode": [
     {
@@ -48,6 +51,6 @@
   },
   "FRC": {
     "DropEveryXFrame": 3,
-    "DropXFrame": 2
+    "DropXFrame": 0
   }
 }

@@ -32,6 +32,7 @@ InferNodeWorker::InferNodeWorker(hva::hvaNode_t *parentNode,
                                 : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc, thresholdDetection}, m_mode{mode},
                                 m_numInferRequest{numInferRequest}, m_thresholdDetection{thresholdDetection}
 {
+    HVA_INFO("m_numInferRequest is %d, m_thresholdDetection is %f", m_numInferRequest, m_thresholdDetection);
     if (m_mode == "classification")
     {
         printf("initialize ObjectSelector\n");
