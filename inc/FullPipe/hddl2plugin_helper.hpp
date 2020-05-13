@@ -480,7 +480,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE        
         start = std::chrono::steady_clock::now();
 #endif
-        ptrInferRequest->Wait(10000);
+        ptrInferRequest->Wait(1000000);
         ptrInferRequest->SetCompletionCallback(callback);
         ptrInferRequest->StartAsync();
 #ifdef HDDLPLUGIN_PROFILE  

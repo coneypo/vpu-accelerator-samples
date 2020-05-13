@@ -168,9 +168,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 auto callback = [=]() mutable
                 {
                     m_cntAsyncEnd++;
-                    printf("[debug] detection async end, cnt is: %d\n", (int)m_cntAsyncEnd);
+                    printf("[debug] detection async end, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int)m_cntAsyncEnd);
 
-                    printf("[debug] detection callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
+                    printf("[debug] detection callback start, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                     auto start = std::chrono::steady_clock::now();
@@ -230,7 +230,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     sendOutput(blob, 0, ms(0));
                     HVA_DEBUG("Detection completed sent blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     vecBlobInput.clear();
-                    printf("[debug] detection callback end, frame id is: %d\n", vecBlobInput[0]->frameId);
+                    printf("[debug] detection callback end, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
                     return;
                 };
@@ -240,7 +240,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     fd, input_height, input_width);
 
                 m_cntAsyncStart++;
-                printf("[debug] detection async start, cnt is: %d\n", (int32_t)m_cntAsyncStart);
+                printf("[debug] detection async start, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int32_t)m_cntAsyncStart);
 
                 auto end = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -402,9 +402,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                             auto callback = [=]() mutable
                             {
                                 m_cntAsyncEnd++;
-                                printf("[debug] classification async end, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int)m_cntAsyncEnd);
+                                printf("[debug] classification async end, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int)m_cntAsyncEnd);
 
-                                printf("[debug] classification callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
+                                printf("[debug] classification callback start, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                                 auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                                 auto start = std::chrono::steady_clock::now();
@@ -487,7 +487,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                                 }
                                 vecBlobInput.clear();
-                                printf("[debug] classification callback end, frame id is %d\n", vecBlobInput[0]->frameId);
+                                printf("[debug] classification callback end, frame id is %d, stream id is %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                                 m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
                                 return;
                             };
@@ -497,7 +497,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                             m_helperHDDL2.inferAsync(ptrInferRequest, callback,
                                 fd, input_height, input_width, vecROI[cntROI]);
                             m_cntAsyncStart++;
-                            printf("[debug] classification async start, frame id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, (int32_t)m_cntAsyncStart);
+                            printf("[debug] classification async start, frame id is: %d, stream id is %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int32_t)m_cntAsyncStart);
 
                             auto end = std::chrono::steady_clock::now();
                             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -554,7 +554,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 #endif //#ifdef VALIDATION_DUMP
                 
             }
-            printf("[debug] classification loop end, frame id is %d\n", vecBlobInput[0]->frameId);
+            printf("[debug] classification loop end, frame id is %d, stream id is %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
 
         }
         else
