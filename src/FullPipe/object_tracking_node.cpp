@@ -98,6 +98,7 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
                     roi.width = to.rect.width;
                     roi.height = to.rect.height;
                     roi.trackingId = to.tracking_id;
+                    roi.labelIdDetection = to.class_label;
                     roi.labelClassification = "unknown"; //"unknown";
                     roi.pts = static_cast<size_t>(m_vecBlobInput[0]->frameId);
                     ptrInferMeta->rois.push_back(roi);

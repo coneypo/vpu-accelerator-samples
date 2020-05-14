@@ -210,6 +210,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
                         roi.labelClassification = "unknown";
                         roi.pts = vecBlobInput[0]->frameId;
                         roi.confidenceClassification = 0;
+                        roi.confidenceDetection = vecObjects[i].confidenceDetection;
+                        roi.labelIdDetection = vecObjects[i].labelIdDetection;
                         // roi.indexROI = i;
                         ptrInferMeta->rois.push_back(roi);
                     }
@@ -427,6 +429,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                     boost::split(fields, vecROITemp[0].labelClassification, boost::is_any_of(","));
                                     vecROI[cntROI].labelClassification = fields[0];
                                     vecROI[cntROI].confidenceClassification = vecROITemp[0].confidenceClassification;
+                                    vecROI[cntROI].labelIdClassification = vecROITemp[0].labelIdClassification;
                                     printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
                                 }
 
@@ -474,6 +477,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                             ptrInferMeta->rois[o.oid].labelClassification = o.class_label;
                                             ptrInferMeta->rois[o.oid].labelIdClassification = o.class_id;
                                             ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
+                                        }
+                                        for(const auto& o: *ptr_new_objs){
+                                            ptrInferMeta->rois[o.oid].trackingStatus = HvaPipeline::TrackingStatus::NEW; //to be used by jpeg
                                         }
 
                                         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
