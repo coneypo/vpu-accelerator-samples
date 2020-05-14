@@ -51,9 +51,16 @@ std::tuple<Objects, Objects> ObjectSelector::preprocess(const Objects& objects)
            auto& track_info = track_info_map_[tid];
 
            if (track_info.age + 1 > update_period_)
+           {
+               track_info_map_[tid] = {tid, -1, "unknown", 0.0, 1};
                new_objs.push_back(o);
-           else  // set the class label of object from track info
+           }
+           else
+           {
+                // Increase the age of track info
+               track_info.age = std::max(track_info.age + 1, 1);
                tracked_objs.push_back(o);
+           }
        }
        else
        {
@@ -102,12 +109,14 @@ Objects ObjectSelector::postprocess(const Objects& classified, const Objects& tr
         id_set.insert(tid);
         assert(postproc_track_info_map_.find(tid) != postproc_track_info_map_.end());
 
-        // Increase the age of track info
         auto& track_info = postproc_track_info_map_[tid];
+
+        // set the class label of object from track info
         o.class_id = track_info.class_id;
         o.class_label = track_info.class_label;
         o.confidence_classification = track_info.confidence_classification;
 
+        // Increase the age of track info
         track_info.age = std::max(track_info.age + 1, 1);
         result.push_back(o);
     }
