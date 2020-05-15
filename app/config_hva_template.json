@@ -1,0 +1,108 @@
+{
+  "decode": [
+    {
+      "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/**Replace here with /path/to/h264/video **/",
+        "socket_name": "/tmp/gstreamer_ipc_0",
+        "display_sink": "mysink"
+      }
+    },
+    {
+      "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/**Replace here with /path/to/h264/video **/",
+        "socket_name": "/tmp/gstreamer_ipc_1",
+        "display_sink": "mysink"
+      }
+    },
+    {
+      "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/**Replace here with /path/to/h264/video **/",
+        "socket_name": "/tmp/gstreamer_ipc_2",
+        "display_sink": "mysink"
+      }
+    },
+    {
+      "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+      "param": {
+        "media_file": "/**Replace here with /path/to/h264/video **/",
+        "socket_name": "/tmp/gstreamer_ipc_3",
+        "display_sink": "mysink"
+      }
+    },
+    {
+        "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+        "param": {
+          "media_file": "/**Replace here with /path/to/h264/video **/",
+          "socket_name": "/tmp/gstreamer_ipc_4",
+          "display_sink": "mysink"
+        }
+    },
+    {
+        "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+        "param": {
+          "media_file": "/**Replace here with /path/to/h264/video **/",
+          "socket_name": "/tmp/gstreamer_ipc_5",
+          "display_sink": "mysink"
+        }
+    },
+    {
+        "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+        "param": {
+          "media_file": "/**Replace here with /path/to/h264/video **/",
+          "socket_name": "/tmp/gstreamer_ipc_6",
+          "display_sink": "mysink"
+        }
+    },
+    {
+        "pipe": "filesrc location=${media_file} ! h264parse ! mfxh264dec ! inference syncmode=index socketname=${socket_name} ! osdparser  ! mfxsink name=${display_sink} sync=false",
+        "param": {
+          "media_file": "/**Replace here with /path/to/h264/video **/",
+          "socket_name": "/tmp/gstreamer_ipc_7",
+          "display_sink": "mysink"
+        }
+    }
+  ],   
+  "app": {
+    "timeout": 0,
+    "mode": "replay"
+  },
+  "hva": {
+    "cmd": "/**Replace here with /path/to/hva/pipeline/executable/FullPipe **/",
+    "work_directory": "/**Replace here with /path/to/hva/pipeline/work/dir which contains config.json **/",
+    "socket_name": "/tmp/gstreamer_ipc_second.sock",
+    "environment": [
+      {
+        "key": "LIBVA_DRIVERS_PATH",
+        "value": "/**Replace here with /path/to/vaapi/driver/dir **/"
+      },
+      {
+        "key": "LIBVA_DRIVER_NAME",
+        "value": "hddl_bypass"
+      },
+      {
+        "key": "LD_LIBRARY_PATH",
+        "value": "/**Replace here with /value/of/LD_LIBRARY_PATH:/seperated/by/colon **/"
+      },
+      {
+        "key": "GST_PLUGIN_PATH",
+        "value": "/**Replace here with /path/to/gstreamer/plugin/dir **/"
+      },
+      {
+        "key": "GST_VAAPI_ALL_DRIVERS",
+        "value": "1"
+      },
+      {
+        "key": "CONFIG_PATH",
+        "value": "/**Replace here with /path/to/vaapi/connection/config/file/connection.cfg **/"
+      },
+      {
+        "key": "BYPASS_BATCH_MODE",
+        "value": "1"
+      }
+    ]
+  }
+}
+
