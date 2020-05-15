@@ -101,7 +101,7 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
                     roi.y = std::min(static_cast<int32_t>(ptrVideoMeta->videoHeight), roi.y);
                     roi.width = std::min(to.rect.width + to.rect.x, static_cast<int32_t>(ptrVideoMeta->videoWidth)) - roi.x;
                     roi.width = std::max(roi.width, 0);
-                    roi.height = std:min(to.rect.height + to.rect.y, static_cast<int32_t>(ptrVideoMeta->videoHeight)) - roi.y;
+                    roi.height = std::min(to.rect.height + to.rect.y, static_cast<int32_t>(ptrVideoMeta->videoHeight)) - roi.y;
                     roi.height = std::max(roi.height, 0);
                     roi.trackingId = to.tracking_id;
                     roi.labelIdDetection = to.class_label;
