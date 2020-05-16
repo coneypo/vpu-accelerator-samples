@@ -138,7 +138,7 @@ function generate_hva_field()
             echo "Can not find directory $HvaCwd, please input it again!"
 	fi
     done
-    HvaCwdConfig="\"working_directory\": \"$HvaCwd\""
+    HvaCwdConfig="\"work_directory\": \"$HvaCwd\""
     
     
     HvaEnvironmentPrefix="\"environment\": ["
