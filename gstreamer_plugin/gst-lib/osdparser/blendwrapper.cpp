@@ -52,25 +52,25 @@ void blend(GstOsdParser* filter, GstBuffer* buffer, BoundingBox* boxList, gint s
 {
     GstMfxVideoMeta* mfxMeta = gst_buffer_get_mfx_video_meta(buffer);
     GstMfxSurface* surface = gst_mfx_video_meta_get_surface(mfxMeta);
-    gboolean cropFlag;
     if (!gst_mfx_surface_has_video_memory(surface)) {
         guchar* data = gst_mfx_surface_get_plane(surface, 0);
         guint frame_width = gst_mfx_surface_get_width(surface);
         guint frame_height = gst_mfx_surface_get_height(surface);
         cv::Mat mat(frame_height, frame_width, CV_8UC4, data);
 
-        cropFlag = needCrop(enableCrop);
-        for (int i = 0; i < size; i++) {
-            if (cropFlag) {
+        if (needCrop(enableCrop)) {
+            for (int i = 0; i < size; i++) {
                 cropFrame(mat, boxList[i].x, boxList[i].y, boxList[i].height, boxList[i].width);
             }
+        }
+        for (int i = 0; i < size; i++) {
             drawLabelAndBoundingBox(mat, boxList[i].x, boxList[i].y, boxList[i].height, boxList[i].width, boxList[i].label, boxList[i].probability);
         }
+
     } else {
 #ifdef ENABLE_INTEL_VA_OPENCL
-        cropFlag = needCrop(enableCrop);
-        if(cropFlag){
-            cvdlhandler_crop_frame(filter->crop_handle,buffer,boxList,size);
+        if (needCrop(enableCrop)) {
+            cvdlhandler_crop_frame(filter->crop_handle, buffer, boxList, size);
         }
 
         GstBuffer* osd_buf;
@@ -255,16 +255,16 @@ void cvdlhandler_process_osd(FrameHandler handle, GstBuffer* buffer, GstBuffer* 
 
 void cvdlhandler_crop_frame(FrameHandler handle, GstBuffer* buffer, BoundingBox* box, guint32 num)
 {
-        for (guint32 i = 0; i < num; i++) {
-            VideoRect rect = { (uint32_t)box[i].x, (uint32_t)box[i].y, (uint32_t)box[i].width, (uint32_t)box[i].height };
-            std::shared_ptr<cv::UMat> croppedFrame = std::make_shared<cv::UMat>(cv::Size(rect.width, rect.height), CV_8UC3);
-            ImageProcessor* img_processor = static_cast<ImageProcessor*>(handle->mImgProcessor);
-            img_processor->process_image(buffer, croppedFrame, &rect);
+    for (guint32 i = 0; i < num; i++) {
+        VideoRect rect = { (uint32_t)box[i].x, (uint32_t)box[i].y, (uint32_t)box[i].width, (uint32_t)box[i].height };
+        std::shared_ptr<cv::UMat> croppedFrame = std::make_shared<cv::UMat>(cv::Size(rect.width, rect.height), CV_8UC3);
+        ImageProcessor* img_processor = static_cast<ImageProcessor*>(handle->mImgProcessor);
+        img_processor->process_image(buffer, croppedFrame, &rect);
 
-            std::shared_ptr<cv::Mat> image = std::make_shared<cv::Mat>() ;
-            cv::resize(*croppedFrame, *image, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
-            BlockingQueue<std::shared_ptr<cv::Mat>>::instance().put(image);
-        }
+        std::shared_ptr<cv::Mat> image = std::make_shared<cv::Mat>();
+        cv::resize(*croppedFrame, *image, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
+        BlockingQueue<std::shared_ptr<cv::Mat>>::instance().put(image);
+    }
 }
 
 #endif
