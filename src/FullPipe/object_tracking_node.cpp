@@ -46,7 +46,7 @@ void ObjectTrackingNodeWorker::process(std::size_t batchIdx)
     m_vecBlobInput = hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     if(m_vecBlobInput.size() != 0)
     {
-        printf("[debug] object tracking node start to process\n");
+        HVA_DEBUG("[debug] object tracking node start to process\n");
         auto ptrBufInfer = m_vecBlobInput[0]->get<int, InferMeta>(0);
         auto ptrBufVideo = m_vecBlobInput[0]->get<int, VideoMeta>(1);
 

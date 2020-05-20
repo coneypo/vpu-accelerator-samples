@@ -20,7 +20,7 @@ InferNode::InferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t 
 std::shared_ptr<hva::hvaNodeWorker_t> InferNode::createNodeWorker() const
 {
     std::lock_guard<std::mutex> lock{m_mutex};
-    printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
+    HVA_DEBUG("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
     return std::shared_ptr<hva::hvaNodeWorker_t>{
         new InferNodeWorker{const_cast<InferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc, 
                             m_numInferRequest, m_thresholdDetection}};
@@ -32,10 +32,10 @@ InferNodeWorker::InferNodeWorker(hva::hvaNode_t *parentNode,
                                 : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc, thresholdDetection}, m_mode{mode},
                                 m_numInferRequest{numInferRequest}, m_thresholdDetection{thresholdDetection}
 {
-    HVA_INFO("m_numInferRequest is %d, m_thresholdDetection is %f", m_numInferRequest, m_thresholdDetection);
+    HVA_DEBUG("m_numInferRequest is %d, m_thresholdDetection is %f", m_numInferRequest, m_thresholdDetection);
     if (m_mode == "classification")
     {
-        printf("initialize ObjectSelector\n");
+        HVA_DEBUG("initialize ObjectSelector\n");
         m_object_selector.reset(new ObjectSelector());
     }
 }
@@ -47,7 +47,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
     if (vecBlobInput.size() != 0)
     {
         auto start = std::chrono::steady_clock::now();
-        printf("[debug] frameId is %d, graphName is %s\n", vecBlobInput[0]->frameId, m_mode.c_str());
+        HVA_DEBUG("[debug] frameId is %d, graphName is %s\n", vecBlobInput[0]->frameId, m_mode.c_str());
         if (m_mode == "detection")
         {
             // const auto& pbuf = vInput[0]->get<int,VideoMeta>(0)->getPtr();
@@ -92,25 +92,25 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 m_helperHDDL2.update(fd, input_height, input_width);
                 auto end = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                printf("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                HVA_DEBUG("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                 start = std::chrono::steady_clock::now();
                 auto ptrOutputBlob = m_helperHDDL2.infer();
 
                 end = std::chrono::steady_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                HVA_DEBUG("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                 start = std::chrono::steady_clock::now();
                 std::vector<ROI> vecObjects;
                 m_helperHDDL2.postproc(ptrOutputBlob, vecObjects);
                 end = std::chrono::steady_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                HVA_DEBUG("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                 // end = std::chrono::steady_clock::now();
                 // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                // printf("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                // HVA_DEBUG("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
                 
                 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
                 m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
@@ -168,9 +168,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 auto callback = [=]() mutable
                 {
                     m_cntAsyncEnd++;
-                    printf("[debug] detection async end, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int)m_cntAsyncEnd);
+                    HVA_DEBUG("[debug] detection async end, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int)m_cntAsyncEnd);
 
-                    printf("[debug] detection callback start, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
+                    HVA_DEBUG("[debug] detection callback start, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                     auto start = std::chrono::steady_clock::now();
@@ -178,12 +178,12 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     m_helperHDDL2.postproc(ptrOutputBlob, vecObjects);
                     auto end = std::chrono::steady_clock::now();
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    HVA_DEBUG("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
 
                     // end = std::chrono::steady_clock::now();
                     // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    // printf("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    // HVA_DEBUG("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
                     
                     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
                     m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
@@ -232,7 +232,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     sendOutput(blob, 0, ms(0));
                     HVA_DEBUG("Detection completed sent blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     vecBlobInput.clear();
-                    printf("[debug] detection callback end, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
+                    HVA_DEBUG("[debug] detection callback end, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                     m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
                     return;
                 };
@@ -242,11 +242,11 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     fd, input_height, input_width);
 
                 m_cntAsyncStart++;
-                printf("[debug] detection async start, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int32_t)m_cntAsyncStart);
+                HVA_DEBUG("[debug] detection async start, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int32_t)m_cntAsyncStart);
 
                 auto end = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                HVA_DEBUG("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
                 HVA_DEBUG("Detection completed sending blob with frameid %u and streamid %u", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
             }
 
@@ -287,7 +287,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
                     {
                         ptrInferMeta->rois[i].labelClassification = "unknown";
-                        printf("[debug] roi label is : unknown\n");
+                        HVA_DEBUG("[debug] roi label is : unknown\n");
                     }
                     ptrInferMeta->durationClassification = m_durationAve;
 
@@ -306,13 +306,13 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     m_helperHDDL2.update(fd, input_height, input_width, vecROI);
                     auto end = std::chrono::steady_clock::now();
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    printf("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    HVA_DEBUG("update duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                     start = std::chrono::steady_clock::now();
                     auto ptrOutputBlob = m_helperHDDL2.infer();
                     end = std::chrono::steady_clock::now();
                     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    printf("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    HVA_DEBUG("pure sync inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                     start = std::chrono::steady_clock::now();
 #ifdef SINGLE_ROI_POSTPROC
@@ -323,18 +323,18 @@ void InferNodeWorker::process(std::size_t batchIdx)
 #endif
                     end = std::chrono::steady_clock::now();
                     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    HVA_DEBUG("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
                     
                     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
                     m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
                     m_fps = 1000.0f / m_durationAve;
                     m_cntFrame++;
 
-                    printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    HVA_DEBUG("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
                     // auto &vecROI = m_helperHDDL2._vecROI;
 
-                    printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROI.size());
+                    HVA_DEBUG("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROI.size());
                     assert(std::min(ptrInferMeta->rois.size(), 10ul) == vecROI.size());
 #ifdef SINGLE_ROI_POSTPROC
 
@@ -344,7 +344,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                         boost::split(fields, vecROITemp[0].labelClassification, boost::is_any_of(","));
                         ptrInferMeta->rois[i].labelClassification = fields[0];
                         ptrInferMeta->rois[i].confidenceClassification = vecROITemp[0].confidenceClassification;
-                        printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
+                        HVA_DEBUG("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
                     }
 #else
                     for (int i = 0; i < ptrInferMeta->rois.size(); i++)
@@ -353,7 +353,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                         boost::split(fields, vecROI[i].labelClassification, boost::is_any_of(","));
                         ptrInferMeta->rois[i].labelClassification = fields[0];
                         ptrInferMeta->rois[i].confidenceClassification = vecROI[i].confidenceClassification;
-                        printf("[debug] roi label is : %s\n", vecROI[i].labelClassification.c_str());
+                        HVA_DEBUG("[debug] roi label is : %s\n", vecROI[i].labelClassification.c_str());
                     }
 #endif //#ifdef SINGLE_ROI_POSTPROC
                     ptrInferMeta->durationClassification = m_durationAve;
@@ -404,9 +404,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
                             auto callback = [=]() mutable
                             {
                                 m_cntAsyncEnd++;
-                                printf("[debug] classification async end, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int)m_cntAsyncEnd);
+                                HVA_DEBUG("[debug] classification async end, frame id is: %d, stream id is: %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int)m_cntAsyncEnd);
 
-                                printf("[debug] classification callback start, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
+                                HVA_DEBUG("[debug] classification callback start, frame id is: %d, stream id is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                                 auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                                 auto start = std::chrono::steady_clock::now();
@@ -418,9 +418,9 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                                 auto end = std::chrono::steady_clock::now();
                                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                                printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                                HVA_DEBUG("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
                                 
-                                printf("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROITemp.size());
+                                HVA_DEBUG("[debug] input roi size: %ld, output label size: %ld\n", ptrInferMeta->rois.size(), vecROITemp.size());
                                 assert(1 == vecROITemp.size());
 
                                 // for (int i = 0; i < ptrInferMeta->rois.size(); i++)
@@ -430,7 +430,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                     vecROI[cntROI].labelClassification = fields[0];
                                     vecROI[cntROI].confidenceClassification = vecROITemp[0].confidenceClassification;
                                     vecROI[cntROI].labelIdClassification = vecROITemp[0].labelIdClassification;
-                                    printf("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
+                                    HVA_DEBUG("[debug] roi label is : %s\n", vecROITemp[0].labelClassification.c_str());
                                 }
 
                                 {
@@ -447,7 +447,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                         m_fps = 1000.0f / m_durationAve;
                                         m_cntFrame++;
 
-                                        printf("classification whole duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                                        HVA_DEBUG("classification whole duration is %ld, mode is %s\n", duration, m_mode.c_str());
                                         ptrInferMeta->durationClassification = m_durationAve;
 
                                         // fetch output object info
@@ -461,21 +461,21 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                         }
                                         // final output objects
 
-                                        printf("[debug] postprocess start, frame id is: %d\n", ptrInferMeta->frameId);
+                                        HVA_DEBUG("[debug] postprocess start, frame id is: %d\n", ptrInferMeta->frameId);
                                         for(const auto& o : *ptr_new_objs)
                                         {
-                                            printf("[debug] new object, track id is: %ld\n", o.tracking_id);
+                                            HVA_DEBUG("[debug] new object, track id is: %ld\n", o.tracking_id);
                                         }
                                         for(const auto& o : *ptr_tracked)
                                         {
-                                            printf("[debug] tracked object, track id is: %ld\n", o.tracking_id);
+                                            HVA_DEBUG("[debug] tracked object, track id is: %ld\n", o.tracking_id);
                                         }
                                         m_orderKeeper.lock(ptrInferMeta->frameId);
                                         auto final_objects = m_object_selector->postprocess(*ptr_new_objs, *ptr_tracked);
                                         m_orderKeeper.unlock(ptrInferMeta->frameId);
                                         for (auto& o : final_objects)
                                         {
-                                            printf("[debug] final objects oid is %d, label is %s\n", o.oid, o.class_label.c_str());
+                                            HVA_DEBUG("[debug] final objects oid is %d, label is %s\n", o.oid, o.class_label.c_str());
                                             ptrInferMeta->rois[o.oid].labelClassification = o.class_label;
                                             ptrInferMeta->rois[o.oid].labelIdClassification = o.class_id;
                                             ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
@@ -495,7 +495,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                                 }
                                 vecBlobInput.clear();
-                                printf("[debug] classification callback end, frame id is %d, stream id is %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
+                                HVA_DEBUG("[debug] classification callback end, frame id is %d, stream id is %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
                                 m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
                                 return;
                             };
@@ -505,11 +505,11 @@ void InferNodeWorker::process(std::size_t batchIdx)
                             m_helperHDDL2.inferAsync(ptrInferRequest, callback,
                                 fd, input_height, input_width, vecROI[cntROI]);
                             m_cntAsyncStart++;
-                            printf("[debug] classification async start, frame id is: %d, stream id is %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int32_t)m_cntAsyncStart);
+                            HVA_DEBUG("[debug] classification async start, frame id is: %d, stream id is %d, cnt is: %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId, (int32_t)m_cntAsyncStart);
 
                             auto end = std::chrono::steady_clock::now();
                             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                            printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                            HVA_DEBUG("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
                         }
                     }
                     else
@@ -549,7 +549,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 roi.confidenceClassification = 0;
                 roi.labelClassification = "unknown";
                 ptrInferMeta->rois.push_back(roi);
-                printf("[debug] fake roi\n");
+                HVA_DEBUG("[debug] fake roi\n");
                 
                 ptrInferMeta->durationClassification = m_durationAve;
             
@@ -563,7 +563,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 #endif //#ifdef VALIDATION_DUMP
                 
             }
-            printf("[debug] classification loop end, frame id is %d, stream id is %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
+            HVA_DEBUG("[debug] classification loop end, frame id is %d, stream id is %d\n", vecBlobInput[0]->frameId, vecBlobInput[0]->streamId);
 
         }
         else
@@ -573,7 +573,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
+        HVA_DEBUG("[debug] infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
     }
 }
 

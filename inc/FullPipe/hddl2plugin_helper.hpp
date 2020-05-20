@@ -29,6 +29,7 @@
 #include "region_yolov2tiny.h"
 #include "detection_helper.hpp"
 #include "ImageNetLabels.hpp"
+#include "hvaLogger.hpp"
 
 
 #define HDDLPLUGIN_PROFILE
@@ -74,18 +75,18 @@ public:
 
 //todo, no need to create unite context
 #if 0
-        printf("[debug] start create context\n");
+        HVA_DEBUG("[debug] start create context\n");
         _ptrContext = HddlUnite::createWorkloadContext();
         assert(nullptr != _ptrContext.get());
 
         _ptrContext->setContext(_workloadId);
         assert(_workloadId == _ptrContext->getWorkloadContextID());
         assert(HddlStatusCode::HDDL_OK == HddlUnite::registerWorkloadContext(_ptrContext));
-        printf("[debug] end create context\n");
+        HVA_DEBUG("[debug] end create context\n");
 #endif //todo, no need to create unite context
 
         // ---- Load inference engine instance
-        printf("[debug] start load graph\n");
+        HVA_DEBUG("[debug] start load graph\n");
 
         // ---- Init context map and create context based on it
         IE::ParamMap paramMap = {{IE::HDDL2_PARAM_KEY(WORKLOAD_CONTEXT_ID), _workloadId}};
@@ -103,7 +104,7 @@ public:
         std::istream graphBlob(&blobFile);
 
         _executableNetwork = _ie.ImportNetwork(graphBlob, _ptrContextIE);
-        printf("[debug] end load graph\n");
+        HVA_DEBUG("[debug] end load graph\n");
 
         // ---- Create infer request
         //todo, fix me
@@ -120,7 +121,7 @@ public:
 
         // ---- Load frame to remote memory (emulate VAAPI result)
         // ----- Load binary input
-        printf("[debug] start create input tensor\n");
+        HVA_DEBUG("[debug] start create input tensor\n");
 
         const auto &inputTensor = InferenceEngine::TensorDesc(InferenceEngine::Precision::U8,
                                                               {1, 1, 1, _heightInput * _widthInput * 3 / 2},
@@ -131,7 +132,7 @@ public:
         // (vpu::KmbPlugin::utils::fromBinaryFile(_inputPath, inputRefBlob));
         FILE *fp;
 
-        printf("inputRefBlob->byteSize() is :%d\n", inputRefBlob->byteSize());
+        HVA_DEBUG("inputRefBlob->byteSize() is :%d\n", inputRefBlob->byteSize());
         fp = fopen(_inputPath.c_str(), "rb");
         fread(inputRefBlob->buffer().as<void *>(), inputRefBlob->byteSize(), 1, fp);
         fclose(fp);
@@ -237,7 +238,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 
         start = std::chrono::steady_clock::now();
 #endif
@@ -256,16 +257,16 @@ public:
 #ifdef HDDLPLUGIN_PROFILE
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
 #if 0//todo, only for debug
-        printf("[debug] start dump input\n");
+        HVA_DEBUG("[debug] start dump input\n");
         std::ofstream fileInput("./input.bin", std::ios_base::out | std::ios_base::binary);
 
         const size_t inputSize = _ptrRemoteBlob->byteSize();
         fileInput.write(_ptrRemoteBlob->buffer(), inputSize);
-        printf("[debug] end dump input\n");
+        HVA_DEBUG("[debug] end dump input\n");
 #endif
 
 #ifdef HDDLPLUGIN_PROFILE  
@@ -297,10 +298,10 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
-        printf("[debug] end create input tensor\n");
+        HVA_DEBUG("[debug] end create input tensor\n");
     }
     //todo fix me
     inline IE::Blob::Ptr infer()
@@ -308,7 +309,7 @@ public:
         // std::string outputPath = "./output.bin";
 
         // ---- Run the request synchronously
-        printf("[debug] start inference\n");
+        HVA_DEBUG("[debug] start inference\n");
 
 #ifdef HDDLPLUGIN_PROFILE        
         auto start = std::chrono::steady_clock::now();
@@ -317,12 +318,12 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
-        printf("[debug] end inference\n");
+        HVA_DEBUG("[debug] end inference\n");
 
         // --- Get output
-        printf("[debug] start dump output file\n");
+        HVA_DEBUG("[debug] start dump output file\n");
 
 #ifdef HDDLPLUGIN_PROFILE
         start = std::chrono::steady_clock::now();
@@ -338,7 +339,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] GetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] GetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
 #if 0 //only for debug
@@ -353,7 +354,7 @@ public:
         const size_t outputSize = ptrOutputBlob->byteSize();
         file.write(ptrOutputBlob->buffer(), outputSize);
 #endif
-        printf("[debug] end dump output file\n");
+        HVA_DEBUG("[debug] end dump output file\n");
 
         return ptrOutputBlob;
     }
@@ -423,7 +424,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 
         start = std::chrono::steady_clock::now();
 #endif
@@ -439,7 +440,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
 
@@ -467,15 +468,15 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
-        printf("[debug] end create input tensor\n");
+        HVA_DEBUG("[debug] end create input tensor\n");
 
         // std::string outputPath = "./output.bin";
 
         // ---- Run the request synchronously
-        printf("[debug] start inference\n");
+        HVA_DEBUG("[debug] start inference\n");
 
 #ifdef HDDLPLUGIN_PROFILE        
         start = std::chrono::steady_clock::now();
@@ -486,9 +487,9 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
-        printf("[debug] end inference\n");
+        HVA_DEBUG("[debug] end inference\n");
 
         return;
     }
@@ -496,7 +497,7 @@ public:
     inline IE::Blob::Ptr getOutputBlob(IE::InferRequest::Ptr ptrInferRequest)
     {
         // --- Get output
-        printf("[debug] start dump output file\n");
+        HVA_DEBUG("[debug] start dump output file\n");
 
 #ifdef HDDLPLUGIN_PROFILE        
         auto start = std::chrono::steady_clock::now();
@@ -512,10 +513,10 @@ public:
 #ifdef HDDLPLUGIN_PROFILE  
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] GetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] GetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
 
-        printf("[debug] end dump output file\n");
+        HVA_DEBUG("[debug] end dump output file\n");
 
         return ptrOutputBlob;
     }
@@ -604,22 +605,20 @@ public:
                 object.confidence = rawData[i * 7 + 2];
                 vecObjects.push_back(object);
 
-                std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
-                std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
-                          << rawData[i * 7 + 4] << ", "
-                          << rawData[i * 7 + 5] << ", "
-                          << rawData[i * 7 + 6] << std::endl;
+                // std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
+                // std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
+                //           << rawData[i * 7 + 4] << ", "
+                //           << rawData[i * 7 + 5] << ", "
+                //           << rawData[i * 7 + 6] << std::endl;
             }
         }
 #endif
         for (auto &object : vecObjects)
         {
-            printf("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
+            HVA_DEBUG("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
             cv::rectangle(_frameBGR, cv::Rect(object.x, object.y, object.width, object.height), cv::Scalar(0, 255, 0), 2);
         }
         // char filename[256];
-        // snprintf(filename, _inputPath.size() - 4, "%s", _inputPath.c_str());
-        // snprintf(filename + strlen(filename), 256, "%s", "output.jpg");
         // static int frameCnt = 0;
         // snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
         // frameCnt++;
@@ -647,7 +646,7 @@ public:
 #ifdef HDDLPLUGIN_PROFILE
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] dequant duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] dequant duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
         // auto desc = output_blob->getTensorDesc();
         // auto dims = desc.getDims();
@@ -687,23 +686,21 @@ public:
                 object.confidenceDetection = rawData[i * 7 + 2];
                 vecROI.push_back(object);
 
-                std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
-                std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
-                          << rawData[i * 7 + 4] << ", "
-                          << rawData[i * 7 + 5] << ", "
-                          << rawData[i * 7 + 6] << std::endl;
+                // std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
+                // std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
+                //           << rawData[i * 7 + 4] << ", "
+                //           << rawData[i * 7 + 5] << ", "
+                //           << rawData[i * 7 + 6] << std::endl;
             }
         }
 #endif
         for (auto &object : vecROI)
         {
-            printf("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
+            HVA_DEBUG("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
             cv::rectangle(_frameBGR, cv::Rect(object.x, object.y, object.width, object.height), cv::Scalar(0, 255, 0), 2);
         }
 #if 0 //only for debug
         char filename[256];
-        snprintf(filename, _inputPath.size() - 4, "%s", _inputPath.c_str());
-        snprintf(filename + strlen(filename), 256, "%s", "output.jpg");
         static int frameCnt = 0;
         snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
         frameCnt++;
@@ -741,7 +738,7 @@ public:
         // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
         roi.labelClassification = m_labels.imagenet_labelstring(idx);
         roi.confidenceClassification = exp(max) / sum;
-        printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
+        HVA_DEBUG("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
 
         //todo fix me
         assert(vecROI.size() == 0);
@@ -789,7 +786,7 @@ public:
                 // _vecROI[i].label = labels[idx];
                 vecROI[i].labelClassification = m_labels.imagenet_labelstring(idx);
                 vecROI[i].confidenceClassification = exp(max) / sum;
-                printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
+                HVA_DEBUG("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
             }
         }
 
@@ -830,7 +827,7 @@ public:
         // _vecROI[i].label = labels[idx];
         roi.labelClassification = m_labels.imagenet_labelstring(idx);
         roi.confidenceClassification = exp(max) / sum;
-        printf("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
+        HVA_DEBUG("[debug] roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
         
         vecROI.push_back(roi);
 
@@ -1074,10 +1071,10 @@ public:
         inline void lock(uint64_t id)
         {
             std::unique_lock<std::mutex> lock(_mutex);
-            printf("[debug] order keeper lock\n");
+            HVA_DEBUG("[debug] order keeper lock\n");
             if(id < _cntOrder)
             {
-                printf("[warning] duplicated order id\n");
+                HVA_DEBUG("[warning] duplicated order id\n");
             }
             _cv.wait(lock, [&]{return id <= _cntOrder;});
         }
@@ -1085,12 +1082,12 @@ public:
         inline void unlock(uint64_t id)
         {
             std::unique_lock<std::mutex> lock(_mutex);
-            printf("[debug] order keeper unlock\n");
+            HVA_DEBUG("[debug] order keeper unlock\n");
             //todo, fix me
             assert(id == _cntOrder);
             if(id < _cntOrder)
             {
-                printf("[warning] duplicated order id\n");
+                HVA_DEBUG("[warning] duplicated order id\n");
             }
             else
             {
@@ -1108,13 +1105,13 @@ public:
         inline void bypass(uint64_t id)
         {
             std::unique_lock<std::mutex> lock(_mutex);
-            printf("[debug] order keeper bypass\n");
+            HVA_DEBUG("[debug] order keeper bypass\n");
             
             if(id <= _cntOrder)
             {
                 if(id < _cntOrder)
                 {
-                    printf("[warning] duplicated order id\n");
+                    HVA_DEBUG("[warning] duplicated order id\n");
                 }
                 else // id == _cntOrder
                 {

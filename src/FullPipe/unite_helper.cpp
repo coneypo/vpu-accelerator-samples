@@ -113,13 +113,13 @@ RemoteMemoryFd RemoteMemory_Helper::allocateRemoteMemory(const WorkloadID &id,
 RemoteMemoryFd
 RemoteMemory_Helper::allocateRemoteMemory(const WorkloadID &id, const size_t &size) {
     if (_memory != nullptr) {
-        printf("Memory already allocated!\n");
+        HVA_DEBUG("Memory already allocated!\n");
         return 0;
     }
 
     HddlUnite::WorkloadContext::Ptr context = HddlUnite::queryWorkloadContext(id);
     if (context == nullptr) {
-        printf("Incorrect workload id!\n");
+        HVA_DEBUG("Incorrect workload id!\n");
         return 0;
     }
 
@@ -130,7 +130,7 @@ RemoteMemory_Helper::allocateRemoteMemory(const WorkloadID &id, const size_t &si
 
     _memoryFd = _memory->getDmaBufFd();
 
-    printf("Memory fd: %lu\n", _memoryFd);
+    HVA_DEBUG("Memory fd: %lu\n", _memoryFd);
     return _memoryFd;
 }
 
@@ -143,7 +143,7 @@ std::string RemoteMemory_Helper::getRemoteMemory(const size_t &size) {
     char tempBuffer[EMULATOR_MAX_ALLOC_SIZE] = {};
     auto retCode = _memory->syncFromDevice(tempBuffer, size);
     if (retCode != HDDL_OK) {
-        printf("[ERROR] Failed to sync memory from device!\n");
+        HVA_DEBUG("[ERROR] Failed to sync memory from device!\n");
         return "";
     }
     return std::string(tempBuffer);
@@ -153,8 +153,7 @@ bool RemoteMemory_Helper::isRemoteTheSame(const std::string &dataToCompare) {
     const size_t size = dataToCompare.size();
     const std::string remoteMemory = getRemoteMemory(size);
     if (dataToCompare != remoteMemory) {
-        std::cout << "Handle: " << _memoryFd << " Remote memory " << remoteMemory
-                     << " != local memory " << dataToCompare << std::endl;
+
         return false;
     }
     return true;
@@ -330,7 +329,7 @@ bool TensorToBBox(const std::map<std::string, InferenceBackend::OutputBlob::Ptr>
         }
 
         if (blob_data == nullptr) {
-            fprintf(stderr, "Blob data pointer is null");
+            fHVA_DEBUG(stderr, "Blob data pointer is null");
             return false;
         }
 
@@ -360,7 +359,7 @@ bool TensorToBBox(const std::map<std::string, InferenceBackend::OutputBlob::Ptr>
                     for (size_t l = INDEX_CLASS_PROB_BEGIN; l < INDEX_CLASS_PROB_END; l++) {
                         float class_prob = raw_netout[l];
                         if (class_prob > 1.f) {
-                            printf("class_prob weired %f", class_prob);
+                            HVA_DEBUG("class_prob weired %f", class_prob);
                         }
                         if (class_prob > max_info.second) {
                             max_info.first = l - INDEX_CLASS_PROB_BEGIN;
@@ -423,7 +422,7 @@ void UniteHelper::setup() {
 
     auto inputBlob = _inferDataPtr->getInputBlob(inputName);
     if (inputBlob == nullptr) {
-        std::cout << "Input blob not found : creating default\n";
+        // std::cout << "Input blob not found : creating default\n";
         try {
             const int isInput = true;
 
@@ -442,7 +441,7 @@ void UniteHelper::setup() {
             blobDesc.m_rect.push_back(rect);
             if(!_inferDataPtr->createBlob(inputName, blobDesc, isInput))
             {
-                printf("[debug] error!\n");
+                HVA_DEBUG("[debug] error!\n");
             }
 
             _inferDataPtr->setPPFlag(needPP);
@@ -465,7 +464,7 @@ void UniteHelper::setup() {
 
     auto outputBlob = _inferDataPtr->getOutputBlob(outputName);
     if (outputBlob == nullptr) {
-        std::cout << "Output blob not found : creating default\n";
+        // std::cout << "Output blob not found : creating default\n";
         try {
             const int isInput = false;
             const bool isRemoteMem = true;
@@ -474,7 +473,7 @@ void UniteHelper::setup() {
             HddlUnite::Inference::BlobDesc blobDesc(precision, isRemoteMem, needAllocate, outputSize);
             if (!_inferDataPtr->createBlob(outputName, blobDesc, isInput))
             {
-                printf("[debug] error!\n");
+                HVA_DEBUG("[debug] error!\n");
             }
 
         } catch (const std::exception& ex) {
@@ -511,8 +510,8 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
     cv::Mat frameGray;
     cv::Mat frameBGR;
 #if 0
-    printf("[debug] videoHeight: %d, videoWidth: %d, inputSizePP: %d\n", videoHeight, videoWidth, inputSizePP);
-    printf("[debug] align videoHeight: %d, align videoWidth: %d\n", alignTo<64>(videoHeight), alignTo<64>(videoWidth));
+    HVA_DEBUG("[debug] videoHeight: %d, videoWidth: %d, inputSizePP: %d\n", videoHeight, videoWidth, inputSizePP);
+    HVA_DEBUG("[debug] align videoHeight: %d, align videoWidth: %d\n", alignTo<64>(videoHeight), alignTo<64>(videoWidth));
     frameGray = cv::Mat(cv::Size(alignTo<64>(videoWidth),alignTo<64>(videoHeight)*3/2), CV_8UC1);
     memcpy(frameGray.data, ptrTemp, alignTo<64>(videoWidth)*alignTo<64>(videoHeight)*3/2);
 
@@ -541,7 +540,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
         auto memoryBuffer = item.second->getData();
         assert(memoryBuffer.size() > 0);
 
-        // printf("[debug]dump file\n");
+        // HVA_DEBUG("[debug]dump file\n");
 
         // FILE* fp;
         // fp = fopen("output.bin", "wb");
@@ -560,7 +559,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
             {1, 1, 1, memoryBuffer.size()}, InferenceEngine::Layout::NHWC);
         
         InferenceEngine::Blob::Ptr ptrBlob = InferenceEngine::make_shared_blob<uint8_t>(desc, const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(memoryBuffer.data())));
-        printf("[debug] output size is %ld\n", memoryBuffer.size());
+        HVA_DEBUG("[debug] output size is %ld\n", memoryBuffer.size());
 #endif
         //post processing
         if ("resnet" == graphName || "classification" == graphName)
@@ -593,7 +592,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
                 std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
                 vecLabel.push_back(labels[idx]);
                 vecConfidence.push_back(exp(max) / sum);
-                printf("[debug] roi label is : %s\n", labels[idx].c_str());
+                HVA_DEBUG("[debug] roi label is : %s\n", labels[idx].c_str());
             }
 #else
             auto blobDequant = HDDL2pluginHelper_t::deQuantize(ptrBlob, 0.151837, 67);
@@ -624,7 +623,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
                 // std::vector<std::string> labels = readLabelsFromFile("/home/kmb/cong/graph/resnet.labels");
                 vecLabel.push_back(_labels.imagenet_labelstring(idx));
                 vecConfidence.push_back(exp(max) / sum);
-                printf("[debug] roi label is : %s\n", _labels.imagenet_labelstring(idx).c_str());
+                HVA_DEBUG("[debug] roi label is : %s\n", _labels.imagenet_labelstring(idx).c_str());
             }
 #endif
         }
@@ -643,7 +642,7 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
 #ifdef HDDLPLUGIN_PROFILE
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] dequant duration is %ld, mode is %s\n", duration, graphPath.c_str());
+        HVA_DEBUG("[debug] dequant duration is %ld, mode is %s\n", duration, graphPath.c_str());
 #endif
         // auto desc = output_blob->getTensorDesc();
         // auto dims = desc.getDims();
@@ -697,27 +696,25 @@ void UniteHelper::callInferenceOnBlobs(RemoteMemoryFd remoteMemoryFd, const std:
 
                 vecObjects.push_back(object);
 
-                std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
-                std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
-                          << rawData[i * 7 + 4] << ", "
-                          << rawData[i * 7 + 5] << ", "
-                          << rawData[i * 7 + 6] << std::endl;
+                // std::cout << "confidence = " << rawData[i * 7 + 2] << std::endl;
+                // std::cout << "x0,y0,x1,y1 = " << rawData[i * 7 + 3] << ", "
+                //           << rawData[i * 7 + 4] << ", "
+                //           << rawData[i * 7 + 5] << ", "
+                //           << rawData[i * 7 + 6] << std::endl;
             }
         }
 #endif
 
             for (auto& object : vecOjects)
             {
-                printf("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
+                HVA_DEBUG("[debug] object detected: x is %d, y is %d, w is %d, h is %d\n", object.x, object.y, object.width, object.height);
                 cv::rectangle(frameBGR, cv::Rect(object.x, object.y, object.width, object.height), cv::Scalar(0,255,0), 2);
             }
-            char filename[256];
-            snprintf(filename, inputPath.size() - 4, "%s", inputPath.c_str() );
-            snprintf(filename + strlen(filename), 256, "%s", "output.jpg");
-            static int frameCnt = 0;
-            snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
-            frameCnt++;
-            std::cout << filename << std::endl;
+            // char filename[256];
+            // static int frameCnt = 0;
+            // snprintf(filename, 256, "./output/debug-output-%d.jpg", frameCnt);
+            // frameCnt++;
+            // std::cout << filename << std::endl;
             // cv::imwrite(filename, frameBGR);
             // cv::imshow("output", frameBGR);
             // cv::waitKey(10);
