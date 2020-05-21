@@ -95,15 +95,22 @@ public:
         // ---- Import network providing context as input to bind to context
         const std::string &modelPath = _graphPath;
 
-        std::filebuf blobFile;
-        if (!blobFile.open(modelPath, std::ios::in | std::ios::binary))
+        if(_graphPath.find(".blob") != std::string::npos)
         {
-            blobFile.close();
-            THROW_IE_EXCEPTION << "Could not open file: " << modelPath;
+            std::filebuf blobFile;
+            if (!blobFile.open(modelPath, std::ios::in | std::ios::binary))
+            {
+                blobFile.close();
+                THROW_IE_EXCEPTION << "Could not open file: " << modelPath;
+            }
+            std::istream graphBlob(&blobFile);
+            _executableNetwork = _ie.ImportNetwork(graphBlob, _ptrContextIE);
         }
-        std::istream graphBlob(&blobFile);
-
-        _executableNetwork = _ie.ImportNetwork(graphBlob, _ptrContextIE);
+        else
+        {
+            auto network = _ie.ReadNetwork(modelPath, modelPath.substr(0, modelPath.length() - 4) + "xml");
+            _executableNetwork = _ie.LoadNetwork(network, _ptrContextIE, {});
+        }
         HVA_DEBUG("[debug] end load graph\n");
 
         // ---- Create infer request
