@@ -20,6 +20,7 @@ Pipeline::~Pipeline()
     if (m_pipeline) {
         gst_element_set_state(m_pipeline, GST_STATE_NULL);
         gst_object_unref(m_pipeline);
+        m_pipeline = NULL;
     }
 }
 

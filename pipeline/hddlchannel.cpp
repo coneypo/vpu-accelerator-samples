@@ -25,6 +25,12 @@ HddlChannel::HddlChannel(int channelId, QWidget* parent)
     connect(this, &HddlChannel::roiReady, this, &HddlChannel::sendRoiData);
 }
 
+HddlChannel::~HddlChannel()
+{
+    m_pipeline.reset();
+    qDebug() << "Hddl Pipeline" << m_id << "is closed";
+}
+
 bool HddlChannel::setupPipeline(const QString& pipelineDescription, const QString& displaySinkName)
 {
     if (m_pipeline->parse(pipelineDescription.toStdString().c_str(), displaySinkName.toStdString().c_str())) {
@@ -69,14 +75,14 @@ void HddlChannel::timerEvent(QTimerEvent* event)
     auto fps = m_pipeline->getFps();
     auto offloadInferFps = m_pipeline->getOffloadPipeInferenceFps();
     auto offloadDecFps = m_pipeline->getOffloadPipeDecodingFps();
-    m_dispatcher->sendString(QString::number(fps, 'f', 2)+":"+QString::number(offloadInferFps,'f', 2)+":"+QString::number(offloadDecFps,'f',2));
+    m_dispatcher->sendString(QString::number(fps, 'f', 2) + ":" + QString::number(offloadInferFps, 'f', 2) + ":" + QString::number(offloadDecFps, 'f', 2));
     fetchRoiData();
 }
 
 void HddlChannel::processAction(PipelineAction action)
 {
     m_pipeline->process(action);
-    if(action==MESSAGE_STOP){
+    if (action == MESSAGE_STOP) {
         QApplication::quit();
     }
 }

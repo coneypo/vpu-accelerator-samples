@@ -22,7 +22,7 @@ class HddlChannel : public QMainWindow {
     Q_OBJECT
 public:
     explicit HddlChannel(int channelId, QWidget* parent = 0);
-    virtual ~HddlChannel() = default;
+    virtual ~HddlChannel();
     bool initConnection(const QString& serverPath = "hddldemo");
     bool setupPipeline(const QString& pipelineDescription, const QString& displaySinkName);
     void run(int timeout = 0);

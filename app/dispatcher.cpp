@@ -22,7 +22,6 @@ Dispatcher::Dispatcher(const QString& name, QObject* parent)
 Dispatcher::~Dispatcher()
 {
     close();
-    qDebug() << "socket server is closed";
 }
 
 void Dispatcher::ConnectionArrived()

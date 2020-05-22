@@ -80,6 +80,8 @@ struct _GstInference {
     gboolean silent;
     const gchar* sockname;
     GstInferenceSyncMode syncmode;
+    GThread *thread;
+    gboolean needstop;
 };
 
 struct _GstInferenceClass {

@@ -133,8 +133,22 @@ HDDLDemo::HDDLDemo(QWidget* parent)
 
 HDDLDemo::~HDDLDemo()
 {
-    qDebug() << "delete demo";
+    m_dispatcher->sendAction(MESSAGE_STOP);
+    for (auto& process : m_pipelineProcesses) {
+        if (!process->waitForFinished()) {
+            process->kill();
+        }
+        delete process;
+    }
+
+    m_pipelineProcesses.clear();
+    if (m_hvaProcess) {
+        m_hvaProcess->kill();
+        delete m_hvaProcess;
+    }
+
     delete ui;
+    qDebug() << "Hddl Demo is closed";
 }
 
 void HDDLDemo::channelWIDReceived(qintptr sd, WId wid)
@@ -211,6 +225,7 @@ void HDDLDemo::runPipeline()
         arguments.push_back("--timeout");
         arguments.append(QString::number(m_timeout));
         hddlChannelProcess->start(hddlChannelCmd, arguments);
+        m_pipelineProcesses.push_back(hddlChannelProcess);
         m_launchedNum++;
     } else {
         m_pipelineTimer->stop();
@@ -247,11 +262,11 @@ void HDDLDemo::setupHvaProcess()
     for (auto& entry : hvaEnvironmentVariables) {
         env.insert(QString::fromStdString(entry.first), QString::fromStdString(entry.second));
     }
-    QProcess* hvaProcess = new QProcess(this);
-    hvaProcess->setProcessEnvironment(env);
-    hvaProcess->setWorkingDirectory(hvaWorkDirectory);
-    hvaProcess->setProcessChannelMode(QProcess::ForwardedChannels);
-    hvaProcess->start(hvaCmd);
+    m_hvaProcess = new QProcess(this);
+    m_hvaProcess->setProcessEnvironment(env);
+    m_hvaProcess->setWorkingDirectory(hvaWorkDirectory);
+    m_hvaProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+    m_hvaProcess->start(hvaCmd);
 }
 
 void HDDLDemo::sendSignalToHvaPipeline()

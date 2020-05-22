@@ -13,7 +13,6 @@
 #include <map>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <vector>
 
 #ifdef __cplusplus
@@ -89,7 +88,7 @@ static std::condition_variable infer_data_arrived;
 static PTS frameIdx = 0;
 
 static bool deserialize(const std::string& serialized_data);
-static int receiveRoutine(const char* socket_address);
+static gpointer receiveRoutine(gpointer socket_address);
 static int addMetaData(GstInference* infer, GstBuffer* buf);
 
 static void gst_inference_set_property(GObject* object, guint prop_id,
@@ -99,6 +98,8 @@ static void gst_inference_get_property(GObject* object, guint prop_id,
 
 static gboolean gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event);
 static GstFlowReturn gst_inference_chain(GstPad* pad, GstObject* parent, GstBuffer* buf);
+static void gst_inference_dispose (GObject * object);
+
 
 /* GObject vmethod implementations */
 
@@ -114,6 +115,7 @@ gst_inference_class_init(GstInferenceClass* klass)
 
     gobject_class->set_property = gst_inference_set_property;
     gobject_class->get_property = gst_inference_get_property;
+    gobject_class->dispose = gst_inference_dispose;
 
     g_object_class_install_property(gobject_class, PROP_SILENT,
         g_param_spec_boolean("silent", "Silent", "Produce verbose output ?",
@@ -155,6 +157,18 @@ gst_inference_init(GstInference* filter)
 
     filter->silent = FALSE;
     filter->sockname = "/var/tmp/gstreamer_ipc.sock";
+    filter->needstop = FALSE;
+    filter->thread = NULL;
+}
+
+static void gst_inference_dispose (GObject * object)
+{
+    GstInference* filter = GST_INFERENCE(object);
+    filter->needstop = TRUE;
+    if (filter->thread) {
+        g_thread_join(filter->thread);
+        filter->thread = NULL;
+    }
 }
 
 static void
@@ -223,10 +237,10 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
         break;
     }
     case GST_EVENT_STREAM_START: {
+        filter->thread = g_thread_new("receiveRoutine", receiveRoutine, filter);
         GST_DEBUG("server is waiting connection .....");
         //this function will block until socket connection is established.
-        static bool connect_client = [&parent]() {
-            std::thread(receiveRoutine, GST_INFERENCE(parent)->sockname).detach();
+        static bool connect_client = []() {
             std::unique_lock<std::mutex> connection_lock(mutex_connection);
             return connection_establised.wait_for(connection_lock, std::chrono::milliseconds(10000)) == std::cv_status::no_timeout;
         }();
@@ -329,16 +343,17 @@ static bool deserialize(const std::string& serialized_data)
     return true;
 }
 
-static int receiveRoutine(const char* socket_address)
+static gpointer receiveRoutine(gpointer userData)
 {
+    GstInference* filter = GST_INFERENCE(userData);
     auto poller = Poller::create();
     auto connection = Connection::create(poller);
-    if (!connection->listen(socket_address)) {
+    if (!connection->listen(filter->sockname)) {
         GST_ERROR("Error: Create service listening socket failed.\n");
-        return -1;
+        return NULL;
     }
 
-    while (true) {
+    while (!filter->needstop) {
         auto event = poller->waitEvent(100);
         switch (event.type) {
         case Event::Type::CONNECTION_IN: {
@@ -386,6 +401,7 @@ static int receiveRoutine(const char* socket_address)
             break;
         }
     }
+    return NULL;
 }
 
 static int addMetaData(GstInference* infer, GstBuffer* buf)

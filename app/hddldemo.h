@@ -7,6 +7,7 @@
 
 class Dispatcher;
 class QLabel;
+class QProcess;
 
 namespace Ui {
 class HDDLDemo;
@@ -44,6 +45,8 @@ private:
 
     QTimer* m_pipelineTimer; // channel launch timer
     QTimer* m_totalFpsTimer; // total fps update timer
+    std::vector<QProcess*> m_pipelineProcesses;
+    QProcess* m_hvaProcess { nullptr };
 
     QMap<qintptr, qint32> m_socketToIndex;
     QMap<qint32, int> m_channelToRoiNum;
