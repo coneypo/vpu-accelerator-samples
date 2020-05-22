@@ -86,13 +86,19 @@ void blend(GstOsdParser* filter, GstBuffer* buffer, BoundingBox* boxList, gint s
 
 static void putText(cv::Mat& mat, guint32 x, guint32 y, const std::string& text)
 {
-    cv::putText(mat, text, cv::Point(x, y + 30), 1, 1.8, GREEN, 2);
+    int baseline;
+    cv::Size textSize = cv::getTextSize(text, 1, 1.8, 2, &baseline);
+    if (x + textSize.width <= static_cast<guint32>(mat.cols) && y + textSize.height <= static_cast<guint32>(mat.rows)) {
+        cv::putText(mat, text, cv::Point(x, y + 30), 1, 1.8, GREEN, 2);
+    }
 }
 
 static void putRectangle(cv::Mat& mat, guint32 x, guint32 y, guint32 h, guint32 w)
 {
-    cv::Rect rect(x, y, w, h);
-    cv::rectangle(mat, rect, GREEN, 2);
+    if (x + w <= static_cast<guint32>(mat.cols) && y + h <= static_cast<guint32>(mat.rows)) {
+        cv::Rect rect(x, y, w, h);
+        cv::rectangle(mat, rect, GREEN, 2);
+    }
 }
 
 static gboolean needCrop(gboolean isCropEnabled)
@@ -111,13 +117,14 @@ static gboolean needCrop(gboolean isCropEnabled)
 
 static void cropFrame(cv::Mat& mat, guint32 x, guint32 y, guint32 h, guint32 w)
 {
-    cv::Rect rect(x, y, w, h);
-    std::shared_ptr<cv::Mat> croppedFrame = std::make_shared<cv::Mat>();
-
-    cv::Mat tempMat;
-    cv::cvtColor(mat(rect), tempMat, cv::COLOR_BGRA2RGB);
-    cv::resize(tempMat, *croppedFrame, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
-    BlockingQueue<std::shared_ptr<cv::Mat>>::instance().put(croppedFrame);
+    if (x + w <= static_cast<guint32>(mat.cols) && y + h <= static_cast<guint32>(mat.rows)) {
+        cv::Rect rect(x, y, w, h);
+        std::shared_ptr<cv::Mat> croppedFrame = std::make_shared<cv::Mat>();
+        cv::Mat tempMat;
+        cv::cvtColor(mat(rect), tempMat, cv::COLOR_BGRA2RGB);
+        cv::resize(tempMat, *croppedFrame, cv::Size(CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT));
+        BlockingQueue<std::shared_ptr<cv::Mat>>::instance().put(croppedFrame);
+    }
 }
 
 static void drawLabelAndBoundingBox(cv::Mat& mat, guint32 x, guint32 y, guint32 h, guint32 w, const std::string& label, gdouble probability)
