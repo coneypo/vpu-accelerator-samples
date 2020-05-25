@@ -13,7 +13,7 @@
 
 static XLinkHandler_t handler = {
     .devicePath = "/tmp/xlink_mock",
-    .deviceType = PCIE_DEVICE
+    .deviceType = HOST_DEVICE
 };
 static XLinkGlobalHandler_t ghandler = {
     .protocol = PCIE,

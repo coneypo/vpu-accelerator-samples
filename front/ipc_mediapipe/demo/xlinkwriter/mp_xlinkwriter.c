@@ -20,7 +20,7 @@ public:
         , opMode(RXB_TXB)
     {
         handler.devicePath = (char*)"/tmp/xlink_mock";
-        handler.deviceType = PCIE_DEVICE;
+        handler.deviceType = HOST_DEVICE;
         ghandler.protocol = PCIE;
     }
 

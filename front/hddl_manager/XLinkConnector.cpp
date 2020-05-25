@@ -30,11 +30,11 @@ int XLinkConnector::init()
     if (status != X_LINK_SUCCESS)
         return -1;
 
-    m_handler.dev_type = PCIE_DEVICE;
+    m_handler.dev_type = HOST_DEVICE;
     uint32_t sw_device_id_list[10];
     uint32_t num_devices;
     //TODO: fix hard-coded pid 0x6240
-    int ret = xlink_get_device_list(sw_device_id_list, &num_devices, 0x6240);
+    int ret = xlink_get_device_list(sw_device_id_list, &num_devices);
     assert(ret == 0);
     assert(num_devices != 0);
     fprintf(stderr, "hddl_manager|XLinkConnector|Get Device Num %d \n", num_devices);
@@ -108,7 +108,7 @@ void XLinkConnector::run()
     delete []message;
 }
 
-std::vector<xlink_channel_id_t> XLinkConnector::allocateChannel(uint32_t numChannel)
+std::vector<uint16_t> XLinkConnector::allocateChannel(uint32_t numChannel)
 {
     if (!numChannel) {
         return {};
@@ -116,8 +116,8 @@ std::vector<xlink_channel_id_t> XLinkConnector::allocateChannel(uint32_t numChan
 
     std::lock_guard<std::mutex> lock(m_channelMutex);
 
-    xlink_channel_id_t channel = m_channelMinValue;
-    std::vector<xlink_channel_id_t> channels;
+    uint16_t channel = m_channelMinValue;
+    std::vector<uint16_t> channels;
 
     while (channel < m_channelMaxValue) {
         if (m_channelSet.count(channel)) {
@@ -138,7 +138,7 @@ std::vector<xlink_channel_id_t> XLinkConnector::allocateChannel(uint32_t numChan
     return {};
 }
 
-void XLinkConnector::deallocateChannel(const std::vector<xlink_channel_id_t>& channels)
+void XLinkConnector::deallocateChannel(const std::vector<uint16_t>& channels)
 {
     if (channels.empty()) {
         return;
@@ -293,7 +293,7 @@ void XLinkConnector::handleAllocateChannel(HalMsgRequest& request, HalMsgRespons
 
 void XLinkConnector::handleDeallocateChannel(HalMsgRequest& request, HalMsgResponse& response)
 {
-    std::vector<xlink_channel_id_t> channels;
+    std::vector<uint16_t> channels;
     for (int i = 0; i < request.deallocate_channel().channelid_size(); ++i) {
         channels.push_back(request.deallocate_channel().channelid(i));
     }
