@@ -1042,12 +1042,25 @@ static char *mp_parse_config(mediapipe_t *mp, mp_command_t *cmd)
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(sink), "selected-target-context")) {
         GstHddlContext *context = gst_hddl_context_new (CONNECT_XLINK);
         context->hddl_xlink->xlink_handler->dev_type = HOST_DEVICE;
-        uint32_t sw_device_id_list[10];
+        uint32_t sw_device_id_list[20];
         uint32_t num_devices;
         int ret = xlink_get_device_list(sw_device_id_list, &num_devices);
         assert(ret == 0);
-        ret++;
-        context->hddl_xlink->xlink_handler->sw_device_id = sw_device_id_list[0];
+        UNUSED(ret);
+        uint32_t sw_device_id = -1;
+        for(unsigned int i = 0; i < num_devices; i++){
+            fprintf(stderr, "hddl_manager|set hddlsrc|Get Device %u sw_device_id %x\n", i, sw_device_id_list[i]);
+            if(sw_device_id_list[i] & (1 << 24))
+                sw_device_id = sw_device_id_list[i];
+        }   
+
+        if(sw_device_id <= 0){
+            GST_ERROR("hddl_manager|set hddlsrc|Cannot Get PCIE Device!"); 
+            abort();
+        }        
+       
+        GST_LOG("hddl_manager|Select PCIE deive %d", sw_device_id); 
+        context->hddl_xlink->xlink_handler->sw_device_id = sw_device_id;
         context->hddl_xlink->channelId = channelId;
         //use xlink_connect to get correct link_id
         xlink_connect(context->hddl_xlink->xlink_handler);

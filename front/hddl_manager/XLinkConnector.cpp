@@ -31,19 +31,25 @@ int XLinkConnector::init()
         return -1;
 
     m_handler.dev_type = HOST_DEVICE;
-    uint32_t sw_device_id_list[10];
+    uint32_t sw_device_id_list[20];
     uint32_t num_devices;
-    //TODO: fix hard-coded pid 0x6240
+
     int ret = xlink_get_device_list(sw_device_id_list, &num_devices);
     assert(ret == 0);
     assert(num_devices != 0);
     fprintf(stderr, "hddl_manager|XLinkConnector|Get Device Num %d \n", num_devices);
-    
+    m_handler.sw_device_id = -1;
+    //Select correct device 
     for(unsigned int i = 0; i < num_devices; i++){
         fprintf(stderr, "hddl_manager|XLinkConnector|Get Device %u sw_device_id %x\n", i, sw_device_id_list[i]);
+        if(sw_device_id_list[i] & (1 << 24))
+            m_handler.sw_device_id = sw_device_id_list[i];
     }
 
-    m_handler.sw_device_id = sw_device_id_list[0];
+    if(m_handler.sw_device_id <= 0) {
+        fprintf(stderr, "hddl_manager|XLinkConnector|Cannot Get PCIE Device!\n");
+        abort();
+    }
     xlink_connect(&m_handler);
     xlink_opmode operationType = RXB_TXB;
     ret = xlink_close_channel(&m_handler, m_commChannel);
