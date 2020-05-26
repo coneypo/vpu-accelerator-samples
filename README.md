@@ -4,6 +4,15 @@ A sample Bypass Pipeline
 
 This sample runs on IA host, with decoding offloaded to KMB and IE (detection + classification) on VPU. This sample now supports multistream, where at most we have tested 4 streams simultaneously at the moment.
 
+# Update
+
+- Async IE API is used to run inference, classification runs in sync mode because of requirement of object selection.
+- NN model updated from u8 to fp16 model, please run with fp16 models compiled with IR in openvino package(`resnet50_uint8_int8_weights_pertensor.xml`, `tiny_yolo_v2_uint8_int8_weights_pertensor.xml`).
+- Short term object tracking added. Classification will only run for new objects, previous classification results will be used for tracked objects.
+- For frames droped by FRC, detection will be skipped and ROI will be given by short-term object tracking.
+- Object tracking relies on OpenCV 4.3, if there is link error with OpenCV please update OpenCV to version 4.3.
+- Known bug: 4 stream runs OK, but 6 stream fails to start.
+
 #### External dependencies
 
 - [Gstreamer (for decoding)](#gstreamer)
@@ -30,8 +39,8 @@ The sections that each entity points briefly introduces the requirements and ver
     5. `HDDLUNITE_KMB_INSTALL_DIR` should be set to where hddlunite for KMB ARM is installed
     6. `HDDLUNITE_ROOT_DIR` should be set to the hddlunite repo directory
 4. `source script/setup_env_vars.sh`
-5. `script/build_vaapishim.sh -d 0 -k 0` where -d 0 refers to release build and -d 1 refers to debug build. -k 0 refers to to NOT build KMB binaries and libraries, to build and install vaapi shim
-6. `script/build_gst.sh -d 0` to build and install gstreamers
+5. `script/build_gst.sh -d 0` to build and install gstreamers
+6. `script/build_vaapishim.sh -d 0 -k 0` where -d 0 refers to release build and -d 1 refers to debug build. -k 0 refers to to NOT build KMB binaries and libraries, to build and install vaapi shim
 7. `script/build_dldt.sh -d 0` to build and install dldt and hddl2plugins
 
 #### Build
@@ -120,7 +129,7 @@ The GUI application will start HVA pipeline automatically. In order to make the 
 - Xlink Hang issue. Xlink communication channel through PCIE randomly hangs
 - Fd and memory leakage in vaapi shim, both on IA host and on KMB ARM
 - KMB ARM randomly kernel error. This happens randomly on KMB ARM and happens more often under heavy workload, e.g. 4-streams usecase
-- h265 is only supported by decoder. The decoded pixel format is not supported by IE and Jpeg Encoder
+- h265 is only supported by decoder, but if the h265 file is of P010 pixel format, then the decoded frame is not supported by IE and Jpeg Encoder
 
 ------
 
@@ -128,7 +137,7 @@ The GUI application will start HVA pipeline automatically. In order to make the 
 
 ###### OpenVINO dependency
 
-Use OpenVINO package released by ICV, or build HDDL2 plugin & InferenceEngine (`script/build_dldt.sh`) 
+Use [OpenVINO package released by ICV](http://nnt-srv01.inn.intel.com/builds/openvino_kmb/openvino-kmb.beta-20200422/builds/l_openvino_toolkit_private_ubuntu18_kmb_x86_p_0.0.0-2813-g509e8d4a56.tar.gz), or build HDDL2 plugin & InferenceEngine (`script/build_dldt.sh`) 
 
 ###### Boost
 
@@ -144,8 +153,8 @@ Another Gstreamer Plugin required to run the application is the bypass plugin, w
 
 ###### VAAPI Shim
 
-We have conducted some smoke tests using vaapi shim commit id c6c2be32. With this commit vaapi shim has issues of corrupted fd when creating VA Surfaces from fd and fd leakages. We have come up with a patch fixing on them (corrupted fd, and partially fixed fd leakage). Vaapi shim team should have incorporate this patch in their latest commit but we have not tested upon it. If in any case that the latest vaapi shim fails to function well, users are advised to use the commit id mentioned with patch provided in Hddlunite release page.
+Please use the latest commit on branch multisession, though the commit we tested upon is 83b441a4
 
 ###### Kmb IA GUI Application
 
-This application is tested together with Kmb IA Sample with commit id d21386e1
+Please use the latest commit on branch develop, though the commit we tested upon is a5fc637n

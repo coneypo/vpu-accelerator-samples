@@ -26,7 +26,7 @@ std::shared_ptr<hva::hvaNodeWorker_t> SenderNode::createNodeWorker() const{
     std::unordered_map<unsigned, std::string> sockets;
     for(unsigned i = startIdx; i != endIdx; ++i){
         sockets[i] = m_unixSocket[i];
-        std::cout << "Assigning socket " << m_unixSocket[i]<< " to stream "<<i<< std::endl;
+        HVA_DEBUG("Assigning socket %s to stream %u", m_unixSocket[i], i);
     }
     return std::shared_ptr<hva::hvaNodeWorker_t>(new SenderNodeWorker((SenderNode*)this, sockets));
 }
@@ -44,10 +44,9 @@ void SenderNodeWorker::process(std::size_t batchIdx){
     std::vector<std::shared_ptr<hva::hvaBlob_t>> vInput= hvaNodeWorker_t::getParentPtr()->getBatchedInput(batchIdx, std::vector<size_t> {0});
     
     if(vInput.size()!=0){
-        std::cout<<"Sender received blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
+        HVA_DEBUG("Sender received blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
         unsigned streamIdx = vInput[0]->streamId;
         InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
-        std::cout<<"Sender Received blob with idx "<<vInput[0]->frameId<<std::endl;
         float decFps = vInput[0]->get<int, VideoMeta>(1)->getMeta()->decFps;
         float inferFps = meta->inferFps;
         for(unsigned i =0; i< meta->rois.size(); ++i){
@@ -57,20 +56,20 @@ void SenderNodeWorker::process(std::size_t batchIdx){
         }
         m_sender[streamIdx]->send();
         // std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        std::cout<<"Sender complete blob with streamid "<<vInput[0]->streamId<<" and frameid "<<vInput[0]->frameId<<std::endl;
+        HVA_DEBUG("Sender complete blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
     }
 }
 
 void SenderNodeWorker::init(){
     for(const auto& pair: m_unixSocket){
         InferMetaSender* temp = new InferMetaSender();
-        std::cout << "Going to connect to " << pair.second << std::endl;
+        HVA_DEBUG("Going to connect to %s", pair.second);
         bool ret = temp->connectServer(pair.second);
         if(ret){
             m_sender[pair.first] = std::move(temp);
         }
         else{
-            std::cout << "Error: Fail to connect to " << pair.second << std::endl;
+            HVA_ERROR("Error: Fail to connect to %s", pair.second);
         }
     }
 }

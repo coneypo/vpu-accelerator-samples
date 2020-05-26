@@ -4,6 +4,9 @@
 #include <cstdint> 
 #include <string>
 #include <vector>
+#include <chrono>
+
+#define VALIDATION_DUMP
 
 using ms = std::chrono::milliseconds;
 
@@ -24,9 +27,14 @@ struct VideoMeta{
     unsigned videoHeight;
     std::size_t fdActualLength;
     float decFps;
+#ifdef VALIDATION_DUMP
+    ms frameStart;
+    ms frameEnd;
+#endif
+    bool drop;
 };
 
-struct ROI{
+struct ROI {
     int32_t x {0};
     int32_t y {0};
     int32_t width {0};
@@ -45,7 +53,7 @@ struct ROI{
 
     //for tracking
     uint64_t trackingId {0};
-    HvaPipeline::TrackingStatus trackingStatus {HvaPipeline::TrackingStatus::NEW};
+    HvaPipeline::TrackingStatus trackingStatus {HvaPipeline::TrackingStatus::LOST}; //default to lost so jpeg won't encode by default
 };
 
 struct InferMeta{
@@ -58,7 +66,7 @@ struct InferMeta{
     float durationDetection{0.0f};
     float durationClassification{0.0f};
 
-    bool drop{false};
+    // bool drop{false};
 };
 
 #endif //#ifndef COMMON_HPP

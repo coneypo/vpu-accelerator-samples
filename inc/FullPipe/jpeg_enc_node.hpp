@@ -21,6 +21,15 @@
 
 #endif //#ifdef HANTRO_JPEGENC_ROI_API
 
+#define JPEG_VAAPI_STATUS_CHECK(STATUS, LOG, SURFACE)	\
+{							\
+    if(STATUS != VA_STATUS_SUCCESS){  			\
+        HVA_ERROR(LOG);    			\
+        m_pool->reset(SURFACE);				\
+        return;						\
+    }							\
+}			
+
 enum JpegEncNodeStatus_t{
     JpegEnc_NoError = 0,
     JpegEnc_VaInitFailed
@@ -83,6 +92,7 @@ public:
     bool moveToUsed(Surface** surface);
     bool getUsedSurface(Surface** surface);
     bool moveToFree(Surface** surface);
+    bool reset(Surface** surface);
 private:
     bool getFreeSurfaceUnsafe(Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf);
     bool moveToUsedUnsafe(Surface** surface);

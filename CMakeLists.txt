@@ -34,7 +34,7 @@ include_directories( "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/hva/"
   "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/hva/inc/api"
   "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/hva/inc/scheduler"
   "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/hva/inc/util"
-  "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/hva/3rdparty/ade/include")
+  "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/hva/3rdparty/ade/sources/ade/include")
 
 add_library(hva SHARED IMPORTED)
 set_target_properties(hva PROPERTIES

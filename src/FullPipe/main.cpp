@@ -22,17 +22,15 @@
 #include "InferNode_unite.hpp"
 #include <PipelineConfig.hpp>
 #include "object_tracking_node.hpp"
+#include <validationDumpNode.hpp>
+#include <Sender.hpp>
 
 #define STREAMS 1
 #define MAX_STREAMS 64
-#define GUI_INTEGRATION
 // #define USE_FAKE_IE_NODE
-// #define USE_OBJECT_TRACKING
+#define USE_OBJECT_TRACKING
+// #define USE_UNITE_API_IE
 using ms = std::chrono::milliseconds;
-
-#ifdef GUI_INTEGRATION
-#include <Sender.hpp>
-#endif 
 
 enum ControlMessage{
     EMPTY = 0,
@@ -47,6 +45,7 @@ bool checkValidNetFile(std::string filepath){
     std::string::size_type suffix_pos = filepath.find(".blob");
     if(suffix_pos == std::string::npos){
         std::cout<<"Invalid network suffix. Expect *.xml"<<std::endl;
+        HVA_ERROR("Invalid network suffix. Expect *.xml");
         return false;
     }
     // std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
@@ -54,6 +53,7 @@ bool checkValidNetFile(std::string filepath){
     auto p = boost::filesystem::path(filepath);
     if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
         std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+        HVA_ERROR("File %s does not exists", filepath);
         return false;
     }
 
@@ -70,6 +70,7 @@ bool checkValidVideo(std::string filepath){
     auto p = boost::filesystem::path(filepath);
     if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
         std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+        HVA_ERROR("File %s does not exists", filepath);
         return false;
     }
     return true;
@@ -86,6 +87,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
     auto poller = HddlUnite::Poller::create();
     auto connection = HddlUnite::Connection::create(poller);
     std::cout<<"Set socket to listening"<<std::endl;
+    HVA_DEBUG("Set socket to listening");
     if (!connection->listen(socket_address)) {
         return -1;
     }
@@ -97,7 +99,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
         switch (event.type) {
             case HddlUnite::Event::Type::CONNECTION_IN:
                 connection->accept();
-                std::cout<<"Incoming connection accepted"<<std::endl;
+                HVA_DEBUG("Incoming connection accepted");
                 break;
             case HddlUnite::Event::Type::MESSAGE_IN: {
 
@@ -110,8 +112,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                     if (!data_connection->read(&length, sizeof(length))) {
                         break;
                     }
-                    std::cout<<"Length received is "<<length<<std::endl;
-
+                    HVA_DEBUG("Length received is %d", length);
                     if (length <= 0) {
                         break;
                     }
@@ -120,7 +121,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                     if (!data_connection->read(&message[0], length)) {
                         break;
                     }
-                    std::cout<<"message received is "<<message<<std::endl;
+                    HVA_DEBUG("message received is %s", message.c_str());
                 }
 
                 if(message=="STOP"){
@@ -134,24 +135,24 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                         std::lock_guard<std::mutex> lg(g_mutex);
                         boost::split(config->unixSocket, message, boost::is_any_of(","));
                         for (unsigned i = 0; i < config->unixSocket.size();++i){
-                            std::cout << "Value of config[" << i << "]: " << config->unixSocket[i] << std::endl;
+                            HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i].c_str());
                         }
                             config->numOfStreams = config->unixSocket.size();
                         // for(unsigned i = 0; i< config->numOfStreams; ++i){
                         //     config->unixSocket[i] = sockets[i];
                         // }
                         *ctrlMsg = ControlMessage::ADDR_RECVED;
-                        std::cout<<"Control message set to addr_recved"<<std::endl;
+                        HVA_INFO("Control message set to addr_recved");
                     }
                     g_cv.notify_all();
-                    std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
+                    HVA_INFO("Going to stop receive routine after 5 s");
                     std::this_thread::sleep_for(ms(5000));
                     running = false;
                 }
                 break;
             }
             case HddlUnite::Event::Type::CONNECTION_OUT:
-                std::cout<<"Going to stop receive routine after 5 s"<<std::endl;
+                HVA_INFO("Going to stop receive routine after 5 s");
                 std::this_thread::sleep_for(ms(5000));
                 running = false;
                 /* stop pipeline */
@@ -172,11 +173,16 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
 
 int main(){
 
+    hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
+    // hvaLogger.dumpToFile("test.log", false);
+    // hvaLogger.enableProfiling();
+
     gst_init(0, NULL);
 
     PipelineConfigParser configParser;
     if(!configParser.parse("config.json")){
         std::cout<<"Failed to parse config.json"<<std::endl;
+        HVA_ERROR("Failed to parse config.json");
         return 0;
     }
 
@@ -190,31 +196,23 @@ int main(){
             return -1;
     }
 
-#ifdef GUI_INTEGRATION
     SocketsConfig_t sockConfig;
     sockConfig.numOfStreams = 0;
-    // sockConfig.unixSocket = "";
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
-#endif
 
-#ifdef GUI_INTEGRATION
     std::thread t(receiveRoutine, config.guiSocket.c_str(), &ctrlMsg, &sockConfig);
-#endif
 
     std::mutex WIDMutex;
     std::condition_variable WIDCv;
     unsigned WIDReadyCnt = 0;
-    // std::promise<uint64_t> WIDPromise;
-    // std::future<uint64_t> WIDFuture = WIDPromise.get_future();
     hva::hvaPipeline_t pl;
 
-#ifdef GUI_INTEGRATION
-    // bool ready = configFuture.get();
     {
         std::unique_lock<std::mutex> lk(g_mutex);
         if(sockConfig.numOfStreams == 0){
             g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
             std::cout<<"Control message addr_recved received and cleared"<<std::endl;
+            HVA_INFO("Control message addr_recved received and cleared");
             ctrlMsg = ControlMessage::EMPTY;
         }
     }
@@ -222,21 +220,18 @@ int main(){
     vTh.reserve(sockConfig.numOfStreams);
     std::vector<GstPipeContainer*> vCont(sockConfig.numOfStreams);
     std::vector<uint64_t> vWID(sockConfig.numOfStreams, 0); 
-    // std::cout<<" Unix Socket addr received is "<<sockConfig.unixSocket<<std::endl;
     std::this_thread::sleep_for(ms(1000));
-#endif
+
     for(unsigned i = 0; i < sockConfig.numOfStreams; ++i){
-        // std::cout<<"starting thread "<<i<<std::endl;
         vTh.push_back(new std::thread([&, i](){
-                    // GstPipeContainer cont(i);
                     vCont[i] = new GstPipeContainer(i);
                     uint64_t WID = 0;
                     if(vCont[i]->init(config.vDecConfig[i], WID) != 0 || WID == 0){
                         std::cout<<"Fail to init cont!"<<std::endl;
+                        HVA_ERROR("Fail to init cont!");
                         return;
                     }
 
-                    // WIDPromise.set_value(WID);
                     vWID[i] = WID;
                     {
                         std::lock_guard<std::mutex> WIDLg(WIDMutex);
@@ -244,18 +239,18 @@ int main(){
                     }
                     WIDCv.notify_all();
 
-                    std::this_thread::sleep_for(ms(2000));
-                    std::cout<<"Dec source start feeding."<<std::endl;
+                    std::this_thread::sleep_for(ms(5000));
+                    HVA_INFO("Dec source start feeding.");
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     while(vCont[i]->read(blob)){
                         int* fd = blob->get<int, VideoMeta>(0)->getPtr();
-                        std::cout<<"FD received is "<<*fd<<"with streamid "<<blob->streamId<<" and frameid "<<blob->frameId<<std::endl;
+                        HVA_DEBUG("FD received is %d with streamid %d and frame id %d", *fd, blob->streamId, blob->frameId);
 
-                        pl.sendToPort(blob,"detNode",0,ms(0));
+                        pl.sendToPort(blob,"FRCNode",0,ms(0));
 
                         blob.reset(new hva::hvaBlob_t());
-                        std::cout<<"Sent fd "<<*fd<<" completed"<<std::endl;
+                        HVA_DEBUG("Sent fd %d from decoder completes",*fd);
                     }
 
                     {
@@ -264,25 +259,37 @@ int main(){
                     }
                     g_cv.notify_all();
 
-                    std::cout<<"Finished"<<std::endl;
+                    HVA_INFO("Decoder finished");
                     return;
                 }));
     }
 
-    // uint64_t WID = WIDFuture.get();
     std::unique_lock<std::mutex> WIDLock(WIDMutex);
     WIDCv.wait(WIDLock,[&](){ return WIDReadyCnt == sockConfig.numOfStreams;});
     WIDLock.unlock();
 
     std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
+    HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
+    auto &FRCNode = pl.setSource(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
 #ifdef USE_FAKE_IE_NODE
-    auto& detNode = pl.setSource(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
+    auto& detNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
 #else
-    // auto &detNode = pl.setSource(std::make_shared<InferNode>(1, 1, 1, vWID[0], g_detNetwork, "detection", 
-    //                                                          &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
 
-    auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,sockConfig.numOfStreams, 
-    vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
+#ifdef USE_UNITE_API_IE
+    auto &detNode = pl.addNode(std::make_shared<InferNode_unite>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
+                                                             416*416*3,13*13*125), "detNode");
+#else //#ifdef USE_UNITE_API_IE
+#ifdef INFER_FP16
+    auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
+                    &HDDL2pluginHelper_t::postprocYolotinyv2_fp16, config.detConfig.inferReqNumber, config.detConfig.threshold), "detNode");
+#else
+    auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
+                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
+#endif
+
+#endif //#ifdef USE_UNITE_API_IE
+    // auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,sockConfig.numOfStreams, 
+    // vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -295,11 +302,12 @@ int main(){
 #endif
 
 #ifndef USE_OBJECT_TRACKING
-    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 0, config.FRCConfig), "FRCNode");
+    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
 #else
     auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
-    vWID, 0, ""), "trackingNode");
-    if(sockConfig.numOfStreams > 1){
+    vWID, 0, "objectTracking", "short_term_imageless"), "trackingNode");
+    // if(sockConfig.numOfStreams > 1)
+    {
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
         batchingConfig.batchSize = 1;
@@ -310,15 +318,20 @@ int main(){
     }
 #endif
 
-#ifdef GUI_INTEGRATION
-
 #ifdef USE_FAKE_IE_NODE
     auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
 #else //#ifdef USE_FAKE_IE_NODE
-    // auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, 1, vWID[0], g_clsNetwork, "classification",
-    //                                                        &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-    auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
-    vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+#ifndef VALIDATION_DUMP
+
+#ifdef INFER_FP16
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_fp16), "clsNode");
+#else
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+#endif
+    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
+    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -328,6 +341,34 @@ int main(){
 
         clsNode.configBatch(batchingConfig);
     }
+#else //#ifndef VALIDATION_DUMP
+
+#ifdef USE_UNITE_API_IE
+    auto &clsNode = pl.addNode(std::make_shared<InferNode_unite>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification", 
+                                                             224*224*3, 1000), "clsNode");
+#else //#ifdef USE_UNITE_API_IE
+
+#ifdef INFER_FP16
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
+                    &HDDL2pluginHelper_t::postprocResnet50_fp16, config.clsConfig.inferReqNumber), "clsNode");
+#else
+    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
+                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
+#endif
+#endif //#ifdef USE_UNITE_API_IE
+    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
+    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+    // if(sockConfig.numOfStreams > 1)
+    {
+        hva::hvaBatchingConfig_t batchingConfig;
+        batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
+        batchingConfig.batchSize = 1;
+        batchingConfig.streamNum = sockConfig.numOfStreams;
+        batchingConfig.threadNumPerBatch = 1;
+
+        clsNode.configBatch(batchingConfig);
+    }
+#endif //#ifndef VALIDATION_DUMP
 #endif //#ifdef USE_FAKE_IE_NODE
     if(sockConfig.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,sockConfig.numOfStreams,sockConfig.unixSocket), "sendNode");
@@ -335,18 +376,7 @@ int main(){
     else{
         pl.addNode(std::make_shared<SenderNode>(1,1,1,sockConfig.unixSocket), "sendNode");
     }
-    // auto& sendNode = pl.addNode(std::make_shared<SenderNode>(1,1,2,sockConfig.unixSocket), "sendNode");
 
-#else //#ifdef GUI_INTEGRATION
-
-#ifdef USE_FAKE_IE_NODE
-    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,1,"classification"), "clsNode");
-#else //#ifdef USE_FAKE_IE_NODE
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 1, 1, WID, config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-#endif //#ifdef USE_FAKE_IE_NODE
-
-#endif //#ifdef GUI_INTEGRATION
     auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,sockConfig.numOfStreams,vWID), "jpegNode");
 
     if(sockConfig.numOfStreams > 1){
@@ -359,18 +389,24 @@ int main(){
         jpegNode.configBatch(batchingConfig);
     }
 
+#ifdef VALIDATION_DUMP
+    auto& validationDumpNode = pl.addNode(std::make_shared<ValidationDumpNode>(1,0,1,"Resnet"), "validationDumpNode");
+#endif //#ifdef VALIDATION_DUMP
+
 #ifndef USE_OBJECT_TRACKING
-    pl.linkNode("detNode", 0, "FRCNode", 0);
-    pl.linkNode("FRCNode", 0, "clsNode", 0);
+    pl.linkNode("FRCNode", 0, "detNode", 0);
+    pl.linkNode("detNode", 0, "clsNode", 0);
 #else
+    pl.linkNode("FRCNode", 0, "detNode", 0);
     pl.linkNode("detNode", 0, "trackingNode", 0);
     pl.linkNode("trackingNode", 0, "clsNode", 0);
 #endif
 
     pl.linkNode("clsNode", 0, "jpegNode", 0);
-#ifdef GUI_INTEGRATION
     pl.linkNode("clsNode", 1, "sendNode", 0);
-#endif
+#ifdef VALIDATION_DUMP
+    pl.linkNode("clsNode", 2, "validationDumpNode", 0);
+#endif //#ifdef VALIDATION_DUMP
 
     pl.prepare();
 
@@ -381,11 +417,13 @@ int main(){
         std::unique_lock<std::mutex> lk(g_mutex);
         g_cv.wait(lk,[&](){ return ControlMessage::STOP_RECVED == ctrlMsg;});
         std::cout<<"Control message stop_recved received and cleared"<<std::endl;
+        HVA_INFO("Control message stop_recved received and cleared");
         ctrlMsg = ControlMessage::EMPTY;
 
         std::this_thread::sleep_for(ms(2000)); //temp WA to let last decoded framed finish
 
         std::cout<<"Going to stop pipeline."<<std::endl;
+        HVA_INFO("Going to stop pipeline");
 
         pl.stop();
 
@@ -397,15 +435,13 @@ int main(){
         std::this_thread::sleep_for(ms(1000));
 
         for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
-            std::cout<<"Going to join "<<i<<"th dec source"<<std::endl;
+            HVA_DEBUG("Going to join %dth decoder", i);
             vTh[i]->join();
         }
 
-        std::cout<<"\nDec source joined "<<std::endl;
+        HVA_INFO("All dec sources joined");
 
-#ifdef GUI_INTEGRATION
         t.join();
-#endif
         break;
 
     }while(true);

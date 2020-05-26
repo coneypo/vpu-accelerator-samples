@@ -2,7 +2,7 @@
 
 # env variable to set: BUILD_DIR, INSTALL_DIR
 
-sudo apt-get install bison
+sudo apt-get -y install bison pkg-config flex libglib2.0-dev libudev-dev
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 MY_ROOT_DIR=`pwd`
@@ -93,6 +93,7 @@ function download_and_build_gst () {
         ./autogen.sh --prefix=${HOST_INSTALL_DIR} --disable-gtk-doc --disable-oss4 $ENABLE_DEBUG
     fi
     cd ${DOWNLOAD_DIR}/${GST_DIR}
+    ./autogen.sh --prefix=${HOST_INSTALL_DIR} --disable-gtk-doc --disable-oss4 $ENABLE_DEBUG
     make -j8
     make install
 }
@@ -111,6 +112,7 @@ function download_and_build_gst_plugin_bad () {
         ./autogen.sh --prefix=${HOST_INSTALL_DIR} --disable-gtk-doc --disable-oss4 $ENABLE_DEBUG
     fi
     cd ${DOWNLOAD_DIR}/gst-plugins-bad-1.16.0
+    ./autogen.sh --prefix=${HOST_INSTALL_DIR} --disable-gtk-doc --disable-oss4 $ENABLE_DEBUG
     make -j8
     make install
 }
@@ -140,6 +142,7 @@ function build_gst_vaapi_plugin () {
         ./autogen.sh --prefix=${HOST_INSTALL_DIR} --disable-gtk-doc --disable-oss4 $ENABLE_DEBUG
     fi
     cd ${MY_HOME_DIR}
+    ./autogen.sh --prefix=${HOST_INSTALL_DIR} --disable-gtk-doc --disable-oss4 $ENABLE_DEBUG
     make -j12 && make install
 }
 

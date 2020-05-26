@@ -8,8 +8,8 @@
 #include <inc/api/hvaNode.hpp>
 #include <inc/util/hvaGraphMeta.hpp>
 #include <inc/util/hvaUtil.hpp>
-#include <3rdparty/ade/include/ade/graph.hpp>
-#include <3rdparty/ade/include/ade/typed_graph.hpp>
+#include <3rdparty/ade/sources/ade/include/ade/graph.hpp>
+#include <3rdparty/ade/sources/ade/include/ade/typed_graph.hpp>
 
 namespace hva{
 
@@ -52,6 +52,8 @@ public:
     void start();
 
     void stop();
+
+    void join();
 
 #ifdef KL_TEST
 public:

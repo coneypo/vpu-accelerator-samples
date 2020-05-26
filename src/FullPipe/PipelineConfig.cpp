@@ -90,7 +90,17 @@ bool PipelineConfigParser::parseDetConfig(){
     m_config.detConfig.iePluginName = "kmb";
     m_config.detConfig.batchSize = 1;
     m_config.detConfig.inferReqNumber = 1;
-    m_config.detConfig.threshold = 0.8;
+    m_config.detConfig.threshold = 0.6;
+
+    std::string str;
+    if(parseFromPTree(m_ptree, "Detection.InferReqNumber", str)){
+        m_config.detConfig.inferReqNumber = std::stoi(str);
+    }
+
+    if(parseFromPTree(m_ptree, "Detection.Threshold", str)){
+        m_config.detConfig.threshold = std::stof(str);
+    }
+
     return true;
 }
 
@@ -102,7 +112,13 @@ bool PipelineConfigParser::parseClsConfig(){
     m_config.clsConfig.iePluginName = "kmb";
     m_config.clsConfig.batchSize = 1;
     m_config.clsConfig.inferReqNumber = 1;
-    m_config.clsConfig.threshold = 0.8;
+    m_config.clsConfig.threshold = 0.6;
+    
+    std::string str;
+    if(parseFromPTree(m_ptree, "Classification.InferReqNumber", str)){
+        m_config.clsConfig.inferReqNumber = std::stoi(str);
+    }
+    
     return true;
 }
 
