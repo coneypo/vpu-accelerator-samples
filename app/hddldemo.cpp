@@ -9,6 +9,7 @@
 #include <QPixmap>
 #include <QProcess>
 #include <chrono>
+#include <csignal>
 #include <thread>
 
 HDDLDemo::HDDLDemo(QWidget* parent)
@@ -143,8 +144,10 @@ HDDLDemo::~HDDLDemo()
 
     m_pipelineProcesses.clear();
     if (m_hvaProcess) {
-        m_hvaProcess->kill();
-        delete m_hvaProcess;
+        kill(m_hvaProcess->pid(), SIGINT);
+        if (m_hvaProcess->waitForFinished()) {
+            delete m_hvaProcess;
+        }
     }
 
     delete ui;
@@ -323,7 +326,7 @@ void HDDLDemo::sendSignalToHvaPipeline()
 void HDDLDemo::keyPressEvent(QKeyEvent* event)
 {
     QKeyEvent* key = static_cast<QKeyEvent*>(event);
-    if ((key->key() == Qt::Key_Q) || (key->key() == Qt::Key_Exit)) {
+    if ((key->key() == Qt::Key_Q) || (key->key() == Qt::Key_Escape)) {
         m_dispatcher->sendAction(MESSAGE_STOP);
         QApplication::quit();
     }
