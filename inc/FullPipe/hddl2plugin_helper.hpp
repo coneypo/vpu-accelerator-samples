@@ -108,7 +108,24 @@ public:
         }
         else
         {
-            auto network = _ie.ReadNetwork(modelPath, modelPath.substr(0, modelPath.length() - 4) + "xml");
+            auto network = _ie.ReadNetwork(modelPath, modelPath.substr(0, modelPath.length() - 4) + ".bin");
+            
+            const auto in_precision = InferenceEngine::Precision::U8;
+            for (auto &&layer : network.getInputsInfo()) {
+                layer.second->setLayout(InferenceEngine::Layout::NHWC);
+                layer.second->setPrecision(in_precision);
+            }
+
+            const auto out_precision = InferenceEngine::Precision::FP16;
+            for (auto &&layer : network.getOutputsInfo()) {
+                if (layer.second->getDims().size() == 2) {
+                    layer.second->setLayout(InferenceEngine::Layout::NC);
+                } else {
+                    layer.second->setLayout(InferenceEngine::Layout::NHWC);
+                }
+                layer.second->setPrecision(out_precision);
+            }
+            
             _executableNetwork = _ie.LoadNetwork(network, _ptrContextIE, {});
         }
         HVA_DEBUG("[debug] end load graph\n");
@@ -847,6 +864,34 @@ public:
         return ((x + N - 1) & ~(N - 1));
     }
 
+    inline static int compile(std::string& graphName)
+    {
+        HVA_DEBUG("compile start : %s\n", graphName.c_str());
+        InferenceEngine::Core ie;
+        auto network = ie.ReadNetwork(graphName, graphName.substr(0, graphName.length() - 4) + ".bin");
+        
+        const auto in_precision = InferenceEngine::Precision::U8;
+        for (auto &&layer : network.getInputsInfo()) {
+            layer.second->setLayout(InferenceEngine::Layout::NHWC);
+            layer.second->setPrecision(in_precision);
+        }
+
+        const auto out_precision = InferenceEngine::Precision::FP16;
+        for (auto &&layer : network.getOutputsInfo()) {
+            if (layer.second->getDims().size() == 2) {
+                layer.second->setLayout(InferenceEngine::Layout::NC);
+            } else {
+                layer.second->setLayout(InferenceEngine::Layout::NHWC);
+            }
+            layer.second->setPrecision(out_precision);
+        }
+        auto executableNetwork = ie.LoadNetwork(network, "HDDL2", {});
+
+        auto outputName = graphName.substr(0, graphName.length() - 4) + ".blob";
+        executableNetwork.Export(outputName);
+        HVA_DEBUG("compile end : %s\n", outputName.c_str());
+    }
+
 public:
     static IE::Blob::Ptr deQuantize(const IE::Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint)
     {
@@ -911,7 +956,7 @@ public:
     class InferRequestPool_t
     {
     public:
-        InferRequestPool_t();
+        InferRequestPool_t() = delete;
         explicit InferRequestPool_t(IE::ExecutableNetwork& executableNetwork, int32_t numInferRequest)
         : _cntInferRequest{numInferRequest}, _maxSize{static_cast<size_t>(numInferRequest)}
         {
@@ -921,6 +966,13 @@ public:
                 _vecInferRequest.push_back(ptrInferRequest);
                 // _mapRequest2Status[ptrInferRequest] = InferRequestStatus_t::UNUSED;
                 _queue.push(ptrInferRequest);
+            }
+        }
+        ~InferRequestPool_t()
+        {
+            for(auto ptrInferRequest : _vecInferRequest)
+            {
+                ptrInferRequest->Wait(1000000);
             }
         }
         InferRequestPool_t(const InferRequestPool_t&) = delete;
@@ -957,20 +1009,24 @@ public:
 
         // }
 
-        inline IE::InferRequest::Ptr get()
+    private:
+        using Type = IE::InferRequest::Ptr;
+    
+    public:
+        inline Type get()
         {
-            IE::InferRequest::Ptr ptr = nullptr;
+            Type ptr = nullptr;
             pop(ptr);
             return ptr;
         }
 
-        inline void put(const IE::InferRequest::Ptr ptrInferRequest)
+        inline void put(const Type ptrInferRequest)
         {
             push(ptrInferRequest);
         }
 
     private:
-        using Type = IE::InferRequest::Ptr;
+        // using Type = IE::InferRequest::Ptr;
         bool push(Type value)
         {
             std::unique_lock<std::mutex> lk(_mutex);             
@@ -1055,7 +1111,7 @@ public:
         bool _close{false};
 
     private:
-        std::vector<IE::InferRequest::Ptr> _vecInferRequest;
+        std::vector<Type> _vecInferRequest;
         // std::unordered_map<IE::InferRequest::Ptr, InferRequestStatus_t> _mapRequest2Status;
 
         int32_t _cntInferRequest{0};
