@@ -17,6 +17,7 @@ namespace hva{
 
 using ms = std::chrono::milliseconds;
 
+// a singleton logger which dumps the logs to terminal or/and file
 class hvaLogger_t{
 public:
     enum LogLevel : unsigned {
@@ -34,15 +35,49 @@ public:
 
     static hvaLogger_t& getInstance();
 
+    /**
+    * @brief main entry for log
+    * 
+    * @param level current log level
+    * @param file the source file triggered
+    * @param line the line of code triggered
+    * @param msg the formatted string of log message
+    * @param args variadic arugment on formatted string
+    * @return void
+    * 
+    */
     template<typename... Args>
     void log(LogLevel level,const char* file, const char* func, long line, const char* msg, Args... args);
 
+    /**
+    * @brief set the log ignorance level. Only those log with levels above the level set will be printed
+    * 
+    * @param logLevel the log level that this application will print out
+    * @return void
+    * 
+    */
     void setLogLevel(unsigned logLevel);
 
     unsigned getLogLevel() const;
 
+    /**
+    * @brief set the logger to dump to file
+    * 
+    * @param filename the file that logs will be saved
+    * @param dumpToFileOnly if this sets to true, logger will only dump to file with no output on terminal
+    * @return void
+    * 
+    */
     void dumpToFile(const std::string& filename, bool dumpToFileOnly);
 
+    /**
+    * @brief tell logger to add more profiling information on logs printed out. This includes the time stamp
+    *           as well as the actual thread id that logs are generated
+    * 
+    * @param void
+    * @return void
+    * 
+    */
     void enableProfiling();
 
     void disableProfiling();

@@ -5,18 +5,30 @@
 #include <memory>
 #include <type_traits>
 #include <functional>
-
 #include <iostream>
-
-#include <inc/api/hvaDevice.hpp>
 #include <inc/util/hvaUtil.hpp>
 
 namespace hva{
 
+// hvaBuf_t is designed to be the most elementary struct to hold a piece of data.
+// Usually hvaBuf_t needs to be contained within hvaBlob_t in order to be transferred 
+// between nodes
 template<typename T, typename META_T = void>
 class hvaBuf_t{
 template<typename OtherT, typename OtherMeta_T> friend class hvaBuf_t;
 public:
+    /**
+    * @brief constructor for hvaBuf_t
+    * 
+    * @param ptr the pointer to the data buffer it contains
+    * @param size the size indicator of the buffer. Note that this is ONLY an indicator and not 
+    *               used to alloc/free memory with in hva
+    * @param metaPtr the optional pointer to the meta coming with the buffer
+    * @param d the deleter that users may specify. Note that in case a meta is included, users must
+    *           free it within the deleter
+    * @return void
+    * 
+    */
     hvaBuf_t(T* ptr, std::size_t size, META_T* metaPtr = nullptr,std::function<void(T*, META_T*)> d = {});
 
     hvaBuf_t(const hvaBuf_t<T, META_T>& buf) = delete;
@@ -33,17 +45,54 @@ public:
 
     hvaBuf_t<T, META_T>* clone(const hvaBuf_t<T, META_T>& buf) const;
 
+    /**
+    * @brief get the key string associated with the buffer type if specified
+    * 
+    * @param void
+    * @return string of the key string
+    * 
+    */
     std::string getKeyString() const;
 
+    /**
+    * @brief get the unique ID associated with this buffer type if specified
+    * 
+    * @param void
+    * @return int value of the UID
+    * 
+    */
     int getUID() const;
 
+    /**
+    * @brief try to convert to a other-typed hvaBuf_t specified by the keystring
+    * 
+    * @param keyString the key string of the buffer type users try to convert to
+    * @param otherBuf the converted hvaBuf_t
+    * @return bool on success status
+    * 
+    */
     template<typename OtherT, typename OtherMeta_T>
     bool convertTo(std::string keyString, hvaBuf_t<OtherT,OtherMeta_T>** otherBuf) const;
 
+    /**
+    * @brief get the pointer to the data buffer it contains
+    * 
+    * @param void
+    * @return a raw pointer pointint to the raw data buffer
+    * 
+    */
     T* getPtr() const;
 
     static void dummy();
 
+    /**
+    * @brief replace the current meta pointer. Note that this function will NOT free the 
+    *           memory associated wtih meta
+    * 
+    * @param pMeta the pointer to meta to replace
+    * @return void
+    * 
+    */
     void setMeta(META_T* const & pMeta);
 
     META_T* getMeta() const;
@@ -59,8 +108,6 @@ private:
     META_T* m_pMeta;
 };
 
-
-
 template<typename T, typename META_T>
 hvaBuf_t<T,META_T>::hvaBuf_t(T* ptr, std::size_t size, META_T* metaPtr, std::function<void(T*, META_T*)> d)
         :m_bufSize(size),m_pMeta(metaPtr), m_deleter(d),m_buf(ptr){
@@ -72,16 +119,6 @@ template<typename T, typename META_T>
 hvaBuf_t<T,META_T>::hvaBuf_t() 
         :m_bufSize(0),m_pMeta(nullptr), m_deleter(std::function<void(T*, META_T*)>{}),m_buf(nullptr){ }
 
-// template<typename T, typename META_T>
-// hvaBuf_t<T,META_T>::hvaBuf_t(const hvaBuf_t<T, META_T>& buf)
-//         :hvaBufBase_t(buf.getSize()),m_buf(buf.m_buf), m_pMeta(nullptr){
-//     if(!std::is_same<META_T, void>::value){
-//         if(buf.m_pMeta){
-//             m_pMeta = new META_T(*buf.m_pMeta);
-//         }
-//     }
-// }
-
 template<typename T, typename META_T>
 hvaBuf_t<T,META_T>::hvaBuf_t(hvaBuf_t<T,META_T>&& buf)
         :m_bufSize(buf.m_bufSize),m_pMeta(buf.m_pMeta), m_deleter(buf.m_deleter),m_buf(buf.m_buf){
@@ -91,16 +128,6 @@ hvaBuf_t<T,META_T>::hvaBuf_t(hvaBuf_t<T,META_T>&& buf)
     buf.m_deleter = std::function<void(T*, META_T*)>{};
 }
 
-/**
-* @brief move operator for hvaBuf_t. May cause trouble here. set it to =delete if neccessary
-*
-* @param 
-* @param 
-* @return 
-*
-* @auther KL 
-* 
-*/
 template<typename T, typename META_T>
 hvaBuf_t<T,META_T>& hvaBuf_t<T,META_T>::operator=(hvaBuf_t<T,META_T>&& buf){
     if(this != &buf){
@@ -147,23 +174,13 @@ hvaBuf_t<T, META_T>* hvaBuf_t<T,META_T>::clone(const hvaBuf_t<T, META_T>& buf) c
     return ret;
 }
 
-/**
-* @brief Every specialization of hvaBuf_t should implement this otherwise return 
-*   a default typeid().name() 
-*
-* @param 
-* @param 
-* @return 
-*
-* @auther KL 
-* 
-*/
-
 template<typename T, typename META_T>
 void hvaBuf_t<T,META_T>::dummy(){
 
 }
 
+// Every specialization of hvaBuf_t should implement this otherwise return 
+//  a default typeid().name()
 template<typename T, typename META_T>
 std::string hvaBuf_t<T,META_T>::getKeyString() const{
     return typeid(T).name();
@@ -174,18 +191,9 @@ int hvaBuf_t<T,META_T>::getUID() const{
     return reinterpret_cast<int64_t>(&dummy);
 }
 
-/**
-* @brief Every specialization of hvaBuf_t should its own set of further specialization
-*   on this convert function. If not supported it should return false.
-*
-* @param 
-* @param 
-* @return 
-*
-* @auther KL 
-* 
-*/
 
+// Every specialization of hvaBuf_t should its own set of further specialization
+//  on this convert function. If not supported it should return false.
 template<typename T, typename META_T>
 template<typename OtherT, typename OtherMeta_T>
 bool hvaBuf_t<T,META_T>::convertTo(std::string keyString, hvaBuf_t<OtherT,OtherMeta_T>** otherBuf) const{
@@ -218,7 +226,7 @@ void hvaBuf_t<T,META_T>::setSize(std::size_t size){
     m_bufSize = size;
 }
 
-
+// the hvaBuf_t type without meta struct
 template<typename T>
 class hvaBuf_t<T, void>{
 template<typename OtherT, typename OtherMeta_T> friend class hvaBuf_t;
@@ -280,16 +288,6 @@ hvaBuf_t<T>::hvaBuf_t(hvaBuf_t<T>&& buf)
     buf.m_deleter = std::function<void(T*)>{};
 }
 
-/**
-* @brief move operator for hvaBuf_t. May cause trouble here. set it to =delete if neccessary
-*
-* @param 
-* @param 
-* @return 
-*
-* @auther KL 
-* 
-*/
 template<typename T>
 hvaBuf_t<T>& hvaBuf_t<T>::operator=(hvaBuf_t<T>&& buf){
     if(this != &buf){
@@ -329,18 +327,6 @@ hvaBuf_t<T>* hvaBuf_t<T>::clone(const hvaBuf_t<T>& buf) const{
     return ret;
 }
 
-/**
-* @brief Every specialization of hvaBuf_t should implement this otherwise return 
-*   a default typeid().name() 
-*
-* @param 
-* @param 
-* @return 
-*
-* @auther KL 
-* 
-*/
-
 template<typename T>
 void hvaBuf_t<T>::dummy(){
 
@@ -355,18 +341,6 @@ template<typename T>
 int hvaBuf_t<T>::getUID() const{
     return reinterpret_cast<int64_t>(&dummy);
 }
-
-/**
-* @brief Every specialization of hvaBuf_t should its own set of further specialization
-*   on this convert function. If not supported it should return false.
-*
-* @param 
-* @param 
-* @return 
-*
-* @auther KL 
-* 
-*/
 
 template<typename T>
 template<typename OtherT>

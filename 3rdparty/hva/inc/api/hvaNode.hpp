@@ -7,32 +7,29 @@
 #include <condition_variable>
 #include <functional>
 #include <unordered_map>
-#include <inc/api/hvaTask.hpp>
 #include <inc/api/hvaBlob.hpp>
-#include <inc/scheduler/hvaScheduler.hpp>
 #include <inc/util/hvaUtil.hpp>
-// #include <inc/api/hvaPipeline.hpp>
 #include <inc/api/hvaEvent.hpp>
 #include <inc/api/hvaEventManager.hpp>
-
-#include <TestConfig.h>
+#include <list>
+#include <atomic>
 
 namespace hva{
 
 enum hvaPortPolicy_t{
-    HVA_BLOCKING_IF_FULL = 0,
-    HVA_DISCARD_IF_FULL
+    HVA_BLOCKING_IF_FULL = 0,   // block the call if port is full 
+    HVA_DISCARD_IF_FULL         // discard the content and return the call if port is full
 };
 
 using hvaConvertFunc = std::function<std::shared_ptr<hvaBlob_t>(std::shared_ptr<hvaBlob_t>)>;
+using hvaDataQueue_t = std::list<std::shared_ptr<hvaBlob_t>>;
 
 class hvaInPort_t;
 class hvaOutPort_t;
 class hvaNode_t;
 
-// using ms = std::chrono::milliseconds; // moved to hvautil.hpp
-using hvaDataQueue_t = std::list<std::shared_ptr<hvaBlob_t>>;
-
+// hvaInPort_t and hvaOutPort_t are structs that connects each pair of successive nodes. Besides
+//  hvaInPort_t additionally holds a buffer queue where all input buffers are stored
 class hvaInPort_t{
 friend class hvaPipeline_t;
 friend class hvaNode_t;
@@ -48,15 +45,19 @@ public:
 
     hvaStatus_t tryPush(std::shared_ptr<hvaBlob_t> data);
 
+    /**
+    * @brief push a blob to this port's buffer queue
+    * 
+    * @param data blob to be pushed
+    * @param timeout timeout before this call returns. Set to 0 to make it blocking forever
+    * @return status code
+    * 
+    */
     hvaStatus_t push(std::shared_ptr<hvaBlob_t> data, ms timeout = ms(0));
 
     void setPortQueuePolicy(hvaPortPolicy_t policy);
 
-#ifdef KL_TEST
-public:
-#else
 private:
-#endif
     void setPrevPort(hvaOutPort_t* prevPort);
 
     std::mutex m_mutex;
@@ -71,8 +72,10 @@ private:
 
 class hvaPipeline_t;
 
+// hvaInPort_t and hvaOutPort_t are structs that connects each pair of successive nodes. Besides
+//  hvaOutPort_t holds a function pointer used for user-defined blob conversion function in case
+//  the blob transmitted between two successive nodes does not match
 class hvaOutPort_t{
-// friend void hvaPipeline_t::linkNode(hvaNode_t* prev, hvaNode_t* next);
 friend class hvaPipeline_t;
 public:
     hvaOutPort_t(hvaNode_t* parentNode, hvaInPort_t* nextPort);
@@ -81,14 +84,25 @@ public:
 
     hvaInPort_t* getNextPort();
 
-    std::shared_ptr<hvaBlob_t> convert(std::shared_ptr<hvaBlob_t>) const;
+    /**
+    * @brief call the holded blob conversion function
+    * 
+    * @param data the blob to be converted 
+    * @return a shared pointer to the blob after conversion
+    * 
+    */
+    std::shared_ptr<hvaBlob_t> convert(std::shared_ptr<hvaBlob_t> data) const;
 
+    /**
+    * @brief check if the holded conversion function is valid
+    * 
+    * @param void
+    * @return true if valid
+    * 
+    */
     bool isConvertValid() const;
-#ifdef KL_TEST
-public:
-#else
+
 private:
-#endif
     void setNextPort(hvaInPort_t* nextPort);
 
     void setConvertFunc(hvaConvertFunc func);
@@ -98,27 +112,14 @@ private:
     hvaConvertFunc m_convertFunc;
 };
 
-class hvaTaskConfig_t{
-public:
-    hvaTaskConfig_t();
-
-    virtual ~hvaTaskConfig_t();
-};
-
-class hvaStreamInfo_t{
-public:
-    hvaStreamInfo_t();
-
-    virtual ~hvaStreamInfo_t();
-
-    size_t streamId;
-};
-
 class hvaBatchingConfig_t{
 public:
     enum BatchingPolicy : unsigned{
-        BatchingIgnoringStream = 0x1,
-        BatchingWithStream = 0x2,
+        BatchingIgnoringStream = 0x1,   // batching algorithm ignoring the blob's stream id. default
+        BatchingWithStream = 0x2,       // if set to BatchingWithStream, node workers only fetches the
+                                        //  blobs corrosponding to its assigned batch index. Note that
+                                        //  according to user definition, a single batch index may refer 
+                                        //  to multiple stream id
         Reserved = 0x4
     };
 
@@ -129,17 +130,17 @@ public:
     std::size_t streamNum;
     std::size_t threadNumPerBatch;
 
-/**
-* @brief    function pointer to batching algorithm
-*           batching algorithm could be default batching or provided by user
-*           batching algorithm should control mutex and cv
-*
-* @param    (batch index, vector of port index, pointer to node)
-* @return   output blob vector(when batching fail, vector is empty)
-*
-* @auther
-*
-**/
+    /**
+    * @brief function pointer to batching algorithm
+    *           batching algorithm could be default batching or provided by user
+    *           batching algorithm should control mutex and cv
+    * 
+    * @param batchIdx batch index
+    * @param vPortIdx vector of port index
+    * @param pNode pointer to node
+    * @return output blob vector(when batching fail, vector is empty)
+    * 
+    */
     std::function<std::vector<std::shared_ptr<hvaBlob_t> > (std::size_t batchIdx, std::vector<std::size_t> vPortIdx, hvaNode_t* pNode)> batchingAlgo = nullptr;
 
     static std::vector<std::shared_ptr<hvaBlob_t> > defaultBatching(std::size_t batchIdx, std::vector<std::size_t> vPortIdx, hvaNode_t* pNode);
@@ -149,46 +150,78 @@ public:
 
 class hvaNodeWorker_t;
 
+// hvaNode_t, different from hvaNodeWorker_t, is the struct that stores a pipeline node's topological
+//  information, e.g. nodes it connects to, as well as some common utilities that will be shared across
+//  the node workers it spawned. A node may spawn multiple copies of node workers it associates to
 class hvaNode_t{
 friend class hvaPipeline_t;
 friend class hvaBatchingConfig_t;
 friend class hvaInPort_t;
 public:
     
+    /**
+    * @brief constructor of a node
+    * 
+    * @param inPortNum number of in ports this node should have. Note that those ports can leave as 
+    *           not-connected
+    * @param outPortNum number of out ports this node should have. Note that those ports can leave as 
+    *           not-connected
+    * @param totalThreadNum number of workers it should spawn
+    * @return void
+    * 
+    */
     hvaNode_t(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum);
-
-    // obsoleted hvaNode_t(std::size_t totalThreadNum);
-
-    // obsoleted hvaNode_t(std::size_t streamNum, std::size_t batchNum, std::size_t threadNumPerBatch);
 
     virtual ~hvaNode_t();
 
     /**
-    * @brief this function constructs and returns a nodeworker instance. Users are expected to 
-    *   implement this function while extending node data structure. Aditionally users may pass 
-    *   the members m_vpTaskConfig and one of the m_vpStreamInfo to the nodeworker constucted using 
-    *   the static int m_workerCtr. e.g. m_vpStreamInfo[m_workerCtr++]
-    * @param 
-    * @param 
-    * @return 
-    *
-    * @auther KL 
+    * @brief Constructs and returns a nodeworker instance. Users are expected to 
+    *           implement this function while extending node class. 
+    * 
+    * @param void
+    * @return share pointer to the node worker constructed
     * 
     */
     virtual std::shared_ptr<hvaNodeWorker_t> createNodeWorker() const = 0;
 
-    // obsoleted virtual void config(std::vector<std::shared_ptr<hvaTaskConfig_t>> taskConfig, std::vector<std::shared_ptr<hvaStreamInfo_t>> streamInfo);
     virtual void configBatch(const hvaBatchingConfig_t& config);
     virtual void configBatch(hvaBatchingConfig_t&& config);
 
+    /**
+    * @brief configure the time interval between each successive call of process. This defaults 
+    *           to zero if not called and thus will free-wheeling or blocked on getBatchedInput
+    * 
+    * @param interval time interval in ms
+    * @return void 
+    * 
+    */
     void configLoopingInterval(ms interval);
 
+    /**
+    * @brief get inputs stored in node's in port. For active nodes this call is set to blocking while
+    *           for passive nodes this would set to non-blocking
+    * 
+    * @param batchIdx the batch index that node would like fetch. This usually sets to the argument passed
+    *           from process() call
+    * @return vector of shared pointer to blobs fetched. If no requested blobs found in port, this will 
+    *           return an empty vector
+    * 
+    */
     virtual std::vector<std::shared_ptr<hvaBlob_t>> getBatchedInput(std::size_t batchIdx, std::vector<std::size_t> vPortIdx);
 
     std::size_t getInPortNum();
 
     std::size_t getOutPortNum();
 
+    /**
+    * @brief send output to the next node connected at port index
+    * 
+    * @param data blob to be sent
+    * @param portId the port index blob would be sent to
+    * @param timeout the maximal timeout before this function returns. Set to zero to make it blocking
+    * @return status code
+    * 
+    */
     hvaStatus_t sendOutput(std::shared_ptr<hvaBlob_t> data, std::size_t portId, ms timeout);
 
     std::size_t getTotalThreadNum();
@@ -199,22 +232,43 @@ public:
 
     ms getLoopingInterval() const;
     
+    /**
+    * @brief stop the getting batched input logic. Once this is stoped, every following getBatchedInput()
+    *           will return an empty vector
+    * 
+    * @param void
+    * @return void
+    * 
+    */
     void stopBatching();
 
     void turnOnBatching();
 
+    /**
+    * @brief register a callback that this node would like to listen on
+    * 
+    * @param event the callback associates to
+    * @param callback callback function to be invoked with this event
+    * @return status code
+    * 
+    */
     hvaStatus_t registerCallback(hvaEvent_t event, hvaEventHandlerFunc callback);
 
+    /**
+    * @brief emit an event within the node. This event will populate throughout the entire pipeline
+    * 
+    * @param event event to be emitted
+    * @param data user-defined data to be passed to each callback function
+    * @return status code
+    * 
+    */
     hvaStatus_t emitEvent(hvaEvent_t event, void* data);
 
     void setEventManager(hvaEventManager_t* evMng);
 
     const std::unordered_map<hvaEvent_t,hvaEventHandlerFunc>* getCallbackMap() const;
-#ifdef KL_TEST
-public:
-#else
+
 private:
-#endif
     static std::size_t m_workerCtr;
 
     hvaOutPort_t& getOutputPort(std::size_t portIdx);
@@ -223,8 +277,6 @@ private:
     std::vector<std::unique_ptr<hvaInPort_t>> m_inPorts;
     std::vector<std::unique_ptr<hvaOutPort_t>> m_outPorts;
 
-    // obsoleted std::vector<std::shared_ptr<hvaTaskConfig_t>> m_vpTaskConfig;
-    // obsoleted std::vector<std::shared_ptr<hvaStreamInfo_t>> m_vpStreamInfo;
     const std::size_t m_inPortNum;
     const std::size_t m_outPortNum;
     hvaBatchingConfig_t m_batchingConfig;
@@ -240,34 +292,77 @@ private:
     std::unordered_map<hvaEvent_t,hvaEventHandlerFunc> m_callbackMap;
 };
 
-class hvaNodeWorker_t{ //ar: renamed NodeWorker_t
+// hvaNodeWorker_t is the stuct that actually does the workload within its process() function. 
+//  Node workers are spawned from nodes, where all workers spawned from the same node share every
+//  thing within the node struct, but will NOT share anything within the node worker itself
+class hvaNodeWorker_t{
 public:
     hvaNodeWorker_t(hvaNode_t* parentNode);
 
     virtual ~hvaNodeWorker_t();
 
+    /**
+    * @brief the function that main workload should conduct at. This function will be invoked by framework
+    *           repeatedly and in parrallel with each other node worker's process() function
+    * 
+    * @param batchIdx a batch index that framework will assign to each node worker. This is usually
+    *           passed to getBatchedInput()
+    * @return void
+    * 
+    */
     virtual void process(std::size_t batchIdx) = 0;
+
+    /**
+    * @brief specialization of process() where this function will be called only once before the usual
+    *           process() being called
+    * 
+    * @param batchIdx a batch index that framework will assign to each node worker. This is usually
+    *           passed to getBatchedInput()
+    * @return void
+    * 
+    */
     virtual void processByFirstRun(std::size_t batchIdx);
+
+    /**
+    * @brief initialization of this node. This is called sequentially by the framework at the very beginning
+    *           of pipeline begins
+    * 
+    * @param void
+    * @return void
+    * 
+    */
     virtual void init();
+
+    /**
+    * @brief deinitialization of this node. This is called by framework after stop() being called
+    * 
+    * @param void
+    * @return void
+    * 
+    */
     virtual void deinit();
-    // void submitTask();
 
     hvaNode_t* getParentPtr() const;
 
     bool isStopped() const;
 protected:
-    // void submitTask(hvaTask_t& task);
+    
+    /**
+    * @brief send output to the next node connected at port index
+    * 
+    * @param data blob to be sent
+    * @param portId the port index blob would be sent to
+    * @param timeout the maximal timeout before this function returns. Set to zero to make it blocking
+    * @return status code
+    * 
+    */
     hvaStatus_t sendOutput(std::shared_ptr<hvaBlob_t> data, std::size_t portId, ms timeout = ms(1000));
 
     void breakProcessLoop();
-#ifdef KL_TEST
-public:
-#else
+
 private:
-#endif
     hvaNode_t* m_parentNode;
     volatile bool m_internalStop;
-    // hvaScheduler_t& m_sche;
 };
 
 

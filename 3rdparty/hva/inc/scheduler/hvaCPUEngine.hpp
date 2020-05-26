@@ -1,4 +1,0 @@
-#ifndef HVA_HVACPUENGINE_HPP
-#define HVA_HVACPUENGINE_HPP
-
-#endif //#ifndef HVA_HVACPUENGINE_HPP

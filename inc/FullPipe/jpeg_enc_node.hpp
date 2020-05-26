@@ -11,6 +11,8 @@
 #include <WorkloadContext.h>
 #include <common.hpp>
 #include <atomic>
+#include <cstring>
+#include <cassert>
 
 //#define NEW_HDDL_WCTX
 #define HANTRO_JPEGENC_ROI_API

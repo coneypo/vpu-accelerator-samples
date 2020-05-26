@@ -10,6 +10,13 @@ typedef uint64_t hvaEvent_t;
 
 #define hvaEvent_Null 0x0ull
 
+/**
+* @brief function prototype for event handler
+* 
+* @param void* the user-defined data which will be passed to each callback function
+* @return boolean on success status
+* 
+*/
 using hvaEventHandlerFunc = std::function<bool(void*)>;
 
 }
