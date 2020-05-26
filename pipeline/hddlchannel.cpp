@@ -79,6 +79,13 @@ void HddlChannel::timerEvent(QTimerEvent* event)
     fetchRoiData();
 }
 
+void HddlChannel::keyPressEvent(QKeyEvent* event)
+{
+    if ((event->key() == Qt::Key_Q) || (event->key() == Qt::Key_Escape)) {
+        m_dispatcher->sendStop();
+    }
+}
+
 void HddlChannel::processAction(PipelineAction action)
 {
     m_pipeline->process(action);

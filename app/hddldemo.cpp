@@ -125,6 +125,7 @@ HDDLDemo::HDDLDemo(QWidget* parent)
     connect(m_dispatcher, &Dispatcher::WIDReceived, this, &HDDLDemo::channelWIDReceived);
     connect(m_dispatcher, &Dispatcher::StringReceived, this, &HDDLDemo::channelFpsReceived);
     connect(m_dispatcher, &Dispatcher::ByteArrayReceived, this, &HDDLDemo::channelRoiReceived);
+    connect(m_dispatcher, &Dispatcher::ActionReceived, this, &HDDLDemo::channelActionReceived);
     connect(m_pipelineTimer, &QTimer::timeout, this, &HDDLDemo::runPipeline);
     connect(m_totalFpsTimer, &QTimer::timeout, this, &HDDLDemo::updateTotalFps);
 
@@ -198,6 +199,13 @@ void HDDLDemo::channelRoiReceived(qintptr sp, QByteArray* ba)
         label_roi->setPixmap(QPixmap::fromImage(QImage((uchar*)ba->data(), CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT, QImage::Format_RGB888)));
     }
     delete ba;
+}
+
+void HDDLDemo::channelActionReceived(qintptr, PipelineAction action)
+{
+    Q_UNUSED(action);
+    m_dispatcher->sendAction(MESSAGE_STOP);
+    QApplication::quit();
 }
 
 void HDDLDemo::initConfig()
@@ -325,8 +333,7 @@ void HDDLDemo::sendSignalToHvaPipeline()
 
 void HDDLDemo::keyPressEvent(QKeyEvent* event)
 {
-    QKeyEvent* key = static_cast<QKeyEvent*>(event);
-    if ((key->key() == Qt::Key_Q) || (key->key() == Qt::Key_Escape)) {
+    if ((event->key() == Qt::Key_Q) || (event->key() == Qt::Key_Escape)) {
         m_dispatcher->sendAction(MESSAGE_STOP);
         QApplication::quit();
     }

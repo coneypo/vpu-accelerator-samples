@@ -36,6 +36,7 @@ public Q_SLOTS:
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void timerEvent(QTimerEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     void fetchRoiData();

@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QMap>
 #include <QWindow>
+#include <utils/messagetype.h>
 
 class Dispatcher;
 class QLabel;
@@ -24,6 +25,7 @@ public Q_SLOTS:
     void channelWIDReceived(qintptr, WId);
     void channelFpsReceived(qintptr, QString);
     void channelRoiReceived(qintptr, QByteArray*);
+    void channelActionReceived(qintptr, PipelineAction action);
     void updateTotalFps();
 
 protected:

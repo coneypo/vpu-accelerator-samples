@@ -23,6 +23,7 @@ Q_SIGNALS:
     void ImageReceived(qintptr sd, QImage* image);
     void StringReceived(qintptr sd, QString text);
     void ByteArrayReceived(qintptr sd, QByteArray* ba);
+    void ActionReceived(qintptr sd, PipelineAction action);
 
 public Q_SLOTS:
     void ConnectionArrived();

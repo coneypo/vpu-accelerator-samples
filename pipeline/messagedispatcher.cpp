@@ -40,6 +40,21 @@ void MessageDispatcher::sendByteArray(QByteArray* ba)
     m_socket->flush();
 }
 
+void MessageDispatcher::sendStop()
+{
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_5_5);
+    //reserved for msg length
+    out << (quint32)0;
+    out << (quint32)MESSAGE_ACTION;
+    out << (quint32)PipelineAction::MESSAGE_STOP;
+    out.device()->seek(0);
+    out << (quint32)(block.size() - sizeof(quint32));
+    m_socket->write(block);
+    m_socket->flush();
+}
+
 void MessageDispatcher::sendImage(QImage* image)
 {
     QByteArray block;

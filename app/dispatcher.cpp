@@ -103,6 +103,14 @@ void Dispatcher::MessageRecieved(qintptr sp)
                 break;
             }
 
+            case MESSAGE_ACTION: {
+                quint32 data;
+                *m_dataStream[sp] >> data;
+                PipelineAction action = static_cast<PipelineAction>(data);
+                Q_EMIT ActionReceived(sp, action);
+                break;
+            }
+
             case MESSAGE_UNKNOWN:
             default:
                 qDebug() << "unknown message type, try to skip following content size" << m_curMsgLength[sp];

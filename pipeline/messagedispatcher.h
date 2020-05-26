@@ -22,6 +22,7 @@ public:
     void sendString(const QString&);
     void sendWinId(WId);
     void sendByteArray(QByteArray* ba);
+    void sendStop();
 
 public Q_SLOTS:
     void connectedCallBack();
