@@ -405,94 +405,98 @@ static GList * parse_gststructure_from_roimeta(GstGapiosd *filter, GstBuffer *bu
 {
     g_return_val_if_fail(buffer, NULL);
 
+    //return NULL if do not draw roi info
+    if(!filter->drawroi) {
+        return NULL;
+    }
     GstMeta *gst_meta = NULL;
     gpointer state = NULL;
     GstVideoRegionOfInterestMeta *roi_meta = NULL;
     GList *index = NULL;
     GList *structure_list = NULL;
-    GList *rect_list = NULL;
     GList *object_temp = NULL;
-    GList *object_roi = NULL;
     gint label_id = 0;
+    GstStructure *pStructure = NULL;
+    const gchar *label_string = NULL;
 
+    //get the draw info structure list from roi meta of buffer
     while ((gst_meta = gst_buffer_iterate_meta(buffer, &state)) != NULL) {
         if (gst_meta->info->api != GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE) {
             continue ;
         }
         roi_meta = (GstVideoRegionOfInterestMeta *)gst_meta;
+        GstStructure *s1 =
+            gst_structure_new("gapiosd_meta",
+                    "meta_id", G_TYPE_UINT, 1,
+                    "meta_type", G_TYPE_STRING, "rect",
+                    "x", G_TYPE_INT, roi_meta->x,
+                    "y", G_TYPE_INT, roi_meta->y,
+                    "width", G_TYPE_INT, roi_meta->w,
+                    "height", G_TYPE_INT, roi_meta->h,
+                    "r", G_TYPE_UINT, 0,
+                    "g", G_TYPE_UINT, 0,
+                    "b", G_TYPE_UINT, 0,
+                    "thick", G_TYPE_INT, 5,
+                    "lt", G_TYPE_INT, 8,
+                    "shift", G_TYPE_INT, 0,
+                    NULL);
+        structure_list = g_list_append(structure_list, s1);
 
+        //loop list of params to get label and label_id, ps:choose the last structure
         index = roi_meta->params;
+        std::string name;
         while(index) {
-            GstStructure *gapiosd_s = (GstStructure *)index->data;
-            if (gst_structure_has_field(gapiosd_s, "label_id") &&
-                gst_structure_get_int(gapiosd_s, "label_id", &label_id)) {
-                break;
-            }
-            index = g_list_next(index);
-        }
-        if(filter->drawroi) {
-            GstStructure *s1 =
-                gst_structure_new("gapiosd_meta",
-                          "meta_id", G_TYPE_UINT, 1,
-                          "meta_type", G_TYPE_STRING, "rect",
-                          "x", G_TYPE_INT, roi_meta->x,
-                          "y", G_TYPE_INT, roi_meta->y,
-                          "width", G_TYPE_INT, roi_meta->w,
-                          "height", G_TYPE_INT, roi_meta->h,
-                          "r", G_TYPE_UINT, 0,
-                          "g", G_TYPE_UINT, 0,
-                          "b", G_TYPE_UINT, 0,
-                          "thick", G_TYPE_INT, 5,
-                          "lt", G_TYPE_INT, 8,
-                          "shift", G_TYPE_INT, 0,
-                          NULL);
-            rect_list = g_list_append(rect_list, s1);
-            char label[10] = {0};
-            snprintf(label, 10, "%d", label_id);
-            GstStructure *s2 =
-               gst_structure_new("gapiosd_meta",
-                         "meta_id", G_TYPE_UINT, 0,
-                         "meta_type", G_TYPE_STRING, "text",
-                         "text", G_TYPE_STRING, label,
-                         "font_type", G_TYPE_INT, 0,
-                         "font_scale", G_TYPE_DOUBLE, 2.0,
-                         "x", G_TYPE_INT, roi_meta->x,
-                         "y", G_TYPE_INT, roi_meta->y,
-                         "r", G_TYPE_UINT, 0,
-                         "g", G_TYPE_UINT, 0,
-                         "b", G_TYPE_UINT, 0,
-                         "line_thick", G_TYPE_INT, 1,
-                         "line_type", G_TYPE_INT, 8,
-                         "bottom_left_origin", G_TYPE_BOOLEAN, FALSE,
-                         NULL);
-           rect_list = g_list_append(rect_list, s2);
-        }
-        index = roi_meta->params;
-        while(index) {
-            GstStructure *gapiosd_s = (GstStructure *)index->data;
-            std::string name = gst_structure_get_name(gapiosd_s);
+            pStructure = (GstStructure *)index->data;
+            name = gst_structure_get_name(pStructure);
             if(name == "gapiosd_meta") {
                 GST_DEBUG_OBJECT(filter, "Structure type is gapiosd_meta\n");
-                structure_list = g_list_append(structure_list, gapiosd_s);
+                structure_list = g_list_append(structure_list, pStructure);
+                continue;
             }
-
+            if (gst_structure_has_field(pStructure, "label_id")) {
+                gst_structure_get_int(pStructure, "label_id", &label_id);
+            }
+            if (gst_structure_has_field(pStructure, "label")) {
+                label_string = g_strdup(gst_structure_get_string (pStructure, "label"));
+            }
             index = g_list_next(index);
         }
-    }
-    if(structure_list != NULL) {
-        object_temp = parse_gst_structure_list(filter, structure_list);
+        //construct the label string info for different condition
+        char label[20] = {0};
+        if(label_string) {
+            snprintf(label, 20, "%d %s", label_id, label_string);
+            g_free((gpointer)label_string);
+            label_string = NULL;
+        } else {
+            snprintf(label, 20, "%d", label_id);
+        }
+        GstStructure *s2 = gst_structure_new("gapiosd_meta",
+                "meta_id", G_TYPE_UINT, 0,
+                "meta_type", G_TYPE_STRING, "text",
+                "text", G_TYPE_STRING, label,
+                "font_type", G_TYPE_INT, 0,
+                "font_scale", G_TYPE_DOUBLE, 2.0,
+                "x", G_TYPE_INT, roi_meta->x,
+                "y", G_TYPE_INT, roi_meta->y,
+                "r", G_TYPE_UINT, 0,
+                "g", G_TYPE_UINT, 0,
+                "b", G_TYPE_UINT, 0,
+                "line_thick", G_TYPE_INT, 1,
+                "line_type", G_TYPE_INT, 8,
+                "bottom_left_origin", G_TYPE_BOOLEAN, FALSE,
+                NULL);
+        structure_list = g_list_append(structure_list, s2);
     }
 
-    if(rect_list != NULL) {
-        object_roi = parse_gst_structure_list(filter, rect_list);
-        object_temp = g_list_concat(object_temp, object_roi);
-        g_list_free_full(rect_list, (GDestroyNotify)gst_structure_free);
-        rect_list = NULL;
+    //parse structure list to object list
+    if(structure_list != NULL) {
+        object_temp = parse_gst_structure_list(filter, structure_list);
+        g_list_free_full(structure_list, (GDestroyNotify)gst_structure_free);
+        structure_list = NULL;
+    } else {
+        GST_DEBUG_OBJECT(filter, "can not get the roi object from buffer\n");
     }
-    if(object_temp == NULL) {
-        GST_DEBUG_OBJECT(filter, "Can not get gobject for roimeta buffer !\n");
-        return NULL;
-    }
+
     return object_temp;
 }
 
