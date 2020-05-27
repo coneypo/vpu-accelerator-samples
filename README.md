@@ -8,8 +8,9 @@ INSTALL STEPS
 -------------
 **evm platform:**
 
-    $ export LD_LIBRARY_PATH=/opt/opencv/lib:/usr/local/lib
+    $ source /opt/openvino/bin/setupvars.sh
     $ ./autogen.sh
+    $ ./configure --with-opencv-path=/opt/openvino/opencv
     $ make
     $ sudo make install
 
@@ -17,14 +18,9 @@ INSTALL STEPS
 
     $ export LD_LIBRARY_PATH=<your_opencv_path>/lib
     $ ./autogen.sh
+    $ ./configure --with-opencv-path=<your_opencv_path>
     $ make
     $ sudo make install
-
-**NOTE:**
-
-    1.You can also use the --with-opencv-path option of ./configure to input opencv path,
-    such as:
-    $ ./configure --with-opencv-path=/opt/openvino/opencv/lib
 
 **Install Result Test:**
 
@@ -44,8 +40,8 @@ INSTALL STEPS
 
     $ git clean -xdf
 
-OPENCV LIB INSTALL STEPS
-------------------------
+OPENCV LIB INSTALL STEPS ON UBUNTU
+----------------------------------
 **1.Install Dependencies**
 
     $ sudo apt-get install build-essential -y

@@ -12,11 +12,7 @@ autoreconf --verbose --force --install --make || {
  exit 1;
 }
 
-./configure || {
- echo 'configure failed';
- exit 1;
-}
-
 echo
-echo "Now type 'make' to compile this module."
+echo "Now type './configure --with-opencv-path=/opt/openvino/opencv/' to create the Makefile."
+echo "Then type 'make ' to finish compile."
 echo
