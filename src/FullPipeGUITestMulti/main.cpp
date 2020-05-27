@@ -123,9 +123,6 @@ int main(int argc, const char* argv[])
     if(sockNum<1){
         sockNum=1;
     }
-    if(sockNum>8){
-        sockNum=8;
-    }
 
     std::vector<std::thread> vTh;
     vTh.reserve(sockNum);
