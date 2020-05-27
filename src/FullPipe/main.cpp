@@ -54,26 +54,25 @@ bool checkValidNetFile(std::string& filepath){
         std::ifstream f(blobPath.c_str());
         if (!f.good())
         {
+            std::string binFilepath = filepath.substr(0, filepath.length() - 4) + ".bin";
+
+            auto p = boost::filesystem::path(filepath);
+            if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
+                std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+                HVA_ERROR("File %s does not exists", filepath);
+                return false;
+            }
+
+            auto p_bin = boost::filesystem::path(binFilepath);
+            if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
+                std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
+                return false;
+            }
+            
             HDDL2pluginHelper_t::compile(filepath);
         }
         filepath = blobPath;
     }
-
-
-    // std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
-
-    auto p = boost::filesystem::path(filepath);
-    if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
-        std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
-        HVA_ERROR("File %s does not exists", filepath);
-        return false;
-    }
-
-    // auto p_bin = boost::filesystem::path(binFilepath);
-    // if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
-    //     std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
-    //     return false;
-    // }
 
     return true;
 }
