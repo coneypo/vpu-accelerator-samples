@@ -49,6 +49,7 @@ bool checkValidNetFile(std::string& filepath){
         HVA_ERROR("Invalid network suffix. Expect *.xml or *.blob");
         return false;
     }
+    
     if(suffix_pos_blob == std::string::npos){
         auto blobPath = filepath.substr(0, filepath.length() - 4) + ".blob";
         std::ifstream f(blobPath.c_str());
@@ -59,19 +60,28 @@ bool checkValidNetFile(std::string& filepath){
             auto p = boost::filesystem::path(filepath);
             if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
                 std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
-                HVA_ERROR("File %s does not exists", filepath);
+                HVA_ERROR("File %s does not exists", filepath.c_str());
                 return false;
             }
 
             auto p_bin = boost::filesystem::path(binFilepath);
             if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
                 std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
+                HVA_ERROR("File %s does not exists", binFilepath.c_str());
                 return false;
             }
             
             HDDL2pluginHelper_t::compile(filepath);
         }
         filepath = blobPath;
+    }
+    else {
+        auto p = boost::filesystem::path(filepath);
+        if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
+            std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+            HVA_ERROR("File %s does not exists", filepath.c_str());
+            return false;
+        }
     }
 
     return true;
