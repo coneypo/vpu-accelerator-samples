@@ -41,27 +41,48 @@ enum ControlMessage{
 std::mutex g_mutex;
 std::condition_variable g_cv;
 
-bool checkValidNetFile(std::string filepath){
-    std::string::size_type suffix_pos = filepath.find(".blob");
-    if(suffix_pos == std::string::npos){
-        std::cout<<"Invalid network suffix. Expect *.xml"<<std::endl;
-        HVA_ERROR("Invalid network suffix. Expect *.xml");
+bool checkValidNetFile(std::string& filepath){
+    std::string::size_type suffix_pos_blob = filepath.find(".blob");
+    std::string::size_type suffix_pos_xml = filepath.find(".xml");
+    if(suffix_pos_blob == std::string::npos && suffix_pos_xml == std::string::npos){
+        std::cout<<"Invalid network suffix. Expect *.xml or *.blob"<<std::endl;
+        HVA_ERROR("Invalid network suffix. Expect *.xml or *.blob");
         return false;
     }
-    // std::string binFilepath = filepath.replace(suffix_pos, filepath.length(), ".bin");
+    
+    if(suffix_pos_blob == std::string::npos){
+        auto blobPath = filepath.substr(0, filepath.length() - 4) + ".blob";
+        std::ifstream f(blobPath.c_str());
+        if (!f.good())
+        {
+            std::string binFilepath = filepath.substr(0, filepath.length() - 4) + ".bin";
 
-    auto p = boost::filesystem::path(filepath);
-    if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
-        std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
-        HVA_ERROR("File %s does not exists", filepath);
-        return false;
+            auto p = boost::filesystem::path(filepath);
+            if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
+                std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+                HVA_ERROR("File %s does not exists", filepath.c_str());
+                return false;
+            }
+
+            auto p_bin = boost::filesystem::path(binFilepath);
+            if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
+                std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
+                HVA_ERROR("File %s does not exists", binFilepath.c_str());
+                return false;
+            }
+            
+            HDDL2pluginHelper_t::compile(filepath);
+        }
+        filepath = blobPath;
     }
-
-    // auto p_bin = boost::filesystem::path(binFilepath);
-    // if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
-    //     std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
-    //     return false;
-    // }
+    else {
+        auto p = boost::filesystem::path(filepath);
+        if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
+            std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+            HVA_ERROR("File %s does not exists", filepath.c_str());
+            return false;
+        }
+    }
 
     return true;
 }
