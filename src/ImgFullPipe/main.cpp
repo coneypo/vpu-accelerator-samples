@@ -8,7 +8,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <future>
-#include <FrameControlNode.hpp>
+#include <ImgFrameControlNode.hpp>
 #include <ipc.h>
 #include <common.hpp>
 #include <mutex>
@@ -347,7 +347,7 @@ int main(){
 
     std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
     HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
-    auto &FRCNode = pl.setSource(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
+    auto &FRCNode = pl.setSource(std::make_shared<ImgFrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
 
     auto &detNode = pl.addNode(std::make_shared<ImgInferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection",
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_fp16), "detNode");
