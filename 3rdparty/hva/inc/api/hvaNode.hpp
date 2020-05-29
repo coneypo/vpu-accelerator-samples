@@ -55,6 +55,8 @@ public:
     */
     hvaStatus_t push(std::shared_ptr<hvaBlob_t> data, ms timeout = ms(0));
 
+    void clear();
+
     void setPortQueuePolicy(hvaPortPolicy_t policy);
 
 private:
@@ -213,6 +215,8 @@ public:
 
     std::size_t getOutPortNum();
 
+    void clearAllPorts();
+
     /**
     * @brief send output to the next node connected at port index
     * 
@@ -322,6 +326,17 @@ public:
     * 
     */
     virtual void processByFirstRun(std::size_t batchIdx);
+
+    /**
+    * @brief specialization of process() where this function will be called only once after all other calls
+    *           of process()
+    * 
+    * @param batchIdx a batch index that framework will assign to each node worker. This is usually
+    *           passed to getBatchedInput()
+    * @return void
+    * 
+    */
+    virtual void processByLastRun(std::size_t batchIdx);
 
     /**
     * @brief initialization of this node. This is called sequentially by the framework at the very beginning

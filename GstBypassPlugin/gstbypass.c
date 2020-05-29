@@ -111,10 +111,10 @@ static void gst_bypass_finalize (GObject *object)
         GST_ERROR ("Failed to obtain workload %ld\n", workloadId);
     }
 
-    destroyWorkloadContext(workloadId);
+    // destroyWorkloadContext(workloadId);
 
-    GST_DEBUG ("Destroyed workload %lu with pid %u tid %lu\n", workloadId, getpid(),
-	syscall (SYS_gettid));
+    // GST_DEBUG ("Destroyed workload %lu with pid %u tid %lu\n", workloadId, getpid(),
+	// syscall (SYS_gettid));
 
     G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -138,6 +138,7 @@ static WorkloadID gst_bypass_workload_init ()
     contextHint.ResolutionWidth = 640;
     contextHint.ResolutionHeight = 480;
     contextHint.mediaFps = 29.7;
+    contextHint.internalWorkload = 0;
 
     hddlStatus = getWorkloadContextId (getpid (), syscall (SYS_gettid), &workloadId);
 
