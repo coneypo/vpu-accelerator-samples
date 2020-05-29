@@ -6,7 +6,7 @@
 #include <vector>
 #include <chrono>
 
-#define VALIDATION_DUMP
+//#define VALIDATION_DUMP
 
 using ms = std::chrono::milliseconds;
 
@@ -32,6 +32,18 @@ struct VideoMeta{
     ms frameEnd;
 #endif
     bool drop;
+};
+
+struct ImageMeta{
+    unsigned imageWidth;
+    unsigned imageHeight;
+    std::chrono::time_point<std::chrono::steady_clock> pipeTimeStart;
+#ifdef VALIDATION_DUMP
+    ms frameStart;
+    ms frameEnd;
+#endif
+    bool drop;
+    std::string ImgName;
 };
 
 struct ROI {

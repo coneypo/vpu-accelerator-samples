@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
-ImgFrameControlNode::ImgFrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, const Config& config):
+ImgFrameControlNode::ImgFrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum/*, const Config& config*/):
         hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum), m_dropEveryXFrame(0), m_dropXFrame(0){
 
 }

@@ -4,11 +4,14 @@
 
 #define TOTAL_ROIS 2
 #define INFER_ASYNC
+//#define VALIDATION_DUMP
 
 ImgInferNode::ImgInferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
-            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
+            std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc,
+            int32_t numInferRequest, float thresholdDetection)
             : hva::hvaNode_t{inPortNum, outPortNum, totalThreadNum},
-            m_vWID{vWID}, m_graphPath{graphPath}, m_mode{mode}, m_postproc(postproc)
+            m_vWID{vWID}, m_graphPath{graphPath}, m_mode{mode}, m_postproc(postproc),
+			m_numInferRequest{numInferRequest}, m_thresholdDetection{thresholdDetection}
 {
 }
 
@@ -17,12 +20,15 @@ std::shared_ptr<hva::hvaNodeWorker_t> ImgInferNode::createNodeWorker() const
     std::lock_guard<std::mutex> lock{m_mutex};
     printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
     return std::shared_ptr<hva::hvaNodeWorker_t>{
-        new ImgInferNodeWorker{const_cast<ImgInferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc}};
+        new ImgInferNodeWorker{const_cast<ImgInferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc,
+            m_numInferRequest, m_thresholdDetection}};
 }
 
 ImgInferNodeWorker::ImgInferNodeWorker(hva::hvaNode_t *parentNode,
-                                 WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc) 
-                                 : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc}, m_mode{mode}
+                                 WorkloadID id, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc,
+	                                int32_t numInferRequest, float thresholdDetection)
+                                 : hva::hvaNodeWorker_t{parentNode}, m_helperHDDL2{graphPath, id, postproc, thresholdDetection}, m_mode{mode},
+	                                m_numInferRequest{numInferRequest}, m_thresholdDetection{thresholdDetection}
 {
 }
 
@@ -174,5 +180,5 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
 void ImgInferNodeWorker::init()
 {
 //    m_helperHDDL2.setup();
-    m_helperHDDL2.setupImgPipe();
+    m_helperHDDL2.setupImgPipe(m_numInferRequest);
 }

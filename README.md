@@ -158,3 +158,45 @@ Please use the latest commit on branch multisession, though the commit we tested
 ###### Kmb IA GUI Application
 
 Please use the latest commit on branch develop, though the commit we tested upon is a5fc637n
+
+# For Image Workload Pipeline
+
+## Component commitID: 
+* \ dldt : 86edc6163e7b02594316bcc151745c2ba7eb24a5(branch:openvino-kmb.beta-20200513 )
+* \ kmb-plugin : 8b1ebe0804476343d93ca8415a6813ee2c9df661(branch:openvino-kmb.beta-20200513 )
+* \ hddl-unit : e88a947ce189d(branch:develop )
+
+Image Workload Pipeline is for Image Workload detction(loading NV12 images from IA host and run tiny_yolo_v2_fp16 detction with Inference Engine ASync api).
+
+For Image Workload Pipeline, the VAAPI Shim application(hddl_bypass_shim:used by video pipeline for encode) is no need to run.
+
+the following configurations are added in config.json:
+"Img":{
+        "Path":"/mnt/mydisk1/my_datas/ForTest/416/nv12",
+        "iterNum":5,
+        "width":416,
+        "height":416
+    }
+ 
+Path: NV12 Image folder
+iterNum: number of loops you want to run for all images in the folder.
+width: Image width (only 416 is tested by now)
+height: Image height (only 416 is tested by now)
+
+resued the Video Pipeline Socket Message format with adding "imgName" into the tail(diffrent from Video Pipeline, 'decFps' here presents total pipeline FPS):
+int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(), size_t pts = 0, double probability = 0, float inferFps = 0.0, float decFps = 0.0, const std::string& imgName = std::string()
+
+## How to run the Image Workload Pipeline
+
+Run the Pipeline:
+'''
+cd /Path/To/Your/gsthvasample
+./build/src/ImgFullPipe/ImgFullPipe
+
+'''
+Run the SampleGUI:
+'''
+cd /Path/To/Your/gsthvasample
+./build/src/ImgFullPipeGUITestMulti/ImgFullPipeGUITestMulti 2
+
+'''

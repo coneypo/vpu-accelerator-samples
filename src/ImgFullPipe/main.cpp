@@ -46,18 +46,46 @@ std::mutex g_mutex;
 std::condition_variable g_cv;
 
 bool checkValidNetFile(std::string filepath){
-    std::string::size_type suffix_pos = filepath.find(".blob");
-    if(suffix_pos == std::string::npos){
-        std::cout<<"Invalid network suffix. Expect *.xml"<<std::endl;
-        HVA_ERROR("Invalid network suffix. Expect *.xml");
+    std::string::size_type suffix_pos_blob = filepath.find(".blob");
+    std::string::size_type suffix_pos_xml = filepath.find(".xml");
+    if(suffix_pos_blob == std::string::npos && suffix_pos_xml == std::string::npos){
+        std::cout<<"Invalid network suffix. Expect *.xml or *.blob"<<std::endl;
+        HVA_ERROR("Invalid network suffix. Expect *.xml or *.blob");
         return false;
     }
 
-    auto p = boost::filesystem::path(filepath);
-    if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
-        std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
-        HVA_ERROR("File %s does not exists", filepath);
-        return false;
+    if(suffix_pos_blob == std::string::npos){
+        auto blobPath = filepath.substr(0, filepath.length() - 4) + ".blob";
+        std::ifstream f(blobPath.c_str());
+        if (!f.good())
+        {
+            std::string binFilepath = filepath.substr(0, filepath.length() - 4) + ".bin";
+
+            auto p = boost::filesystem::path(filepath);
+            if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
+                std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+                HVA_ERROR("File %s does not exists", filepath.c_str());
+                return false;
+            }
+
+            auto p_bin = boost::filesystem::path(binFilepath);
+            if(!boost::filesystem::exists(p_bin) || !boost::filesystem::is_regular_file(p_bin)){
+                std::cout<<"File "<<binFilepath<<" does not exists"<<std::endl;
+                HVA_ERROR("File %s does not exists", binFilepath.c_str());
+                return false;
+            }
+
+            HDDL2pluginHelper_t::compile(filepath);
+        }
+        filepath = blobPath;
+    }
+    else {
+        auto p = boost::filesystem::path(filepath);
+        if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
+            std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
+            HVA_ERROR("File %s does not exists", filepath.c_str());
+            return false;
+        }
     }
 
     return true;
@@ -198,10 +226,10 @@ void readInputFilesArguments(std::vector<std::string> &files,
 		files.push_back(arg);
 	}
 
-//	std::cout << "Files were added: " << files.size() << std::endl;
-//	for (std::string filePath : files) {
-//		std::cout << "    " << filePath << std::endl;
-//	}
+	std::cout << "Files were added: " << files.size() << std::endl;
+	for (std::string filePath : files) {
+		std::cout << "    " << filePath << std::endl;
+	}
 }
 
 char* readImageDataFromFile(const std::string& image_path, const int size) {
@@ -298,15 +326,15 @@ int main(){
     hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::ERROR);
 
     PipelineConfigParser configParser;
-    if(!configParser.parse("config.json")){
+    if(!configParser.parse("config.json", true)){
         std::cout<<"Failed to parse config.json"<<std::endl;
         HVA_ERROR("Failed to parse config.json");
         return 0;
     }
 
-    PipelineConfig config = configParser.get();
+    ImgPipelineConfig config = configParser.Imgget();
 
-    if(!checkValidNetFile(config.detConfig.model) || !checkValidNetFile(config.clsConfig.model)){
+    if(!checkValidNetFile(config.detConfig.model)){
         return -1;
     }
 
@@ -347,10 +375,10 @@ int main(){
 
     std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
     HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
-    auto &FRCNode = pl.setSource(std::make_shared<ImgFrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
+    auto &FRCNode = pl.setSource(std::make_shared<ImgFrameControlNode>(1, 1, 1/*, config.FRCConfig*/), "FRCNode");
 
     auto &detNode = pl.addNode(std::make_shared<ImgInferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection",
-                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_fp16), "detNode");
+                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_fp16, config.detConfig.inferReqNumber, config.detConfig.threshold), "detNode");
 
     std::cout << "INFER_FP16!!" << std::endl;
 

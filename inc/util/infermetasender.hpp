@@ -32,11 +32,19 @@ public:
         return false;
     }
 
-    void serializeSave(int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(), 
+    void serializeSave(int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(),
             size_t pts = 0, double probability = 0, float inferFps = 0.0, float decFps = 0.0)
     {
         std::string single_element = std::to_string(roi_x) + "," + std::to_string(roi_y) + "," + std::to_string(roi_width) + "," + std::to_string(roi_height)
             + "," + label + "," + std::to_string(pts) + "," + std::to_string(probability) + ","+ std::to_string(inferFps) + ","+ std::to_string(decFps) + ",";
+        m_serialized_result += single_element;
+    }
+
+    void ImgserializeSave(int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(), 
+            size_t pts = 0, double probability = 0, float inferFps = 0.0, float decFps = 0.0, const std::string& imgName = std::string())
+    {
+        std::string single_element = std::to_string(roi_x) + "," + std::to_string(roi_y) + "," + std::to_string(roi_width) + "," + std::to_string(roi_height)
+            + "," + label + "," + std::to_string(pts) + "," + std::to_string(probability) + ","+ std::to_string(inferFps) + ","+ std::to_string(decFps) + "," + imgName  + ",";
         m_serialized_result += single_element;
     }
 

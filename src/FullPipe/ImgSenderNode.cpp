@@ -64,7 +64,7 @@ void ImgSenderNodeWorker::process(std::size_t batchIdx){
             const auto& rois = meta->rois;
 //            m_sender[streamIdx]->serializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].labelClassification, rois[i].pts,
 //                    rois[i].confidenceClassification, inferFps, decFps);
-            m_sender[streamIdx]->serializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].labelClassification, rois[i].pts,
+            m_sender[streamIdx]->ImgserializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].labelClassification, rois[i].pts,
                     rois[i].confidenceClassification, inferFps, decFps, imgName);
         }
         m_sender[streamIdx]->send();
