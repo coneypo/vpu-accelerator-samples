@@ -1,11 +1,13 @@
 #ifndef INFERNODE_UNITE_HPP
 #define INFERNODE_UNITE_HPP
 
-#include <hvaPipeline.hpp>
 #include <string>
+
+#include <hvaPipeline.hpp>
+
 #include <common.hpp>
-#include "unite_helper.hpp"
 #include "object_selector.hpp"
+#include "unite_helper.hpp"
 
 class InferNode_unite : public hva::hvaNode_t{
 public:
@@ -18,8 +20,8 @@ private:
     std::vector<WorkloadID> vWID;
     std::string graphName;
     std::string graphPath;
-    int32_t inputSizeNN;
-    int32_t outputSize;
+    int32_t inputSizeNN {0};
+    int32_t outputSize {0};
     mutable std::atomic_int m_cntNodeWorker {0};
     mutable std::mutex m_mutex;
 };
@@ -33,17 +35,17 @@ public:
 
     virtual void init() override;
 
+private:
+    ObjectSelector::Ptr m_object_selector;
+    std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;
+
     hva::UniteHelper m_uniteHelper;
     std::vector<ROI> m_vecROI;
     std::string m_mode;
 
-    float m_fps{0.0f};
-    float m_durationAve{0.0f};
-    uint64_t m_cntFrame{0ul};
-
-private:
-    ObjectSelector::Ptr m_object_selector;
-    std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;
+    float m_fps {0.0f};
+    float m_durationAve {0.0f};
+    uint64_t m_cntFrame {0ul};
 };
 
 #endif //#ifndef INFERNODE_HPP

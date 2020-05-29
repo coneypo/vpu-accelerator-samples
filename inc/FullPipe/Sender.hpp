@@ -46,5 +46,4 @@ private:
     std::unordered_map<unsigned, std::string> m_unixSocket; 
 };
 
-
 #endif //#ifndef SENDER_HPP

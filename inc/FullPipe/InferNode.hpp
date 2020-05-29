@@ -1,8 +1,9 @@
 #ifndef INFERNODE_HPP
 #define INFERNODE_HPP
 
-#include <hvaPipeline.hpp>
 #include <string>
+
+#include <hvaPipeline.hpp>
 #include <common.hpp>
 #include "unite_helper.hpp" 
 #include "hddl2plugin_helper.hpp"
@@ -49,7 +50,6 @@ public:
 
 private:
     HDDL2pluginHelper_t m_helperHDDL2;
-    // std::vector<ROI> m_vecROI;
     std::string m_mode;
 
     float m_fps {0.0f};
@@ -66,8 +66,6 @@ private:
     int32_t m_numInferRequest{1};
     float m_thresholdDetection{0.6f};
 
-private:
-    // std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;
 };
 
 #endif //#ifndef INFERNODE_HPP

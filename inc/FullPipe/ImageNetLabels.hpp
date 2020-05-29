@@ -3,9 +3,6 @@
 #include <vector>
 #include <string>
 
-#include "ImageNetLabels.hpp"
-
-
 class ImageNetLabels {
 public:
   ImageNetLabels();
@@ -14,5 +11,4 @@ public:
 
 private:
   std::vector<std::string> _labels;
-
 };

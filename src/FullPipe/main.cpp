@@ -1,36 +1,34 @@
 #include <iostream>
 #include <memory>
-#include <hvaPipeline.hpp>
 #include <chrono>
 #include <thread>
-#include <jsonParser.hpp>
 #include <string>
+#include <future>
+#include <mutex>
+#include <condition_variable>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
-#include <future>
+#include <boost/algorithm/string.hpp>
+#include <hvaPipeline.hpp>
+#include <object_tracking_node.hpp>
+
+#include <ipc.h>
+#include <jsonParser.hpp>
 #include <jpeg_enc_node.hpp>
 #include <FakeDelayNode.hpp>
 #include <FrameControlNode.hpp>
-#include <ipc.h>
 #include <GstPipeContainer.hpp>
 #include <common.hpp>
-#include <mutex>
-#include <condition_variable>
-#include <boost/algorithm/string.hpp>
-#include "hddl2plugin_helper.hpp"
-#include "InferNode.hpp"
-#include "InferNode_unite.hpp"
+#include <hddl2plugin_helper.hpp>
+#include <InferNode.hpp>
+#include <InferNode_unite.hpp>
 #include <PipelineConfig.hpp>
-#include "object_tracking_node.hpp"
 #include <validationDumpNode.hpp>
 #include <Sender.hpp>
 #include <Messenger.hpp>
 #include <csignal> 
 
-#define STREAMS 1
-#define MAX_STREAMS 64
-// #define USE_FAKE_IE_NODE
-#define USE_OBJECT_TRACKING
 // #define USE_UNITE_API_IE
 using ms = std::chrono::milliseconds;
 
@@ -97,7 +95,6 @@ bool checkValidVideo(std::string filepath){
 
 struct SocketsConfig_t{
     unsigned numOfStreams;
-    // std::string unixSocket[MAX_STREAMS];
     std::vector<std::string> unixSocket;
 };
 
@@ -172,11 +169,6 @@ int receiveRoutine(const char* socket_address, SocketsConfig_t* config)
                 std::this_thread::sleep_for(ms(5000));
                 running = false;
                 /* stop pipeline */
-                // {
-                //     std::lock_guard<std::mutex> lg(g_mutex);
-                //     *ctrlMsg = ControlMessage::STOP_RECVED;
-                // }
-                // g_cv.notify_one();
                 break;
 
             default:
@@ -331,25 +323,15 @@ int main(){
     std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
     HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
     auto &FRCNode = pl.setSource(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
-#ifdef USE_FAKE_IE_NODE
-    auto& detNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
-#else
 
 #ifdef USE_UNITE_API_IE
     auto &detNode = pl.addNode(std::make_shared<InferNode_unite>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
                                                              416*416*3,13*13*125), "detNode");
 #else //#ifdef USE_UNITE_API_IE
-#ifdef INFER_FP16
     auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
                     &HDDL2pluginHelper_t::postprocYolotinyv2_fp16, config.detConfig.inferReqNumber, config.detConfig.threshold), "detNode");
-#else
-    auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
-                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
-#endif
-
 #endif //#ifdef USE_UNITE_API_IE
-    // auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,sockConfig.numOfStreams, 
-    // vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
+
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -359,14 +341,10 @@ int main(){
 
         detNode.configBatch(batchingConfig);
     }
-#endif
 
-#ifndef USE_OBJECT_TRACKING
-    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
-#else
     auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
     vWID, 0, "objectTracking", "short_term_imageless"), "trackingNode");
-    // if(sockConfig.numOfStreams > 1)
+
     {
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -376,22 +354,17 @@ int main(){
 
         trackingNode.configBatch(batchingConfig);
     }
-#endif
 
-#ifdef USE_FAKE_IE_NODE
-    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
-#else //#ifdef USE_FAKE_IE_NODE
 #ifndef VALIDATION_DUMP
 
-#ifdef INFER_FP16
+#ifdef USE_UNITE_API_IE
+    auto &clsNode = pl.addNode(std::make_shared<InferNode_unite>(1, 2, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification", 
+                                                             224*224*3, 1000), "clsNode");
+#else //#ifdef USE_UNITE_API_IE
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_fp16), "clsNode");
-#else
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-#endif
-    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
-    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+                    &HDDL2pluginHelper_t::postprocResnet50_fp16, config.clsConfig.inferReqNumber), "clsNode");
+#endif //#ifdef USE_UNITE_API_IE
+
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -407,18 +380,10 @@ int main(){
     auto &clsNode = pl.addNode(std::make_shared<InferNode_unite>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification", 
                                                              224*224*3, 1000), "clsNode");
 #else //#ifdef USE_UNITE_API_IE
-
-#ifdef INFER_FP16
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
                     &HDDL2pluginHelper_t::postprocResnet50_fp16, config.clsConfig.inferReqNumber), "clsNode");
-#else
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-#endif
 #endif //#ifdef USE_UNITE_API_IE
-    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
-    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
-    // if(sockConfig.numOfStreams > 1)
+    if(sockConfig.numOfStreams > 1)
     {
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -429,7 +394,7 @@ int main(){
         clsNode.configBatch(batchingConfig);
     }
 #endif //#ifndef VALIDATION_DUMP
-#endif //#ifdef USE_FAKE_IE_NODE
+
     if(sockConfig.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,sockConfig.numOfStreams,sockConfig.unixSocket), "sendNode");
     }
@@ -453,14 +418,9 @@ int main(){
     auto& validationDumpNode = pl.addNode(std::make_shared<ValidationDumpNode>(1,0,1,"Resnet"), "validationDumpNode");
 #endif //#ifdef VALIDATION_DUMP
 
-#ifndef USE_OBJECT_TRACKING
-    pl.linkNode("FRCNode", 0, "detNode", 0);
-    pl.linkNode("detNode", 0, "clsNode", 0);
-#else
     pl.linkNode("FRCNode", 0, "detNode", 0);
     pl.linkNode("detNode", 0, "trackingNode", 0);
     pl.linkNode("trackingNode", 0, "clsNode", 0);
-#endif
 
     pl.linkNode("clsNode", 0, "jpegNode", 0);
     pl.linkNode("clsNode", 1, "sendNode", 0);

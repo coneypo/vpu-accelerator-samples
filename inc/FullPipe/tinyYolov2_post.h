@@ -3,6 +3,7 @@
 #include <cmath>
 #include <vector>
 #include <functional>
+
 #include <inference_engine.hpp>
 #include "detection_helper.hpp"
 
@@ -23,10 +24,6 @@ namespace YoloV2Tiny {
         idxClassProbEnd = idxClassProbBegin + num_classes,
         idxCount = idxClassProbEnd
     };
-
-    // void fillRawNetOutMoviTL(float const *pIn, const int anchor_idx, const int cell_ind, const float threshold,
-    //                         float *pOut);
-
 
     void fillRawNetOut(float const *pIn, const int anchor_idx, const int cell_ind, const float threshold,
                     float *pOut);
