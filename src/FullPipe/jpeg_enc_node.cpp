@@ -1255,22 +1255,55 @@ bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
 }
 
 void JpegEncNodeWorker::deinit(){
+    // SurfacePool::Surface* usedSurface = nullptr;
+    // m_pool->getUsedSurface(&usedSurface);
+    // if(!usedSurface){
+    //     // all used surfaces are synced
+    //     return;
+    // }
+
+    // do{
+    //     if(!saveToFile(usedSurface)){
+    //         HVA_ERROR("Failed to save jpeg tagged %u", m_jpegCtr.load());
+    //     }
+
+    //     m_pool->moveToFree(&usedSurface);
+
+    //     m_pool->getUsedSurface(&usedSurface);
+    // }while(usedSurface != nullptr);
+
+    // if(!m_pool)
+    //     delete m_pool;
+
+    // if(!m_picPool)
+    //     delete[] m_picPool;
+
+    // vaDestroyConfig(m_vaDpy,m_jpegConfigId);
+    // vaTerminate(m_vaDpy);
+    // va_close_display(m_vaDpy);
+
+    // return;
+}
+
+void JpegEncNodeWorker::processByLastRun(std::size_t batchIdx){
+    HVA_WARNING("Going to deinit vaapi");
     SurfacePool::Surface* usedSurface = nullptr;
     m_pool->getUsedSurface(&usedSurface);
     if(!usedSurface){
         // all used surfaces are synced
-        return;
+        // return;
     }
+    else{
+        do{
+            if(!saveToFile(usedSurface)){
+                HVA_ERROR("Failed to save jpeg tagged %u", m_jpegCtr.load());
+            }
 
-    do{
-        if(!saveToFile(usedSurface)){
-            HVA_ERROR("Failed to save jpeg tagged %u", m_jpegCtr.load());
-        }
+            m_pool->moveToFree(&usedSurface);
 
-        m_pool->moveToFree(&usedSurface);
-
-        m_pool->getUsedSurface(&usedSurface);
-    }while(usedSurface != nullptr);
+            m_pool->getUsedSurface(&usedSurface);
+        }while(usedSurface != nullptr);
+    }
 
     if(!m_pool)
         delete m_pool;
@@ -1281,8 +1314,7 @@ void JpegEncNodeWorker::deinit(){
     vaDestroyConfig(m_vaDpy,m_jpegConfigId);
     vaTerminate(m_vaDpy);
     va_close_display(m_vaDpy);
-
-    return;
+    HVA_WARNING("Deinit vaapi done");
 }
 
 int JpegEncNodeWorker::build_packed_jpeg_header_buffer(unsigned char **header_buffer, int picture_width, int picture_height, uint16_t restart_interval, int quality)

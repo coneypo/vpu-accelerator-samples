@@ -24,6 +24,8 @@
 #include "object_tracking_node.hpp"
 #include <validationDumpNode.hpp>
 #include <Sender.hpp>
+#include <Messenger.hpp>
+#include <csignal> 
 
 #define STREAMS 1
 #define MAX_STREAMS 64
@@ -32,14 +34,10 @@
 // #define USE_UNITE_API_IE
 using ms = std::chrono::milliseconds;
 
-enum ControlMessage{
-    EMPTY = 0,
-    ADDR_RECVED,
-    STOP_RECVED
-};
-
 std::mutex g_mutex;
 std::condition_variable g_cv;
+
+static Messenger g_messenger;
 
 bool checkValidNetFile(std::string& filepath){
     std::string::size_type suffix_pos_blob = filepath.find(".blob");
@@ -103,7 +101,7 @@ struct SocketsConfig_t{
     std::vector<std::string> unixSocket;
 };
 
-int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsConfig_t* config)
+int receiveRoutine(const char* socket_address, SocketsConfig_t* config)
 {
     auto poller = HddlUnite::Poller::create();
     auto connection = HddlUnite::Connection::create(poller);
@@ -150,21 +148,18 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                 }
                 else{
                     /* start pipeline */
-                    // std::vector<std::string> sockets;
-                    // config->unixSocket.reserve();
-                    {
-                        std::lock_guard<std::mutex> lg(g_mutex);
-                        boost::split(config->unixSocket, message, boost::is_any_of(","));
-                        for (unsigned i = 0; i < config->unixSocket.size();++i){
-                            HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i].c_str());
-                        }
-                            config->numOfStreams = config->unixSocket.size();
-                        // for(unsigned i = 0; i< config->numOfStreams; ++i){
-                        //     config->unixSocket[i] = sockets[i];
-                        // }
-                        *ctrlMsg = ControlMessage::ADDR_RECVED;
-                        HVA_INFO("Control message set to addr_recved");
+
+                    // std::lock_guard<std::mutex> lg(g_mutex);
+                    boost::split(config->unixSocket, message, boost::is_any_of(","));
+                    for (unsigned i = 0; i < config->unixSocket.size();++i){
+                        HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i].c_str());
                     }
+                        config->numOfStreams = config->unixSocket.size();
+
+                    // *ctrlMsg = ControlMessage::ADDR_RECVED;
+                    g_messenger.setMessageAndNotify(ControlMessage::ADDR_RECVED);
+                    HVA_INFO("Control message set to addr_recved");
+
                     g_cv.notify_all();
                     HVA_INFO("Going to stop receive routine after 5 s");
                     std::this_thread::sleep_for(ms(5000));
@@ -191,12 +186,31 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
     return 0;
 }
 
+void onExitSignal(int sig, siginfo_t *info, void *ucontext){
+    HVA_WARNING("Signal handler triggerred!");
+    g_messenger.setMessageAndNotify(ControlMessage::STOP_RECVED);
+}
+
+void registerSystemSignalHandler(){
+
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+
+    act.sa_sigaction = onExitSignal;
+    act.sa_flags = SA_SIGINFO;
+	sigaction(SIGINT, &act, NULL);
+
+    HVA_INFO("Registered signal handler on SIGINT");
+}
+
 
 int main(){
 
     hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
     // hvaLogger.dumpToFile("test.log", false);
     // hvaLogger.enableProfiling();
+
+    registerSystemSignalHandler();
 
     gst_init(0, NULL);
 
@@ -220,23 +234,28 @@ int main(){
     SocketsConfig_t sockConfig;
     sockConfig.numOfStreams = 0;
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
+    MessageListener& listener = g_messenger.spawn();
 
-    std::thread t(receiveRoutine, config.guiSocket.c_str(), &ctrlMsg, &sockConfig);
+    std::thread t(receiveRoutine, config.guiSocket.c_str(), &sockConfig);
 
     std::mutex WIDMutex;
     std::condition_variable WIDCv;
     unsigned WIDReadyCnt = 0;
     hva::hvaPipeline_t pl;
 
-    {
-        std::unique_lock<std::mutex> lk(g_mutex);
-        if(sockConfig.numOfStreams == 0){
-            g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
-            std::cout<<"Control message addr_recved received and cleared"<<std::endl;
-            HVA_INFO("Control message addr_recved received and cleared");
-            ctrlMsg = ControlMessage::EMPTY;
-        }
-    }
+    do{
+        listener.pop(&ctrlMsg);
+    }while(ctrlMsg != ControlMessage::ADDR_RECVED);
+    ctrlMsg = ControlMessage::EMPTY;
+    // {
+    //     std::unique_lock<std::mutex> lk(g_mutex);
+    //     if(sockConfig.numOfStreams == 0){
+    //         g_cv.wait(lk,[&](){ return ctrlMsg == ControlMessage::ADDR_RECVED;});
+    //         std::cout<<"Control message addr_recved received and cleared"<<std::endl;
+    //         HVA_INFO("Control message addr_recved received and cleared");
+    //         ctrlMsg = ControlMessage::EMPTY;
+    //     }
+    // }
     std::vector<std::thread*> vTh;
     vTh.reserve(sockConfig.numOfStreams);
     std::vector<GstPipeContainer*> vCont(sockConfig.numOfStreams);
@@ -260,6 +279,9 @@ int main(){
                     }
                     WIDCv.notify_all();
 
+                    MessageListener& decListener = g_messenger.spawn();
+                    ctrlMsg = ControlMessage::EMPTY;
+
                     std::this_thread::sleep_for(ms(5000));
                     HVA_INFO("Dec source start feeding.");
 
@@ -272,15 +294,24 @@ int main(){
 
                         blob.reset(new hva::hvaBlob_t());
                         HVA_DEBUG("Sent fd %d from decoder completes",*fd);
+
+                        if(decListener.tryPop(&ctrlMsg) && ctrlMsg==ControlMessage::STOP_RECVED){
+                            HVA_DEBUG("Decoder %d received stop signal", i);
+                            break;
+                        }
+                        
                     }
 
-                    {
-                    std::lock_guard<std::mutex> lg(g_mutex);
-                    ctrlMsg = ControlMessage::STOP_RECVED;
-                    }
-                    g_cv.notify_all();
+                    // {
+                    // std::lock_guard<std::mutex> lg(g_mutex);
+                    // ctrlMsg = ControlMessage::STOP_RECVED;
+                    // }
+                    // g_cv.notify_all();
+                    vCont[i]->stop();
+                    delete vCont[i];
+                    vCont[i] = nullptr;
 
-                    HVA_INFO("Decoder finished");
+                    HVA_INFO("Decoder %d exited", i);
                     return;
                 }));
     }
@@ -435,37 +466,63 @@ int main(){
     pl.start();
 
     do{
-        std::unique_lock<std::mutex> lk(g_mutex);
-        g_cv.wait(lk,[&](){ return ControlMessage::STOP_RECVED == ctrlMsg;});
-        std::cout<<"Control message stop_recved received and cleared"<<std::endl;
-        HVA_INFO("Control message stop_recved received and cleared");
-        ctrlMsg = ControlMessage::EMPTY;
+        listener.pop(&ctrlMsg);
+        if(ctrlMsg == ControlMessage::STOP_RECVED){
+            std::cout<<"Control message stop_recved received and cleared"<<std::endl;
+            HVA_INFO("Control message stop_recved received and cleared");
+            ctrlMsg = ControlMessage::EMPTY;
 
-        std::this_thread::sleep_for(ms(2000)); //temp WA to let last decoded framed finish
+            std::this_thread::sleep_for(ms(2000)); //temp WA to let last decoded framed finish
 
-        std::cout<<"Going to stop pipeline."<<std::endl;
-        HVA_INFO("Going to stop pipeline");
+            std::cout<<"Going to stop pipeline."<<std::endl;
+            HVA_INFO("Going to stop pipeline");
 
-        pl.stop();
+            pl.stop();
 
-        for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
-            vCont[i]->stop();
-            delete vCont[i];
+            for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
+                HVA_DEBUG("Going to join %dth decoder", i);
+                vTh[i]->join();
+            }
+
+            HVA_INFO("All dec sources joined");
+
+            t.join();
+            break;
         }
-
-        std::this_thread::sleep_for(ms(1000));
-
-        for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
-            HVA_DEBUG("Going to join %dth decoder", i);
-            vTh[i]->join();
-        }
-
-        HVA_INFO("All dec sources joined");
-
-        t.join();
-        break;
-
     }while(true);
+
+    // do{
+    //     std::unique_lock<std::mutex> lk(g_mutex);
+    //     g_cv.wait(lk,[&](){ return ControlMessage::STOP_RECVED == ctrlMsg;});
+    //     std::cout<<"Control message stop_recved received and cleared"<<std::endl;
+    //     HVA_INFO("Control message stop_recved received and cleared");
+    //     ctrlMsg = ControlMessage::EMPTY;
+
+    //     std::this_thread::sleep_for(ms(2000)); //temp WA to let last decoded framed finish
+
+    //     std::cout<<"Going to stop pipeline."<<std::endl;
+    //     HVA_INFO("Going to stop pipeline");
+
+    //     pl.stop();
+
+    //     // for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
+    //     //     vCont[i]->stop();
+    //     //     delete vCont[i];
+    //     // }
+
+    //     std::this_thread::sleep_for(ms(1000));
+
+    //     for(unsigned i =0; i < sockConfig.numOfStreams; ++i){
+    //         HVA_DEBUG("Going to join %dth decoder", i);
+    //         vTh[i]->join();
+    //     }
+
+    //     HVA_INFO("All dec sources joined");
+
+    //     t.join();
+    //     break;
+
+    // }while(true);
 
     return 0;
 
