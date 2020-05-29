@@ -68,7 +68,7 @@ function download_dldt () {
     echo "Download dldt ..."
     cd ${DOWNLOAD_DIR}
     if [ ! -d ${DOWNLOAD_DIR}/dldt ]; then
-        git clone git@gitlab-icv.inn.intel.com:inference-engine/dldt.git --branch master --single-branch ${DOWNLOAD_DIR}/dldt
+        git clone git@gitlab-icv.inn.intel.com:inference-engine/dldt.git --branch releases/2020/kmb/beta --single-branch ${DOWNLOAD_DIR}/dldt
     fi
     # cd dldt
 
@@ -99,7 +99,7 @@ function download_and_build_hddl2plugin () {
     echo "Download hddl2plugin ..."
     cd ${DOWNLOAD_DIR}
     if [ ! -d ${DOWNLOAD_DIR}/kmb-plugin ]; then
-        git clone git@gitlab-icv.inn.intel.com:inference-engine/kmb-plugin.git --branch master --single-branch ${DOWNLOAD_DIR}/kmb-plugin
+        git clone git@gitlab-icv.inn.intel.com:inference-engine/kmb-plugin.git --branch releases/2020/kmb/beta --single-branch ${DOWNLOAD_DIR}/kmb-plugin
     fi
     cd kmb-plugin
 
@@ -153,9 +153,6 @@ function download_and_build_hddl2plugin () {
 
     echo "Begin to make DLDT for KMB-Plugin"
     cd $DLDT_HOME
-
-    git checkout 86edc6163e7b02594316bcc151745c2ba7eb24a5
-    git lfs pull
     git submodule init
     git submodule update --init --recursive
     mkdir -p $DLDT_HOME/$BUILD_DIR_NAME
@@ -178,11 +175,7 @@ function download_and_build_hddl2plugin () {
     echo "Begin to make KMB-Plugin"
     cd $KMB_PLUGIN_HOME
     export MCM_HOME=$KMB_PLUGIN_HOME/thirdparty/movidius/mcmCompiler
-
-    git checkout 8b1ebe0804476343d93ca8415a6813ee2c9df661 
-    git lfs pull
     git submodule update --init --recursive
-
     mkdir -p $KMB_PLUGIN_HOME/$BUILD_DIR_NAME
     cd $KMB_PLUGIN_HOME/$BUILD_DIR_NAME
     cmake -DInferenceEngineDeveloperPackage_DIR=$DLDT_HOME/build ${CMAKE_ENABLE_DEBUG} -DCMAKE_INSTALL_PREFIX=${HOST_INSTALL_DIR}/dldt ..
