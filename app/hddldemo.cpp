@@ -223,7 +223,7 @@ void HDDLDemo::initConfig()
     if (ConfigParser::instance()->isHvaConfigured()) {
         setupHvaProcess();
         QThread::sleep(2);
-        //sendSignalToHvaPipeline();
+        sendSignalToHvaPipeline();
     }
 }
 
@@ -278,7 +278,6 @@ void HDDLDemo::setupHvaProcess()
     for (auto& entry : hvaEnvironmentVariables) {
         env.insert(QString::fromStdString(entry.first), QString::fromStdString(entry.second));
     }
-    QStringList slist;
     m_hvaProcess = new QProcess();
     m_hvaProcess->setProcessEnvironment(env);
     m_hvaProcess->setWorkingDirectory(hvaWorkDirectory);
