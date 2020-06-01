@@ -21,6 +21,7 @@ public:
     bool parse(const char* pipeline, const char* displaySink);
     bool run(guintptr winhandler, int timeout = 0);
     void process(PipelineAction action);
+    void setSize(guint32 width, guint32 height);
     void exposeVideoOverlay();
     double getFps();
     double getOffloadPipeDecodingFps();
@@ -28,11 +29,14 @@ public:
 
 private:
     static gboolean busCallBack(GstBus* bus, GstMessage* msg, gpointer data);
+    void getVideoResolution(const std::string& mediaFile);
 
     GstElement* m_pipeline { nullptr };
     GstElement* m_displaySink { nullptr };
     GstVideoOverlay* m_overlay { nullptr };
     std::shared_ptr<FpsStat> m_fpsProb { nullptr };
+    guint32 m_videoWidth { 0 };
+    guint32 m_videoHeight { 0 };
 };
 
 #endif //HDDLDEMO_PIPELINE_H

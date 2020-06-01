@@ -66,6 +66,7 @@ void HddlChannel::run(int timeout)
 
 void HddlChannel::resizeEvent(QResizeEvent* event)
 {
+    m_pipeline->setSize(event->size().width(), event->size().height());
     m_pipeline->exposeVideoOverlay();
     QMainWindow::resizeEvent(event);
 }

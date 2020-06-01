@@ -8,6 +8,9 @@
 #include <gio/gio.h>
 #include <gst/gstclock.h>
 #include <gst/video/gstvideometa.h>
+#include <iostream>
+#include <opencv2/videoio.hpp>
+#include <regex>
 
 #define OVERLAY_NAME "mfxsink0"
 
@@ -26,6 +29,15 @@ Pipeline::~Pipeline()
 
 bool Pipeline::parse(const char* pipeline, const char* displaySink)
 {
+    std::string pipelineStr(pipeline);
+    std::smatch result;
+    std::regex pattern("^filesrc\\s+location=(.*?)\\s+!");
+    if (!std::regex_search(pipelineStr, result, pattern)) {
+        GST_ERROR("Can not parse media file from pipeline:%s", pipeline);
+        return FALSE;
+    }
+    getVideoResolution(result[1].str());
+
     //parse gstreamer pipeline
     gst_init(NULL, NULL);
     m_pipeline = gst_parse_launch_full(pipeline, NULL, GST_PARSE_FLAG_FATAL_ERRORS, NULL);
@@ -35,6 +47,12 @@ bool Pipeline::parse(const char* pipeline, const char* displaySink)
     } else {
         m_displaySink = gst_bin_get_by_interface(GST_BIN(m_pipeline), GST_TYPE_VIDEO_SINK);
         m_overlay = GST_VIDEO_OVERLAY(gst_bin_get_by_interface(GST_BIN(m_pipeline), GST_TYPE_VIDEO_OVERLAY));
+    }
+
+    GstElement* inferElem = gst_bin_get_by_name(GST_BIN(m_pipeline), "inference0");
+    if (inferElem) {
+        g_object_set(inferElem, "width", m_videoWidth, NULL);
+        g_object_set(inferElem, "height", m_videoHeight, NULL);
     }
 
     //set bus callback
@@ -83,6 +101,14 @@ void Pipeline::process(PipelineAction action)
     }
     default:
         GST_ERROR("Unrecognized action\n");
+    }
+}
+
+void Pipeline::setSize(guint32 width, guint32 height)
+{
+    GstElement* vpp = gst_bin_get_by_name(GST_BIN(m_pipeline), "mfxpostproc0");
+    if (vpp) {
+        g_object_set(G_OBJECT(vpp), "width", width, "height", height, NULL);
     }
 }
 
@@ -147,6 +173,15 @@ gboolean Pipeline::busCallBack(GstBus* bus, GstMessage* msg, gpointer data)
         break;
     }
     return true;
+}
+
+void Pipeline::getVideoResolution(const std::string& mediaFile)
+{
+    cv::VideoCapture video(mediaFile);
+    if (video.isOpened()) {
+        m_videoWidth = video.get(cv::CAP_PROP_FRAME_WIDTH);
+        m_videoHeight = video.get(cv::CAP_PROP_FRAME_HEIGHT);
+    }
 }
 
 void timerAsync(gint32 timeout, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)

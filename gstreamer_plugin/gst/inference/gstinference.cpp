@@ -10,6 +10,7 @@
 #include <boost/algorithm/string.hpp>
 #include <chrono>
 #include <condition_variable>
+#include <gst/video/gstvideometa.h>
 #include <map>
 #include <mutex>
 #include <string>
@@ -40,7 +41,9 @@ enum {
     PROP_0,
     PROP_SILENT,
     PROP_SOCKET_NAME,
-    PROP_SYNC_MODE
+    PROP_SYNC_MODE,
+    PROP_ORIGIN_WIDTH,
+    PROP_ORIGIN_HEIGHT
 };
 
 #define GST_TYPE_INFERENCE_SYNC_MODE (gst_inference_sync_mode_get_type())
@@ -98,8 +101,7 @@ static void gst_inference_get_property(GObject* object, guint prop_id,
 
 static gboolean gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event);
 static GstFlowReturn gst_inference_chain(GstPad* pad, GstObject* parent, GstBuffer* buf);
-static void gst_inference_dispose (GObject * object);
-
+static void gst_inference_dispose(GObject* object);
 
 /* GObject vmethod implementations */
 
@@ -127,6 +129,14 @@ gst_inference_class_init(GstInferenceClass* klass)
     g_object_class_install_property(gobject_class, PROP_SYNC_MODE,
         g_param_spec_enum("syncmode", "SyncMode", "unix socket file name", GST_TYPE_INFERENCE_SYNC_MODE,
             SYNC_MODE_PTS, GParamFlags(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(gobject_class, PROP_ORIGIN_WIDTH,
+        g_param_spec_int("width", "original width", "the original video width",
+            0, G_MAXINT32, 0, G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_ORIGIN_HEIGHT,
+        g_param_spec_int("height", "original height", "the original video height",
+            0, G_MAXINT32, 0, G_PARAM_READWRITE));
 
     gst_element_class_set_details_simple(gstelement_class,
         "Inference",
@@ -159,9 +169,13 @@ gst_inference_init(GstInference* filter)
     filter->sockname = "/var/tmp/gstreamer_ipc.sock";
     filter->needstop = FALSE;
     filter->thread = NULL;
+    filter->originalheight = 0;
+    filter->originalwidth = 0;
+    filter->heightratio = 1.0;
+    filter->widthratio = 1.0;
 }
 
-static void gst_inference_dispose (GObject * object)
+static void gst_inference_dispose(GObject* object)
 {
     GstInference* filter = GST_INFERENCE(object);
     filter->needstop = TRUE;
@@ -187,6 +201,12 @@ gst_inference_set_property(GObject* object, guint prop_id,
     case PROP_SYNC_MODE:
         filter->syncmode = (GstInferenceSyncMode)g_value_get_enum(value);
         break;
+    case PROP_ORIGIN_WIDTH:
+        filter->originalwidth = g_value_get_int(value);
+        break;
+    case PROP_ORIGIN_HEIGHT:
+        filter->originalheight = g_value_get_int(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -208,6 +228,12 @@ gst_inference_get_property(GObject* object, guint prop_id,
         break;
     case PROP_SYNC_MODE:
         g_value_set_enum(value, filter->syncmode);
+        break;
+    case PROP_ORIGIN_WIDTH:
+        g_value_set_int(value, filter->originalwidth);
+        break;
+    case PROP_ORIGIN_HEIGHT:
+        g_value_set_int(value, filter->originalheight);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -233,6 +259,12 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
     case GST_EVENT_CAPS: {
         GstCaps* caps;
         gst_event_parse_caps(event, &caps);
+        GstVideoInfo info;
+        gst_video_info_from_caps(&info, caps);
+        if (filter->originalheight && filter->originalwidth) {
+            filter->widthratio = (double)info.width / filter->originalwidth;
+            filter->heightratio = (double)info.height / filter->originalheight;
+        }
         ret = gst_pad_event_default(pad, parent, event);
         break;
     }
@@ -261,8 +293,9 @@ gst_inference_sink_event(GstPad* pad, GstObject* parent, GstEvent* event)
  * this function does the actual processing
  */
 static GstFlowReturn
-gst_inference_chain(GstPad*, GstObject* parent, GstBuffer* buf)
+gst_inference_chain(GstPad* pad, GstObject* parent, GstBuffer* buf)
 {
+    (void)pad;
     GstInference* filter;
     filter = GST_INFERENCE(parent);
 
@@ -439,11 +472,11 @@ static int addMetaData(GstInference* infer, GstBuffer* buf)
         InferResultMeta* meta = gst_buffer_add_infer_result_meta(buf, boxNums);
         if (meta) {
             for (size_t i = 0; i < boxNums; i++) {
-                meta->boundingBox[i].x = current_frame_result->second[i].x;
-                meta->boundingBox[i].y = current_frame_result->second[i].y;
+                meta->boundingBox[i].x = current_frame_result->second[i].x * infer->widthratio;
+                meta->boundingBox[i].y = current_frame_result->second[i].y * infer->heightratio;
                 meta->boundingBox[i].pts = current_frame_result->second[i].pts;
-                meta->boundingBox[i].width = current_frame_result->second[i].width;
-                meta->boundingBox[i].height = current_frame_result->second[i].height;
+                meta->boundingBox[i].width = current_frame_result->second[i].width * infer->widthratio;
+                meta->boundingBox[i].height = current_frame_result->second[i].height * infer->heightratio;
                 meta->boundingBox[i].inferfps = current_frame_result->second[i].inferfps;
                 meta->boundingBox[i].decfps = current_frame_result->second[i].decfps;
                 meta->boundingBox[i].probability = current_frame_result->second[i].probability;

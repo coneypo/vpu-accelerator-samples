@@ -71,7 +71,6 @@ typedef enum {
     SYNC_MODE_NOSYNC
 } GstInferenceSyncMode;
 
-
 struct _GstInference {
     GstElement element;
 
@@ -80,8 +79,12 @@ struct _GstInference {
     gboolean silent;
     const gchar* sockname;
     GstInferenceSyncMode syncmode;
-    GThread *thread;
+    GThread* thread;
     gboolean needstop;
+    guint32 originalwidth;
+    guint32 originalheight;
+    gdouble widthratio;
+    gdouble heightratio;
 };
 
 struct _GstInferenceClass {
