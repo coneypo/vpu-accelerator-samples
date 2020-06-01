@@ -11,6 +11,7 @@ enum ControlMessage{
     STOP_RECVED
 };
 
+// cross thread comm utility class, where messenger feeds message and listeners retrieve them
 class Messenger{
 public:
     Messenger();
@@ -21,8 +22,22 @@ public:
 
     ~Messenger();
 
+    /**
+    * @brief spawn a listener associated with this messenger
+    * 
+    * @param void
+    * @return reference to a message listener spawned
+    * 
+    */
     MessageListener& spawn();
 
+    /**
+    * @brief set a message and notify all the listeners
+    * 
+    * @param msg message fed
+    * @return success status
+    * 
+    */
     bool setMessageAndNotify(ControlMessage msg);
 
 private:
@@ -42,8 +57,22 @@ public:
 
     bool push(ControlMessage msg);
 
+    /**
+    * @brief pop a message from listener in a blocking manner
+    * 
+    * @param msg message being poped
+    * @return success status
+    * 
+    */
     bool pop(ControlMessage* msg);
 
+    /**
+    * @brief try pop a message from listener without blocking
+    * 
+    * @param msg message being poped if any
+    * @return true if message is retrieved. false if no available messages
+    * 
+    */
     bool tryPop(ControlMessage* msg);
 
 private:

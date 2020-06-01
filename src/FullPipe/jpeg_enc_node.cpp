@@ -331,60 +331,6 @@ void Defaults::populate_scan_header(JPEGScanHeader *scanHdr) const
     
 };
 
-// VaapiSurfaceAllocator::VaapiSurfaceAllocator(VADisplay* dpy):m_dpy(dpy){ }
-
-// VaapiSurfaceAllocator::~VaapiSurfaceAllocator(){
-//     if(m_surfaces.size()){
-//         free();
-//     }
-//  }
-
-// bool VaapiSurfaceAllocator::alloc(const VaapiSurfaceAllocatorConfig& config, VASurfaceID surfaces[]){
-//     if(!m_dpy){
-//         std::cout<<"VA Display unset. Unable to allocate surfaces"<<std::endl;
-//         return false;
-//     }
-
-//     VASurfaceAttrib fourcc;
-//     fourcc.type =VASurfaceAttribPixelFormat;
-//     fourcc.flags=VA_SURFACE_ATTRIB_SETTABLE;
-//     fourcc.value.type=VAGenericValueTypeInteger;
-//     fourcc.value.value.i=VA_FOURCC_NV12; //currently we only consider nv12
-
-//     VAStatus va_status = vaCreateSurfaces(*m_dpy, config.surfaceType, config.width, config.height, 
-//                                  &surfaces[0], config.surfaceNum, &fourcc, 1);
-//     if(va_status != VA_STATUS_SUCCESS){
-//         std::cout<<"Failed to allocate surfaces: "<<va_status<<std::endl;
-//         return false;
-//     }
-
-//     // va_status = vaCreateContext(*m_dpy,)
-
-//     if(m_surfaces.capacity() < m_surfaces.size()+ config.surfaceNum){
-//         m_surfaces.reserve(m_surfaces.size()+ config.surfaceNum);
-//     }
-//     for(std::size_t i =0; i<config.surfaceNum;++i){
-//         m_surfaces.push_back(surfaces[i]);
-//     }
-//     return true;
-    
-// }
-
-// void VaapiSurfaceAllocator::free(){
-//     for(std::vector<VASurfaceID>::iterator it = m_surfaces.begin(); it != m_surfaces.end(); ++it){
-//         vaDestroySurfaces(*m_dpy,&(*it),1);
-//     }
-//     std::vector<VASurfaceID>().swap(m_surfaces);
-// }
-
-// bool VaapiSurfaceAllocator::getSurfacesAddr(VASurfaceID*& surfAddr){
-//     if(m_surfaces.empty())
-//         return false;
-
-//     surfAddr = &(m_surfaces[0]);
-//     return true;
-// }
-
 SurfacePool::SurfacePool(VADisplay* dpy, JpegEncPicture* picPool): m_dpy(dpy), m_picPool(picPool),
         m_freeSurfaces(nullptr), m_usedSurfaces(nullptr){ }
 
@@ -407,17 +353,7 @@ bool SurfacePool::init(SurfacePool::Config& config){
     m_config = config;
 
     VASurfaceID surfaces[config.surfaceNum];
-    // if(m_allocator->alloc(config, surfaces)){
-    //     for(std::size_t i = 0; i < config.surfaceNum; ++i){
-    //         Surface* newItem = new Surface{surfaces[i], i, m_freeSurfaces};
-    //         m_freeSurfaces = newItem;
-    //     }
-    //     return true;
-    // }
-    // else{
-    //     std::cout<<"Fail to allocate surfaces in surface pool"<<std::endl;
-    //     return false;
-    // }
+
     for(std::size_t i = 0; i < config.surfaceNum; ++i){
         Surface* newItem = new Surface{surfaces[i], 0, i, nullptr, m_freeSurfaces};
         m_freeSurfaces = newItem;
@@ -425,7 +361,6 @@ bool SurfacePool::init(SurfacePool::Config& config){
 
     return true;
 }
-// static bool firstImg = true;
 
 bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, std::shared_ptr<hva::hvaBuf_t<int, VideoMeta>> pBuf){
     *surface = m_freeSurfaces;
@@ -441,13 +376,9 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
     unsigned alignedWidth = alignTo(m_config.width);
     unsigned alignedHeight = alignTo(m_config.height);
 
-    extbuf.data_size = m_config.fdLength ;// 2625536; //alignedWidth*alignedHeight*3/2;
+    extbuf.data_size = m_config.fdLength;
     extbuf.num_planes = 2;
-    // for (i = 0; i < extbuf.num_planes; i++) {
-    //     extbuf.pitches[i] = GST_VIDEO_INFO_PLANE_STRIDE (vip, i);
-    //     extbuf.offsets[i] = GST_VIDEO_INFO_PLANE_OFFSET (vip, i);
-    // }
-    // todo: work out the proper pitch and offset
+
     extbuf.pitches[0] = alignedWidth;
     extbuf.pitches[1] = alignedWidth;
     extbuf.offsets[0] = 0;
@@ -487,29 +418,6 @@ bool SurfacePool::getFreeSurfaceUnsafe(SurfacePool::Surface** surface, int fd, s
         // to-do: try re create a surface
         return false;
     }
-
-    // if(firstImg){
-    //     VAImage vaImg;
-    //     VAStatus status = vaDeriveImage(*m_dpy, (*surface)->surfaceId, &vaImg);
-    //     if(va_status != VA_STATUS_SUCCESS){
-    //         std::cout<<"Fail to derive image."<<std::endl;
-    //         return false;
-    //     }
-    //     void* mappedSurf = nullptr;
-    //     va_status = vaMapBuffer(*m_dpy,vaImg.buf, &mappedSurf);
-    //     if(va_status != VA_STATUS_SUCCESS){
-    //         std::cout<<"Fail to map image."<<std::endl;
-    //         return false;
-    //     }
-
-    //     auto myfile = std::fstream("firstimage.yuv", std::ios::out | std::ios::binary);
-    //     myfile.write(&(((char*)mappedSurf)[0]), 1088*768*3/2);
-    //     myfile.close();
-
-    //     vaUnmapBuffer(*m_dpy, vaImg.buf);
-    //     vaDestroyImage(*m_dpy,vaImg.image_id);
-    //     firstImg = false;
-    // }
 
     return true;
 }
@@ -658,29 +566,10 @@ bool SurfacePool::reset(Surface** surface){
 
 JpegEncNode::JpegEncNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, const std::vector<uint64_t>& WIDs):
         hva::hvaNode_t(inPortNum, outPortNum, totalThreadNum),m_workerIdx(0), m_vWID(WIDs){
-    // if(!initVaapi()){
-    //     std::cout<<"Vaapi init failed"<<std::endl;
-    //     return;
-    // }
-    // m_allocator = new VaapiSurfaceAllocator(&m_vaDpy); //not allocated any surfaces yet
-    // m_pool = new SurfacePool(&m_vaDpy, m_allocator); //not init yet
-    // m_picPool = new JpegEncPicture[PIC_POOL_SIZE];
-    // memset(m_picPool, 0, sizeof(JpegEncPicture)*PIC_POOL_SIZE);
 }
 
 JpegEncNode::~JpegEncNode(){
-    // if(!m_allocator)
-    //     delete m_allocator;
 
-    // if(!m_pool)
-    //     delete m_pool;
-
-    // if(!m_picPool)
-    //     delete[] m_picPool;
-
-    // vaDestroyConfig(m_vaDpy,m_jpegConfigId);
-    // vaTerminate(m_vaDpy);
-    // va_close_display(m_vaDpy);
 }
 
 std::shared_ptr<hva::hvaNodeWorker_t> JpegEncNode::createNodeWorker() const {
@@ -689,22 +578,6 @@ std::shared_ptr<hva::hvaNodeWorker_t> JpegEncNode::createNodeWorker() const {
 }
 
 bool JpegEncNodeWorker::initVaapi(){
-
-    /* 0. Init hddl unite workload context*/
-    // std::cout<<"Preparing to create WID with pid "<<getpid()<<" and tid "<<syscall(SYS_gettid)<<std::endl;
-    
-    // ContextHint ctxHint;
-    // ctxHint.mediaBitrate = 2.1;
-    // ctxHint.ResolutionWidth = 1080;
-    // ctxHint.ResolutionHeight = 720;
-    // ctxHint.mediaFps = 29.7;
-
-    // if(HDDL_OK != createWorkloadContext(&m_WID, &ctxHint)){
-	// std::cout<<"Fail to get workload context ID"<<std::endl;
-	// return false;
-    // }
-
-    // std::cout<<"WID Received: "<<m_WID<<std::endl;
 
     HVA_INFO("Preparing to bind WID %u with pid %u and tid %u", m_WID, getpid(), syscall(SYS_gettid));
     if(HDDL_OK != HddlUnite::bindWorkloadContext(getpid(), syscall(SYS_gettid), m_WID)){
@@ -783,27 +656,6 @@ bool JpegEncNodeWorker::initVaapi(){
 
     return true;
 }
-
-// bool JpegEncNode::initVaJpegCtx(){
-//     VASurfaceID* surfAddr = nullptr;
-//     m_allocator->getSurfacesAddr(surfAddr);
-//     if(!m_vaDpy || !m_jpegConfigId){
-//         std::cout<<"VA display or va config unset!"<<std::endl;
-//         return false;
-//     }
-//     if(!m_picWidth || !m_picHeight){
-//         std::cout<<"Pic Width and Pic Height unset!"<<std::endl;
-//         return false;
-//     }
-//     VAStatus va_status = vaCreateContext(m_vaDpy, m_jpegConfigId, m_picWidth, m_picHeight, 
-//                                 VA_PROGRESSIVE, surfAddr, 16, &m_jpegCtxId);
-//     if(va_status != VA_STATUS_SUCCESS){
-//         std::cout<<"Create va context failed!"<<std::endl;
-//         return false;
-//     }
-//     return true;
-// }
-
 
 JpegEncNodeWorker::JpegEncNodeWorker(hva::hvaNode_t* parentNode, uint64_t WID):
         hva::hvaNodeWorker_t(parentNode),m_WID(WID), m_vaDisplayReady(false), m_surfaceAndContextReady(false), m_picHeight(0u),
@@ -899,11 +751,6 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                     HVA_ERROR("Surface pool init failed!");
                     return;
                 }
-                // VASurfaceID* surfAddr = nullptr;
-                // if(!((JpegEncNode*)m_parentNode)->initVaJpegCtx()){
-                //     std::cout<<"Init jpeg context failed!"<<std::endl;
-                //     return;
-                // }
                 m_surfaceAndContextReady = true;
             }
         }
@@ -925,27 +772,6 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                     HVA_ERROR("Surface got is invalid!");
                     continue;
                 }
-                // const unsigned char* img = vInput[0]->get<unsigned char, std::pair<unsigned, unsigned>>(1)->getPtr();
-                // if(!prepareSurface(vaSurf, img)){
-                //     std::cout<<"Fail to prepare input surface!"<<std::endl;
-                //     return;
-                // }
-
-                // auto context = HddlUnite::queryWorkloadContext(((JpegEncNode*)m_parentNode)->m_WID);
-                // HddlUnite::SMM::RemoteMemory temp(*context, *fd);
-                // char* tempData = new char[768*1088*3/2];
-                // temp.syncFromDevice(tempData, 768*1088*3/2);
-                // std::stringstream ss;
-                // ss << "DumpSurf"<<surface->surfaceId<<".nv12";
-                // FILE* nv12FP = fopen(ss.str().c_str(), "wb");  
-                // unsigned w_items = 0;
-                // do {
-                //     w_items = fwrite(tempData, 768*1088*3/2, 1, nv12FP);
-                // } while (w_items != 1);
-
-                // fclose(nv12FP);
-
-                // delete[] tempData;
 
                 VAStatus va_status;
                 unsigned picWidth = m_picWidth;
@@ -962,10 +788,6 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                         1, NULL, &(picPool[index].codedBufId));
 
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Create coded buffer failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Create coded buffer failed!"<<std::endl;
-                //     return;
-                // }
 
                 // Picture parameter buffer
                 VAEncPictureParameterBufferJPEG pic_param;
@@ -975,37 +797,21 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                 va_status = vaCreateBuffer(m_vaDpy, surface->ctxId,
                         VAEncPictureParameterBufferType, sizeof(VAEncPictureParameterBufferJPEG), 1, &pic_param, &(picPool[index].picParamBufId));
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Create picture param failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Create picture param failed!"<<std::endl;
-                //     return;
-                // }
 
                 //Quantization matrix
                 va_status = vaCreateBuffer(m_vaDpy, surface->ctxId,
                         VAQMatrixBufferType, sizeof(VAQMatrixBufferJPEG), 1, Defaults::getDefaults().qMatrix(), &(picPool[index].qMatrixBufId));
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Create quantization matrix failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Create quantization matrix failed!"<<std::endl;
-                //     return;
-                // }
 
                 //Huffman table
                 va_status = vaCreateBuffer(m_vaDpy,surface->ctxId, VAHuffmanTableBufferType, 
                                         sizeof(VAHuffmanTableBufferJPEGBaseline), 1, Defaults::getDefaults().huffmanTbl(), &(picPool[index].huffmanTblBufId));
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Create huffman table failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Create huffman table failed!"<<std::endl;
-                //     return;
-                // }
 
                 //Slice parameter
                 va_status = vaCreateBuffer(m_vaDpy, surface->ctxId, VAEncSliceParameterBufferType, 
                                     sizeof(VAEncSliceParameterBufferJPEG), 1, Defaults::getDefaults().sliceParam(), &(picPool[index].sliceParamBufId));
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Create slice parameter failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Create slice parameter failed!"<<std::endl;
-                //     return;
-                // }
 
                 // packed headers
                 VAEncPackedHeaderParameterBuffer packed_header_param_buffer;
@@ -1053,17 +859,9 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
                         sizeof(VAEncMiscParameterBuffer) + sizeof(HANTROEncMiscParameterBufferEmbeddedPreprocess),
                         1, NULL, &(picPool[index].ROIDataBufId));
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Create ROI Misc buffer failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Create ROI Misc buffer failed!"<<std::endl;
-                //     return;
-                // }
 
                 va_status = vaMapBuffer(m_vaDpy,(picPool[index].ROIDataBufId),(void **)&misc_param);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Map ROI Misc buffer failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Map ROI Misc buffer failed!"<<std::endl;
-                //     return;
-                // }
 
                 misc_param->type =(VAEncMiscParameterType) HANTROEncMiscParameterTypeEmbeddedPreprocess;
                 ROIData= (HANTROEncMiscParameterBufferEmbeddedPreprocess*)misc_param->data;
@@ -1092,76 +890,38 @@ void JpegEncNodeWorker::process(std::size_t batchIdx){
 
                 va_status = vaUnmapBuffer(m_vaDpy, (picPool[index].ROIDataBufId));
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Unmap ROI Misc buffer failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Unmap ROI Misc buffer failed!"<<std::endl;
-                //     return;
-                // }
 
 #endif //#ifdef HANTRO_JPEGENC_ROI_API
 
                 // begine encoding
                 va_status = vaBeginPicture(m_vaDpy, surface->ctxId, surface->surfaceId);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Begin picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Begin picture failed!"<<std::endl;
-                //     return;
-                // }
 
                 va_status = vaRenderPicture(m_vaDpy,surface->ctxId, &(picPool[index].picParamBufId), 1);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Render picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Render picture failed!"<<std::endl;
-                //     return;
-                // }
 
                 va_status = vaRenderPicture(m_vaDpy,surface->ctxId, &(picPool[index].qMatrixBufId), 1);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Render picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Render picture failed!"<<std::endl;
-                //     return;
-                // }
 
                 va_status = vaRenderPicture(m_vaDpy,surface->ctxId, &(picPool[index].huffmanTblBufId), 1);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Render picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Render picture failed!"<<std::endl;
-                //     return;
-                // }
 
                 va_status = vaRenderPicture(m_vaDpy,surface->ctxId, &(picPool[index].sliceParamBufId), 1);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Render picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Render picture failed!"<<std::endl;
-                //     return;
-                // }
                 
                 va_status = vaRenderPicture(m_vaDpy,surface->ctxId, &(picPool[index].headerParamBufId), 1);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Render picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Render picture failed!"<<std::endl;
-                //     return;
-                // }
                 
                 va_status = vaRenderPicture(m_vaDpy,surface->ctxId, &(picPool[index].headerDataBufId), 1);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Render picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Render picture failed!"<<std::endl;
-                //     return;
-                // }
+
 #ifdef HANTRO_JPEGENC_ROI_API
                 va_status = vaRenderPicture(m_vaDpy,surface->ctxId, &(picPool[index].ROIDataBufId), 1);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "Render picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"Render picture failed!"<<std::endl;
-                //     return;
-                // }
+
 #endif //#ifdef HANTRO_JPEGENC_ROI_API            
                 va_status = vaEndPicture(m_vaDpy,surface->ctxId);
                 JPEG_VAAPI_STATUS_CHECK(va_status, "End picture failed!", (&surface));
-                // if(va_status != VA_STATUS_SUCCESS){
-                //     std::cout<<"End picture failed!"<<std::endl;
-                //     return;
-                // }
 
                 m_pool->moveToUsed(&surface);
                 surface = nullptr;
@@ -1255,34 +1015,7 @@ bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
 }
 
 void JpegEncNodeWorker::deinit(){
-    // SurfacePool::Surface* usedSurface = nullptr;
-    // m_pool->getUsedSurface(&usedSurface);
-    // if(!usedSurface){
-    //     // all used surfaces are synced
-    //     return;
-    // }
 
-    // do{
-    //     if(!saveToFile(usedSurface)){
-    //         HVA_ERROR("Failed to save jpeg tagged %u", m_jpegCtr.load());
-    //     }
-
-    //     m_pool->moveToFree(&usedSurface);
-
-    //     m_pool->getUsedSurface(&usedSurface);
-    // }while(usedSurface != nullptr);
-
-    // if(!m_pool)
-    //     delete m_pool;
-
-    // if(!m_picPool)
-    //     delete[] m_picPool;
-
-    // vaDestroyConfig(m_vaDpy,m_jpegConfigId);
-    // vaTerminate(m_vaDpy);
-    // va_close_display(m_vaDpy);
-
-    // return;
 }
 
 void JpegEncNodeWorker::processByLastRun(std::size_t batchIdx){
@@ -1546,9 +1279,7 @@ bool JpegEncNodeWorker::prepareSurface(VASurfaceID surface, const unsigned char*
         uv_dst += vaImg.pitches[1];
         uv_src += picHeight;
     }
-    // unsigned offset = picWidth * alignTo(picHeight);
-    // memcpy(mappedSurf, img, (unsigned)(picWidth*picHeight*3/2)); // to-do: currently no alignment
-    // memcpy(mappedSurf+offset, img+offset, (unsigned)(picWidth * picHeight /2));
+
     vaUnmapBuffer(m_vaDpy,vaImg.buf);
     vaDestroyImage(m_vaDpy,vaImg.image_id);
     return true;

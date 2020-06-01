@@ -66,14 +66,16 @@ bool PipelineConfigParser::parseDecConfig(){
             return false;
         }
 
-        if(!parseFromPTree(stream.second, "DropEveryXFrame", temp.dropEveryXFrame)){
-            std::cout<<"Warning: No frame dropping count for decoder specified in config.json"<<std::endl;
-            temp.dropEveryXFrame = 0;
-        }
+        // if(!parseFromPTree(stream.second, "DropEveryXFrame", temp.dropEveryXFrame)){
+        //     std::cout<<"Warning: No frame dropping count for decoder specified in config.json"<<std::endl;
+        //     temp.dropEveryXFrame = 0;
+        // }
+        temp.dropEveryXFrame = 1024;
 
-        if(!parseFromPTree(stream.second, "DropXFrame", temp.dropXFrame)){
-            temp.dropXFrame = 1024;
-        }
+        // if(!parseFromPTree(stream.second, "DropXFrame", temp.dropXFrame)){
+        //     temp.dropXFrame = 1024;
+        // }
+        temp.dropXFrame = 0;
 
         temp.enableFpsCounting = true;
 
