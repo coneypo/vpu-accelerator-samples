@@ -142,11 +142,16 @@ HDDLDemo::~HDDLDemo()
         }
         delete process;
     }
-
     m_pipelineProcesses.clear();
+
     if (m_hvaProcess) {
-        kill(m_hvaProcess->pid(), SIGINT);
-        if (m_hvaProcess->waitForFinished()) {
+        qDebug()<<"Try to send SIGINT to process:"<<m_hvaProcess->pid();
+        if(!kill(m_hvaProcess->pid(), SIGINT)){
+            qDebug()<<"Send SIGINT done";
+        } else {
+            qDebug()<<"Send SIGINT failed";
+        }
+        if(m_hvaProcess->waitForFinished()){
             delete m_hvaProcess;
         }
     }
@@ -217,8 +222,8 @@ void HDDLDemo::initConfig()
     //launch hva process and send channel socket address to it
     if (ConfigParser::instance()->isHvaConfigured()) {
         setupHvaProcess();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        sendSignalToHvaPipeline();
+        QThread::sleep(2);
+        //sendSignalToHvaPipeline();
     }
 }
 
@@ -273,11 +278,13 @@ void HDDLDemo::setupHvaProcess()
     for (auto& entry : hvaEnvironmentVariables) {
         env.insert(QString::fromStdString(entry.first), QString::fromStdString(entry.second));
     }
-    m_hvaProcess = new QProcess(this);
+    QStringList slist;
+    m_hvaProcess = new QProcess();
     m_hvaProcess->setProcessEnvironment(env);
     m_hvaProcess->setWorkingDirectory(hvaWorkDirectory);
     m_hvaProcess->setProcessChannelMode(QProcess::ForwardedChannels);
     m_hvaProcess->start(hvaCmd);
+    m_hvaProcess->waitForStarted();
 }
 
 void HDDLDemo::sendSignalToHvaPipeline()
