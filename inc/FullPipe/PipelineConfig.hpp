@@ -13,19 +13,34 @@
 #include <vector>
 
 struct PipelineConfig{
-std::vector<GstPipeContainer::Config> vDecConfig;
-std::string guiSocket;
-InferNode::Config detConfig;
-InferNode::Config clsConfig;
-FrameControlNode::Config FRCConfig;
+    std::vector<GstPipeContainer::Config> vDecConfig;
+    std::string guiSocket;
+    InferNode::Config detConfig;
+    InferNode::Config clsConfig;
+    FrameControlNode::Config FRCConfig;
 };
 
+// utility class for parsing a json config file
 class PipelineConfigParser{
 public:
     PipelineConfigParser();
 
+    /**
+    * @brief parse a json file. This should be called before any get() call
+    * 
+    * @param filename config file name to be parsed
+    * @return status
+    * 
+    */
     bool parse(const std::string& filename);
 
+    /**
+    * @brief get the parsed configuration
+    * 
+    * @param void
+    * @return parsed configuration
+    * 
+    */
     PipelineConfig get() const;
 
 private:

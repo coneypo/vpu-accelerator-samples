@@ -59,6 +59,8 @@ public:
 
     void setPortQueuePolicy(hvaPortPolicy_t policy);
 
+    void transitStateTo(hvaState_t state);
+
 private:
     void setPrevPort(hvaOutPort_t* prevPort);
 
@@ -70,6 +72,7 @@ private:
     hvaNode_t* m_parentNode;
     hvaOutPort_t* m_prevPort;
     hvaDataQueue_t m_inQueue;
+    hvaState_t m_state;
 };
 
 class hvaPipeline_t;
@@ -272,6 +275,8 @@ public:
 
     const std::unordered_map<hvaEvent_t,hvaEventHandlerFunc>* getCallbackMap() const;
 
+    void transitStateTo(hvaState_t state);
+
 private:
     static std::size_t m_workerCtr;
 
@@ -294,6 +299,8 @@ private:
 
     hvaEventManager_t* m_pEventMng;
     std::unordered_map<hvaEvent_t,hvaEventHandlerFunc> m_callbackMap;
+
+    hvaState_t m_state;
 };
 
 // hvaNodeWorker_t is the stuct that actually does the workload within its process() function. 

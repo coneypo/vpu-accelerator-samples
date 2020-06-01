@@ -32,12 +32,10 @@ void FrameControlNodeWorker::process(std::size_t batchIdx){
         }
         else{
             if(m_dropXFrame == 0 || m_cntMap[streamIdx] ==0){
-                // sendOutput(vInput[0], 0, ms(0));
                 drop = false;
             }
             else{
                 if(m_cntMap[streamIdx] > m_dropXFrame){
-                    // sendOutput(vInput[0], 0, ms(0));
                     drop = false;
                 }
             }

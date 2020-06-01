@@ -14,13 +14,10 @@
 #include <cstring>
 #include <cassert>
 
-//#define NEW_HDDL_WCTX
 #define HANTRO_JPEGENC_ROI_API
 
 #ifdef HANTRO_JPEGENC_ROI_API
-
 #include <va_common/va_hantro.h>
-
 #endif //#ifdef HANTRO_JPEGENC_ROI_API
 
 #define JPEG_VAAPI_STATUS_CHECK(STATUS, LOG, SURFACE)	\
@@ -31,38 +28,6 @@
         return;						\
     }							\
 }			
-
-enum JpegEncNodeStatus_t{
-    JpegEnc_NoError = 0,
-    JpegEnc_VaInitFailed
-};
-
-// class VaapiSurfaceAllocator{
-// public:
-//     struct VaapiSurfaceAllocatorConfig{
-//         int surfaceType;
-//         unsigned width;
-//         unsigned height;
-//         unsigned surfaceNum;
-//         // VASurfaceAttrib fourcc;
-//     };
-
-//     typedef VaapiSurfaceAllocatorConfig Config; 
-
-//     VaapiSurfaceAllocator(VADisplay* dpy);
-//     ~VaapiSurfaceAllocator();
-//     bool alloc(const VaapiSurfaceAllocatorConfig& config, VASurfaceID surfaces[]);
-//     void free();
-//     bool getSurfacesAddr(VASurfaceID*& surfAddr);
-
-//     VaapiSurfaceAllocator& operator=(const VaapiSurfaceAllocator&) = delete;
-//     VaapiSurfaceAllocator& operator=(VaapiSurfaceAllocator&&) = delete;
-
-// private:
-//     VADisplay* m_dpy;
-//     VAContextID* m_ctx;
-//     std::vector<VASurfaceID> m_surfaces;
-// };
 
 struct JpegEncPicture;
 
@@ -85,7 +50,6 @@ public:
         unsigned surfaceNum;
     };
 
-    // SurfacePool(VADisplay* dpy, VaapiSurfaceAllocator* allocator);
     SurfacePool(VADisplay* dpy, JpegEncPicture* picPool);
     ~SurfacePool();
     bool init(Config& config);
@@ -105,7 +69,6 @@ private:
     Surface* m_usedSurfaces;
     VADisplay* m_dpy;
     VAContextID* m_ctx;
-    // VaapiSurfaceAllocator* m_allocator;
     std::mutex m_mutex;
     std::condition_variable m_cv;
     std::mutex m_usedListMutex;
@@ -116,7 +79,6 @@ private:
 struct JpegEncPicture{
     std::size_t index;
 
-    // VASurfaceID surfaceId;
     VABufferID codedBufId;
     VABufferID picParamBufId;
     VABufferID qMatrixBufId;
@@ -128,24 +90,7 @@ struct JpegEncPicture{
     VABufferID ROIDataBufId;
 #endif //#ifdef HANTRO_JPEGENC_ROI_API
 
-    // VAEncPictureParameterBufferJPEG picParam;
-    // VAQMatrixBufferJPEG qMatrix;
-    // VAQMatrixBufferJPEG huffmanTbl;
-    // VAEncSliceParameterBufferJPEG sliceParam;
-    // VAEncPackedHeaderParameterBuffer headerParam;
-    // unsigned char* headerData;
-
 };
-
-// class JpegEncPicturePool{
-// public:
-//     JpegEncPicturePool();
-//     ~JpegEncPicturePool();
-//     void init();
-//     void getPicture();
-//     bool tryGetPicture();
-
-// };
 
 inline std::size_t alignTo(std::size_t s) { //to-do: adjust alignment here
 
@@ -329,6 +274,7 @@ typedef struct _JPEGScanHeader {
     
 } JPEGScanHeader;
 
+// helper class on a few default parameters used in jpeg encoder
 class Defaults{
 public:
     Defaults(const Defaults&) = delete;
@@ -380,30 +326,10 @@ public:
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
 
-    // bool initVaapi();
-
-    // bool initVaJpegCtx();
-
 private:
-    // VADisplay m_vaDpy;
-    // int m_vaMajorVer;
-    // int m_vaMinorVer;
-    // VAConfigID m_jpegConfigId;
-    // SurfacePool* m_pool;
-    // bool m_surfaceAndContextReady;
-    // bool m_vaDisplayReady;
-    // unsigned m_picWidth;
-    // unsigned m_picHeight;
-    // unsigned m_fdLength;
-    // JpegEncPicture* m_picPool;
-    // uint64_t m_WID;
     std::vector<uint64_t> m_vWID;
     mutable std::atomic<unsigned> m_workerIdx;
 
-#ifdef NEW_HDDL_WCTX
-    HddlUnite::WorkloadContext::Ptr m_hddlWCtx;
-    WorkloadID m_WID;
-#endif
 };
 
 class JpegEncNodeWorker : public hva::hvaNodeWorker_t{
@@ -412,10 +338,33 @@ public:
     JpegEncNodeWorker(hva::hvaNode_t* parentNode, uint64_t WID);
     ~JpegEncNodeWorker();
 
+    /**
+    * @brief encode every input frames to a jpeg picture. If multiple rois exisit, multiple jpeg will be 
+    *           produced
+    * 
+    * @param batchIdx the batch index assigned by framework
+    * @return void
+    * 
+    */
     virtual void process(std::size_t batchIdx) override;
 
+    /**
+    * @brief specialization of process which will be called only once at the beginning. Due to vaapi's thread 
+    *           restriction. Unlike init/deinit, this will be called within the main process thread
+    * 
+    * @param batchIdx the batch index assigned by framework
+    * @return void
+    * 
+    */
     virtual void processByFirstRun(std::size_t batchIdx) override;
 
+    /**
+    * @brief 
+    * 
+    * @param 
+    * @return 
+    * 
+    */
     virtual void processByLastRun(std::size_t batchIdx) override;
 
     virtual void init() override;
@@ -426,10 +375,8 @@ private:
     bool prepareSurface(VASurfaceID surface, const unsigned char* img);
     void jpegenc_pic_param_init(VAEncPictureParameterBufferJPEG *pic_param,int width,int height,int quality);
     bool saveToFile(SurfacePool::Surface* surface);
-
     int build_packed_jpeg_header_buffer(unsigned char **header_buffer, 
             int picture_width, int picture_height, uint16_t restart_interval, int quality);
-
     bool initVaapi();
 
     std::atomic<int> m_jpegCtr;

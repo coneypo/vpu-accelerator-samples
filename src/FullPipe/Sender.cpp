@@ -55,7 +55,6 @@ void SenderNodeWorker::process(std::size_t batchIdx){
                     rois[i].confidenceClassification, inferFps, decFps);
         }
         m_sender[streamIdx]->send();
-        // std::this_thread::sleep_for(std::chrono::milliseconds(50));
         HVA_DEBUG("Sender complete blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
     }
 }
@@ -63,13 +62,13 @@ void SenderNodeWorker::process(std::size_t batchIdx){
 void SenderNodeWorker::init(){
     for(const auto& pair: m_unixSocket){
         InferMetaSender* temp = new InferMetaSender();
-        HVA_DEBUG("Going to connect to %s", pair.second);
+        HVA_DEBUG("Going to connect to %s", pair.second.c_str());
         bool ret = temp->connectServer(pair.second);
         if(ret){
             m_sender[pair.first] = std::move(temp);
         }
         else{
-            HVA_ERROR("Error: Fail to connect to %s", pair.second);
+            HVA_ERROR("Error: Fail to connect to %s", pair.second.c_str());
         }
     }
 }

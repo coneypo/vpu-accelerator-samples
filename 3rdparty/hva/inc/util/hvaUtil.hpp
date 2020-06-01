@@ -26,6 +26,14 @@ enum hvaStatus_t{
     hvaCallbackFail
 };
 
+enum hvaState_t{
+    idle = 0,
+    initialized,
+    running,
+    paused,
+    stop
+};
+
 using ms = std::chrono::milliseconds;
 
 template<typename ... Args>
