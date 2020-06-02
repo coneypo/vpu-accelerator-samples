@@ -54,21 +54,19 @@ void ImgSenderNodeWorker::process(std::size_t batchIdx){
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(pipeTimeEnd - pipeTimeStart).count();
         int frameID = vInput[0]->frameId;
         m_durationAve = (m_durationAve * frameID + duration) / (frameID + 1);
-//        m_fps = 1000.0f / m_durationAve;
         float decFps = 1000.0f / m_durationAve;
+
+        printf("Pipeline FPS is %f\n", decFps);
 
         float inferFps = meta->inferFps;
         std::string imgName = vInput[0]->get<char, ImageMeta>(1)->getMeta()->ImgName;
 
         for(unsigned i =0; i< meta->rois.size(); ++i){
             const auto& rois = meta->rois;
-//            m_sender[streamIdx]->serializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].labelClassification, rois[i].pts,
-//                    rois[i].confidenceClassification, inferFps, decFps);
             m_sender[streamIdx]->ImgserializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].labelClassification, rois[i].pts,
                     rois[i].confidenceClassification, inferFps, decFps, imgName);
         }
         m_sender[streamIdx]->send();
-        // std::this_thread::sleep_for(std::chrono::milliseconds(50));
         HVA_DEBUG("Sender complete blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
     }
 }

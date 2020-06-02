@@ -162,9 +162,9 @@ Please use the latest commit on branch develop, though the commit we tested upon
 # For Image Workload Pipeline
 
 ## Component commitID: 
-* \ dldt : 86edc6163e7b02594316bcc151745c2ba7eb24a5(branch:openvino-kmb.beta-20200513 )
-* \ kmb-plugin : 8b1ebe0804476343d93ca8415a6813ee2c9df661(branch:openvino-kmb.beta-20200513 )
-* \ hddl-unit : e88a947ce189d(branch:develop )
+* dldt : 86edc6163e7b02594316bcc151745c2ba7eb24a5(branch:openvino-kmb.beta-20200513 )
+* kmb-plugin : 8b1ebe0804476343d93ca8415a6813ee2c9df661(branch:openvino-kmb.beta-20200513 )
+* hddl-unit : e88a947ce189d(branch:develop )
 
 Image Workload Pipeline is for Image Workload detction(loading NV12 images from IA host and run tiny_yolo_v2_fp16 detction with Inference Engine ASync api).
 
@@ -189,14 +189,15 @@ int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = 
 ## How to run the Image Workload Pipeline
 
 Run the Pipeline:
-'''
+
+```
 cd /Path/To/Your/gsthvasample
 ./build/src/ImgFullPipe/ImgFullPipe
+```
 
-'''
 Run the SampleGUI:
-'''
+
+```
 cd /Path/To/Your/gsthvasample
 ./build/src/ImgFullPipeGUITestMulti/ImgFullPipeGUITestMulti 2
-
-'''
+```

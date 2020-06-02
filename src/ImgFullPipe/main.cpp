@@ -19,20 +19,14 @@
 #include <PipelineConfig.hpp>
 #include <validationDumpNode.hpp>
 #include <ImgSenderNode.hpp>
-/************************liubo*******************************/
+// for Image fold
 #include <iostream>
 #include <sys/stat.h>
-
 #ifdef _WIN32
 #include <os/windows/w_dirent.h>
 #else
 #include <dirent.h>
 #endif
-/************************liubo*******************************/
-
-
-#define STREAMS 1
-#define MAX_STREAMS 64
 
 using ms = std::chrono::milliseconds;
 
@@ -45,7 +39,7 @@ enum ControlMessage{
 std::mutex g_mutex;
 std::condition_variable g_cv;
 
-bool checkValidNetFile(std::string filepath){
+bool checkValidNetFile(std::string& filepath){
     std::string::size_type suffix_pos_blob = filepath.find(".blob");
     std::string::size_type suffix_pos_xml = filepath.find(".xml");
     if(suffix_pos_blob == std::string::npos && suffix_pos_xml == std::string::npos){
@@ -162,7 +156,6 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                             HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i].c_str());
                         }
                         config->numOfStreams = config->unixSocket.size();
-//                        config->numOfStreams = 2;
 
                         *ctrlMsg = ControlMessage::ADDR_RECVED;
                         HVA_INFO("Control message set to addr_recved");
@@ -192,7 +185,7 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
     }
     return 0;
 }
-/************************liubo*******************************/
+
 /**
 * @brief This function checks input args and existence of specified files in a given folder
 * @param arg path to a file to be checked for existence
@@ -225,11 +218,10 @@ void readInputFilesArguments(std::vector<std::string> &files,
 	} else {
 		files.push_back(arg);
 	}
-
-	std::cout << "Files were added: " << files.size() << std::endl;
-	for (std::string filePath : files) {
-		std::cout << "    " << filePath << std::endl;
-	}
+//	std::cout << "Files were added: " << files.size() << std::endl;
+//	for (std::string filePath : files) {
+//		std::cout << "    " << filePath << std::endl;
+//	}
 }
 
 char* readImageDataFromFile(const std::string& image_path, const int size) {
@@ -256,7 +248,7 @@ char* readImageDataFromFile(const std::string& image_path, const int size) {
 
 int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 		const int& width, const int& height, const int& streamId,
-		const int& interNum, ControlMessage* ctrlMsg) {
+		const int& iterNum, ControlMessage* ctrlMsg) {
 	unsigned long currentSize = 0;
 	float decFps = 0.0;
 	const int size = width * (height * 3 / 2);
@@ -266,7 +258,7 @@ int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 #endif
 
 	int m_frameIdx = 0;
-	for (int i = 0; i < interNum; i++) {
+	for (int i = 0; i < iterNum; i++) {
 		for (auto it = file->begin(); it != file->end(); it++) {
 			//get imagefile name
 			std::string imgName;
@@ -288,10 +280,6 @@ int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 
 			auto imgBuf = readImageDataFromFile(*it, size);
 			char* imgBufAddr = reinterpret_cast<char*>(imgBuf);
-
-			std::chrono::time_point<std::chrono::steady_clock> endPosProc = std::chrono::steady_clock::now();
-            auto durationPosProc = std::chrono::duration_cast<std::chrono::milliseconds>(endPosProc - startPosProc).count();
-            printf("Imageload duration is %ld", durationPosProc);
 
 			blob->emplace<char, ImageMeta>(imgBufAddr, size, new ImageMeta {
 				static_cast<unsigned int>(width), static_cast<unsigned int>(height), startPosProc
@@ -317,9 +305,6 @@ int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 	}
 	return 0;
 }
-
-/************************liubo*******************************/
-
 
 int main(){
 
@@ -367,20 +352,20 @@ int main(){
     std::vector<uint64_t> vWID(sockConfig.numOfStreams, 0);
     vWID[0] = 0;
 
+    t.join();
+
     if (config.vImgWLConfig.size() < sockConfig.numOfStreams)
     {
     	std::cout << "Not enough Imgconfig info to support all Streams!!" << std::endl;
         return -1;
     }
 
-    std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
-    HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
+    std::cout<<"Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
+    HVA_INFO("Start pipeline with %d streams", sockConfig.numOfStreams);
     auto &FRCNode = pl.setSource(std::make_shared<ImgFrameControlNode>(1, 1, 1/*, config.FRCConfig*/), "FRCNode");
 
     auto &detNode = pl.addNode(std::make_shared<ImgInferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection",
                                                              &HDDL2pluginHelper_t::postprocYolotinyv2_fp16, config.detConfig.inferReqNumber, config.detConfig.threshold), "detNode");
-
-    std::cout << "INFER_FP16!!" << std::endl;
 
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
@@ -403,10 +388,8 @@ int main(){
 //    auto& validationDumpNode = pl.addNode(std::make_shared<ValidationDumpNode>(1,0,1,"Yolotinyv2"), "validationDumpNode");
 #endif //#ifdef VALIDATION_DUMP
 
-
     pl.linkNode("FRCNode", 0, "detNode", 0);
     pl.linkNode("detNode", 0, "sendNode", 0);
-
 
 #ifdef VALIDATION_DUMP
 //    pl.linkNode("detNode", 1, "validationDumpNode", 0);
@@ -425,11 +408,11 @@ int main(){
             std::string imageFolder = config.vImgWLConfig[i].imageFolderPath;
             const int inputWidth = config.vImgWLConfig[i].width;
             const int inputHeight = config.vImgWLConfig[i].height;
-            const int interNum = config.vImgWLConfig[i].iterNum;
+            const int iterNum = config.vImgWLConfig[i].iterNum;
 
             std::vector<std::string> inputFiles;
             readInputFilesArguments(inputFiles, imageFolder);
-            fillHvaBlobs(&pl, &inputFiles, inputWidth, inputHeight, i, interNum, &ctrlMsg);
+            fillHvaBlobs(&pl, &inputFiles, inputWidth, inputHeight, i, iterNum, &ctrlMsg);
         }));
     }
 
@@ -443,7 +426,8 @@ int main(){
     std::this_thread::sleep_for(ms(2000)); // to stop the pipeline
 
     pl.stop();
-    t.join();
+
+    std::cout<<"Pipeline has been stopped successfully."<<std::endl;
 
     return 0;
 

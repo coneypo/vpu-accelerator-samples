@@ -168,10 +168,9 @@ public:
                 layer.second->setPrecision(out_precision);
             }
 
-            _executableNetwork = _ie.LoadNetwork(network, "HDDL2");
+//            _executableNetwork = _ie.LoadNetwork(network, "HDDL2");
+            _executableNetwork = _ie.LoadNetwork(network, "HDDL2", {});
         }
-//		_executableNetwork = _ie.ImportNetwork(_graphPath, "HDDL2");
-		//        printf("[debug] end load graph\n");
 
 		// ---- Create infer request
 		_ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
@@ -615,21 +614,9 @@ public:
 #ifdef HDDLPLUGIN_PROFILE
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 
         start = std::chrono::steady_clock::now();
-#endif
-
-
-#ifdef HDDLPLUGIN_PROFILE
-        end = std::chrono::steady_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] CreateBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
-#endif
-
-
-#ifdef HDDLPLUGIN_PROFILE
-		start = std::chrono::steady_clock::now();
 #endif
 
 		// Since it 228x228 image on 224x224 network, resize preprocessing also required
@@ -638,7 +625,7 @@ public:
 		preprocInfo.setResizeAlgorithm(IE::RESIZE_BILINEAR);
 		preprocInfo.setColorFormat(IE::ColorFormat::NV12);
 
-// --------------------------- Create a blob to hold the NV12 input data -------------------------------
+        // Create a blob to hold the NV12 input data
         // Create tensor descriptors for Y and UV blobs
 		IE::TensorDesc y_plane_desc(IE::Precision::U8, { 1, 1, heightInput,
 				widthInput }, IE::Layout::NHWC);
@@ -670,15 +657,8 @@ public:
 #ifdef HDDLPLUGIN_PROFILE
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
-
-//        printf("[debug] end create input tensor\n");
-
-        // std::string outputPath = "./output.bin";
-
-        // ---- Run the request synchronously
-//        printf("[debug] start inference\n");
 
 #ifdef HDDLPLUGIN_PROFILE
         start = std::chrono::steady_clock::now();
@@ -695,10 +675,8 @@ public:
 #ifdef HDDLPLUGIN_PROFILE
         end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        printf("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+        HVA_DEBUG("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
 #endif
-//        printf("[debug] end inference\n");
-
         return;
     }
 

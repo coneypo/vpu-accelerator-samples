@@ -56,16 +56,12 @@ target_include_directories(ImgFullPipe PUBLIC "${HDDLUNITE_INCLUDE_DIR}")
 target_include_directories(ImgFullPipe PUBLIC "${InferenceEngine_INCLUDE_DIRS}")
 target_include_directories(ImgFullPipe PUBLIC "${OpenCV_INCLUDE_DIRS}")
 target_include_directories(ImgFullPipe PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../inc/FullPipe/hddl2plugin")
-# target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/include/hddl2>")
-# target_include_directories(FullPipe PUBLIC "$<BUILD_INTERFACE:/home/kmb/cong/repos/kmb-plugin/src/hddl2_plugin/include>")
 
 target_link_libraries(ImgFullPipe "${HDDLUNITE_LIB}")
 target_link_libraries(ImgFullPipe "${OpenCV_LIBRARIES}")
 target_link_libraries(ImgFullPipe "${InferenceEngine_LIBRARIES}")
-# target_link_libraries(FullPipe "/home/kmb/kezhen/install/lib/libXLink.so")
-target_link_libraries(ImgFullPipe "/usr/lib/libXLink.so")
 
-# message("InferenceEngine_LIB: ${InferenceEngine_LIBRARIES}")
+target_link_libraries(ImgFullPipe "/usr/lib/libXLink.so")
 
 target_link_libraries(ImgFullPipe Threads::Threads dl)
 

@@ -18,7 +18,7 @@ ImgInferNode::ImgInferNode(std::size_t inPortNum, std::size_t outPortNum, std::s
 std::shared_ptr<hva::hvaNodeWorker_t> ImgInferNode::createNodeWorker() const
 {
     std::lock_guard<std::mutex> lock{m_mutex};
-    printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
+//    printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
     return std::shared_ptr<hva::hvaNodeWorker_t>{
         new ImgInferNodeWorker{const_cast<ImgInferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc,
             m_numInferRequest, m_thresholdDetection}};
@@ -73,10 +73,6 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
 
                 auto callback = [=]() mutable
                 {
-//                    m_cntAsyncEnd++;
-//                    printf("[debug] detection async end, cnt is: %d\n", (int)m_cntAsyncEnd);
-//
-//                    printf("[debug] detection callback start, frame id is: %d\n", vecBlobInput[0]->frameId);
                     auto ptrOutputBlob = m_helperHDDL2.getOutputBlob(ptrInferRequest);
 
                     auto startPosProc = std::chrono::steady_clock::now();
@@ -90,16 +86,12 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
 
                     m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
 
-                    // end = std::chrono::steady_clock::now();
-                    // duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                    // printf("infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
-                    
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endPosProc - startForFps).count();
                     m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
                     m_fps = 1000.0f / m_durationAve;
                     m_cntFrame++;
 
-//                    printf("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
+                    printf("Inference FPS is %f, mode is %s\n", m_fps, m_mode.c_str());
 
     #if 0
                     if(m_cntFrame == 1)
@@ -119,10 +111,8 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
                         roi.y = vecObjects[i].y;
                         roi.width = vecObjects[i].width;
                         roi.height = vecObjects[i].height;
-//                        roi.labelClassification = "unknown";
                         roi.labelClassification = "label" + std::to_string(vecObjects[i].labelIdDetection);
                         roi.pts = vecBlobInput[0]->frameId;
-//                        roi.confidenceClassification = 0;
                         roi.confidenceClassification = vecObjects[i].confidenceDetection;
                         // roi.indexROI = i;
                         ptrInferMeta->rois.push_back(roi);
@@ -142,43 +132,23 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
                     blob->streamId = vecBlobInput[0]->streamId;
                     sendOutput(blob, 0, ms(0));
                     vecBlobInput.clear();
-//                    printf("[debug] detection callback end, frame id is: %d\n", vecBlobInput[0]->frameId);
                     return;
                 };
 
-
-                auto start = std::chrono::steady_clock::now();
-
-//                m_helperHDDL2.inferAsync(ptrInferRequest, callback,
-//                		fdHost, input_height, input_width);
-
                 m_helperHDDL2.inferAsyncImgPipe(ptrInferRequest, callback,
                 		fdHost, input_height, input_width);
-
                 // for sync model
 //                callback();
-
-//                m_cntAsyncStart++;
-//                printf("[debug] detection async start, cnt is: %d\n", (int32_t)m_cntAsyncStart);
-
-                auto end = std::chrono::steady_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                printf("pure async inference duration is %ld, mode is %s\n", duration, m_mode.c_str());
             }
         }
         else
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
-
-//        auto end = std::chrono::steady_clock::now();
-//        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-//        printf("[debug] infer node duration is %ld, mode is %s\n", duration, m_mode.c_str());
     }
 }
 
 void ImgInferNodeWorker::init()
 {
-//    m_helperHDDL2.setup();
     m_helperHDDL2.setupImgPipe(m_numInferRequest);
 }

@@ -52,8 +52,8 @@ private:
     float m_durationAve {0.0f};
     uint64_t m_cntFrame {0ul};
 
-    std::atomic<int32_t> m_cntAsyncEnd{0};
-    std::atomic<int32_t> m_cntAsyncStart{0};
+//    std::atomic<int32_t> m_cntAsyncEnd{0};
+//    std::atomic<int32_t> m_cntAsyncStart{0};
 
     int32_t m_numInferRequest{1};
     float m_thresholdDetection{0.6f};

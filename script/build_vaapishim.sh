@@ -136,7 +136,7 @@ function build_safestringlib () {
 function build_vaapi_shim () {
     MY_HOME_DIR=${DOWNLOAD_DIR}/vaapi_bypass
     if [ ! -d ${MY_HOME_DIR} ]; then
-        git clone https://gitlab.devtools.intel.com/OWR/IoTG/GMS/Yocto/Graphics/Media/vaapi_bypass --branch multisession --single-branch ${MY_HOME_DIR}
+        git clone ssh://git@gitlab.devtools.intel.com:29418/OWR/IoTG/GMS/Yocto/Graphics/Media/vaapi_bypass.git --branch multisession --single-branch ${MY_HOME_DIR}
         cd ${MY_HOME_DIR}
         patch -p1 < ${SCRIPT_DIR}/0001-Fixing-issue-on-bypass-plugin.patch
     fi

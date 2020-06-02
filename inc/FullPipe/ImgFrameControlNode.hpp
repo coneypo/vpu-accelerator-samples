@@ -38,4 +38,4 @@ private:
     unsigned m_cnt;
 };
 
-#endif //#ifndef FRAME_CONTROL_NODE_HPP
+#endif //#ifndef IMGFRAME_CONTROL_NODE_HPP

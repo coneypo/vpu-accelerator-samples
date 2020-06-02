@@ -6,7 +6,7 @@
 #include <vector>
 #include <chrono>
 
-//#define VALIDATION_DUMP
+#define VALIDATION_DUMP
 
 using ms = std::chrono::milliseconds;
 
