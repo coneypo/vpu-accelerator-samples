@@ -18,7 +18,10 @@ void ValidationDumpNodeWorker::init(){
     m_of.open("ValidationDump.csv");
     if(!m_of.is_open()){
         std::cout<<"Error opening ValidationDump.csv file"<<std::endl;
+        return;
     }
+    m_of << "ts.ia.start, ts.ia.end, ts.xbay.start, ts.xbay.end, streamId, frameId, roi.x, roi.y, roi.width, roi.height, "<<
+            "trackingId, detId, detProb, num_cls, nn_name, clsId, clsProb"<<std::endl;
 }
 
 void ValidationDumpNodeWorker::process(std::size_t batchIdx){

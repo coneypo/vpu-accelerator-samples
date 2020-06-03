@@ -102,6 +102,7 @@ bool MessageListener::Impl::push(ControlMessage msg){
         }
     }
     m_cv.notify_all();
+    return true;
 }
 
 bool MessageListener::Impl::pop(ControlMessage* msg){

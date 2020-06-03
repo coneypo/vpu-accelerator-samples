@@ -191,6 +191,10 @@ void onExitSignal(int sig, siginfo_t *info, void *ucontext){
     g_messenger.setMessageAndNotify(ControlMessage::STOP_RECVED);
 }
 
+void onSigPipe(int sig){
+    HVA_WARNING("SIGPIPE handler triggerred!");
+}
+
 void registerSystemSignalHandler(){
 
     struct sigaction act;
@@ -201,6 +205,10 @@ void registerSystemSignalHandler(){
 	sigaction(SIGINT, &act, NULL);
 
     HVA_INFO("Registered signal handler on SIGINT");
+
+    signal(SIGPIPE,  onSigPipe);
+
+    HVA_INFO("Registered signal handler on SIGPIPE");
 }
 
 
