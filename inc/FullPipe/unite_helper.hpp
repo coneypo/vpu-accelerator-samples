@@ -22,40 +22,80 @@
 #define MAX_ROI_UNITE 10ul
 namespace hva
 {
-    
+/**
+ * Wrapper for HDDL unite inference API
+ */
 class UniteHelper
 {
 public:
-
+    /**
+     * @brief Constructor
+     * @param id Workload ID
+     * @param graphName Graph name
+     * @param graphPath File path of model graph
+     * @param inputSizeNN NN input size
+     * @param outputSize NN output size
+     * @param remoteMemoryFd Remote memory FD
+     */
     UniteHelper(WorkloadID id, std::string graphName, std::string graphPath, int32_t inputSizeNN, int32_t outputSize,
-                int32_t _remoteMemoryFd = 0);
-    UniteHelper() = default;
+                int32_t remoteMemoryFd = 0);
+    UniteHelper() = delete;
 
+    /**
+     * @brief run sync inference
+     */
     void callInferenceOnBlobs();
     void setup();
+    /**
+     * @brief update parameters for inference
+     * @param videoWidth Video width
+     * @param videoHeight Video height
+     * @param fd Remote memory FD
+     * @param vecROI ROI vector
+     */
     void update(int32_t videoWidth, int32_t videoHeight, int32_t fd = 0ul, 
                 const std::vector<ROI>& vecROI = std::vector<ROI>{});
 
+    /**
+     * @brief Get detected objects
+     * @return Detected objects vector
+     */
     const std::vector<DetectedObject_t>& getVecObjects() const noexcept
     {
         return _vecObjects;
     }
 
+    /**
+     * @brief Get classification labels
+     * @return Classification label vector
+     */
     const std::vector<std::string>& getVecLabel() const noexcept
     {
         return _vecLabel;
     }
 
+    /**
+     * @brief Get classification confidences
+     * @return Classification confidence vector
+     */
     const std::vector<float>& getVecConfidence() const noexcept
     {
         return _vecConfidence;
     }
 
+    /**
+     * @brief Get classification label IDs
+     * @return Classification label ID vector
+     */
     const std::vector<int>& getVecIdx() const noexcept
     {
         return _vecIdx;
     }
 
+    /**
+     * @brief Get graph name
+     * @return Graph name
+     */
     const std::string& getGraphName() const noexcept
     {
         return _graphName;

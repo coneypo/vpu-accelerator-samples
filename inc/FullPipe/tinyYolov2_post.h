@@ -8,28 +8,27 @@
 #include "detection_helper.hpp"
 
 namespace YoloV2Tiny {
-    std::vector<DetectedObject_t> run_nms(std::vector<DetectedObject_t> candidates, double threshold);
-
-    static void scaleBack(bool keep_ratio, float &xmin, float &xmax, float &ymin, float &ymax, int image_width,
-                        int image_height);
-
-    constexpr int num_classes = 20;
-    enum RawNetOut {
-        idxX = 0,
-        idxY = 1,
-        idxW = 2,
-        idxH = 3,
-        idxScale = 4,
-        idxClassProbBegin = 5,
-        idxClassProbEnd = idxClassProbBegin + num_classes,
-        idxCount = idxClassProbEnd
-    };
-
+    /**
+     * @brief Extract detection output from last layer feature map
+     * @param pIn Input data pointer
+     * @param anchor_idx Anchor index
+     * @param cell_idx Cell index
+     * @param threshold Confidence threshold
+     * @param pOut Output data pointer
+     */
     void fillRawNetOut(float const *pIn, const int anchor_idx, const int cell_ind, const float threshold,
                     float *pOut);
     using rawNetOutExtractor =
         std::function<void(float const *, const int, const int, const float threshold, float *)>;
 
+    /**
+     * @brief Yolo v2 region layer
+     * @param blob Last layer blob
+     * @param image_height Input image height
+     * @param image_width Input image width
+     * @param thresholdConf Confidence threshold
+     * @param extractor Extractor for last layer feature map
+     */
     std::vector<DetectedObject_t> TensorToBBoxYoloV2TinyCommon(const InferenceEngine::Blob::Ptr &blob, int image_height, int image_width,
                                      double thresholdConf, rawNetOutExtractor extractor);
 

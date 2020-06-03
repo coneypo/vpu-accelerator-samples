@@ -12,6 +12,9 @@
 
 namespace IE = InferenceEngine;
 
+/**
+ *  Wrapper class of HDDL2 plugin inference API
+ */
 class HDDL2pluginHelper_t
 {
 public:
@@ -23,8 +26,17 @@ public:
     HDDL2pluginHelper_t(const HDDL2pluginHelper_t &) = delete;
     HDDL2pluginHelper_t &operator=(const HDDL2pluginHelper_t &) = delete;
 
-    HDDL2pluginHelper_t(std::string graphPath, WorkloadID id = 0, PostprocPtr_t ptrPostproc = nullptr, float thresholdDetection = 0.6f, size_t heightInput = 0,
-                        size_t widthInput = 0)
+    /**
+     * @brief Constructor of HDDL2pluginHelper_t
+     * @param graphPath File path of graph file
+     * @param id Workload id
+     * @param ptrPostproc Postprocess function pointer
+     * @param thresholdDetection Threshold of detection confidence
+     * @param heightInput Height of input image
+     * @param widthInput Width of input image
+     */
+    HDDL2pluginHelper_t(std::string graphPath, WorkloadID id = 0, PostprocPtr_t ptrPostproc = nullptr, float thresholdDetection = 0.6f,
+                        size_t heightInput = 0, size_t widthInput = 0)
         : _graphPath{graphPath},
           _workloadId{id},
           _heightInput{heightInput},
@@ -150,17 +162,47 @@ public:
         return;
     }
 
+    /**
+     * @brief Setup HDDL2 plugin, load network, create infer request
+     * @param numInferRequest Number of infer request
+     */
     void setup(int32_t numInferRequest = 1);
 
+    /**
+     * @brief Start async infer request
+     * @param ptrInferRequest Pointer to infer request
+     * @param callback Callback function pointer
+     * @param remoteMemoryFd FD of remote memory on device
+     * @param heightInput Height of input image
+     * @param widthInput Width of input image
+     * @param roi Inference ROI
+     */
     void inferAsync(IE::InferRequest::Ptr ptrInferRequest, InferCallback_t callback,
                            int remoteMemoryFd, size_t heightInput, size_t widthInput, const ROI &roi = ROI{});
-
+    /**
+     * @brief Get output blob from infer request
+     * @param ptrInferRequest Pointer to infer request
+     * @return Pointer to output blob
+     */
     IE::Blob::Ptr getOutputBlob(IE::InferRequest::Ptr ptrInferRequest);
-
+    
+    /**
+     * @brief Get idle infer request
+     * @return Pointer to infer request
+     */
     IE::InferRequest::Ptr getInferRequest();
-
+    
+    /**
+     * @brief Put back used infer request
+     * @param ptrInferRequest Pointer to infer request
+     */
     void putInferRequest(IE::InferRequest::Ptr ptrInferRequest);
 
+    /**
+     * @brief Postprocess after inference
+     * @param ptrBlob Pointer to inference output blob
+     * @param vecROI Reference of output ROI vector
+     */
     void postproc(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI);
 
     void postprocYolotinyv2_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI);
@@ -177,21 +219,50 @@ public:
         return ((x + N - 1) & ~(N - 1));
     }
 
-    static int compile(const std::string &graphName);
+    /**
+     * @brief Compile xml IR graph and save .blob graph
+     * @param File Path to xml IR graph 
+     */
+    static void compile(const std::string &graphName);
 
-public:
+    /**
+     * @brief Dequantize U8 blob to FP32 blob
+     * @param quantBlob Input quantized blob
+     * @param scale Quantize scale
+     * @param zeroPoint Quantize zero point
+     * @return Output dequantied blob
+     */
     static IE::Blob::Ptr deQuantize(const IE::Blob::Ptr &quantBlob, float scale, uint8_t zeroPoint);
 
+    /**
+     * @brief Yolo region layer for output
+     * @param lastBlob Last layer blob from inference
+     * @param inputHeight Height of input image
+     * @param inputWidth Width of input image
+     * @return Output detection result
+     */
     static IE::Blob::Ptr yoloLayer_yolov2tiny(const IE::Blob::Ptr &lastBlob, int inputHeight, int inputWidth);
 
+    /**
+     * @brief Read classification labels from label file
+     * @param labelFileName Input file path of label file
+     */
     static std::vector<std::string> readLabelsFromFile(const std::string &labelFileName);
 
 public:
+    /**
+     * Infer request pool
+     */
     class InferRequestPool_t
     {
     public:
         InferRequestPool_t() = delete;
 
+        /**
+         * @brief Constructor of infer request pool
+         * @param executableNetwork IE executable network
+         * @param numInferRequest Infer request pool size
+         */
         explicit InferRequestPool_t(IE::ExecutableNetwork &executableNetwork, int32_t numInferRequest);
         ~InferRequestPool_t();
 
@@ -202,8 +273,16 @@ public:
         using Type = IE::InferRequest::Ptr;
 
     public:
+        /**
+         * @brief Get idle infer request pointer
+         * @return Infer request pointer
+         */
         Type get();
 
+        /**
+         * @brief Put back used infer request pointer
+         * @param ptrInferRequest Infer Request pointer
+         */
         void put(const Type ptrInferRequest);
 
     private:
@@ -232,6 +311,9 @@ public:
         using Ptr = std::shared_ptr<InferRequestPool_t>;
     };
 
+    /**
+     * Class used to keep process order in frame id sequence
+     */
     class OrderKeeper_t
     {
     public:
@@ -241,10 +323,22 @@ public:
         OrderKeeper_t(const OrderKeeper_t &) = delete;
         OrderKeeper_t &operator=(const OrderKeeper_t &) = delete;
 
+        /**
+         * @brief Wait in order and lock, must be called in pair with unlock
+         * @param id Frame id
+         */
         void lock(uint64_t id);
 
+        /**
+         * @brief Unlock, must be called in pair with lock
+         * @param id Frame id
+         */
         void unlock(uint64_t id);
 
+        /**
+         * @brief Bypass the order keeper, called when order keeper lock need to be bypassed
+         * @param id Frame id
+         */
         void bypass(uint64_t id);
 
     private:
@@ -275,8 +369,6 @@ private:
 
     PostprocPtr_t _ptrPostproc{nullptr};
     static ImageNetLabels m_labels;
-
-public:
 };
 
 #endif //#ifndef HDDL2PLUGIN_HELPER_HPP

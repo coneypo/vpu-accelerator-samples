@@ -295,7 +295,7 @@ void HDDL2pluginHelper_t::postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector
     return;
 }
 
-int HDDL2pluginHelper_t::compile(const std::string &graphName)
+void HDDL2pluginHelper_t::compile(const std::string &graphName)
 {
     HVA_DEBUG("compile start : %s\n", graphName.c_str());
     InferenceEngine::Core ie;

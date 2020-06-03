@@ -28,6 +28,7 @@ public:
 
 using Objects = std::vector<Object>;
 
+//Object selector
 class ObjectSelector
 {
 public:
@@ -47,7 +48,18 @@ public:
     void setUpdatePeriod(int32_t n);
 
 public:
+    /**
+     * @brief Preprocess detected objects
+     * @param objects All detected objects without classification info
+     * @return Tuple of new objects and tracked objects
+     */
     std::tuple<Objects, Objects> preprocess(const Objects& objects);
+    /**
+     * @brief Postprocess detected objects
+     * @param classified Newly classified objects
+     * @param tracked Tracked objects
+     * @return All detected objects with classification info
+     */
     Objects postprocess(const Objects& classified, const Objects& tracked);
 
 private:

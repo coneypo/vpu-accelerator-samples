@@ -7,6 +7,23 @@
 
 namespace YoloV2Tiny
 {
+    std::vector<DetectedObject_t> run_nms(std::vector<DetectedObject_t> candidates, double threshold);
+
+    static void scaleBack(bool keep_ratio, float &xmin, float &xmax, float &ymin, float &ymax, int image_width,
+                        int image_height);
+
+    constexpr int num_classes = 20;
+    enum RawNetOut {
+        idxX = 0,
+        idxY = 1,
+        idxW = 2,
+        idxH = 3,
+        idxScale = 4,
+        idxClassProbBegin = 5,
+        idxClassProbEnd = idxClassProbBegin + num_classes,
+        idxCount = idxClassProbEnd
+    };
+
     std::vector<DetectedObject_t> run_nms(std::vector<DetectedObject_t> candidates, double threshold)
     {
         std::vector<DetectedObject_t> nms_candidates;
@@ -87,25 +104,6 @@ namespace YoloV2Tiny
         if (ymax > image_height)
             ymax = image_height;
     }
-
-    // void fillRawNetOutMoviTL(float const *pIn, const int anchor_idx, const int cell_ind, const float threshold,
-    //                         float *pOut) {
-
-    //     const int strides4D[] = {13 * 128, 128, 25, 1};
-    //     for (int l = 0; l < idxCount; l++) {
-    //         const int ind = cell_ind * strides4D[1] + anchor_idx * strides4D[2] + l * strides4D[3];
-    //         pOut[l] = dequantize((reinterpret_cast<const u_int8_t*>(pIn))[ind]);
-    //     }
-    //     pOut[idxX] = sigmoid(pOut[idxX]);                                       // x
-    //     pOut[idxY] = sigmoid(pOut[idxY]);                                       // y
-    //     pOut[idxScale] = sigmoid(pOut[idxScale]);                               // scale
-    //     softMax(pOut + idxClassProbBegin, idxClassProbEnd - idxClassProbBegin); // probs
-    //     for (int l = idxClassProbBegin; l < idxClassProbEnd; ++l) {
-    //         pOut[l] *= pOut[idxScale]; // scaled probs
-    //         if (pOut[l] <= threshold)
-    //             pOut[l] = 0.f;
-    //     }
-    // }
 
     void fillRawNetOut(float const *pIn, const int anchor_idx, const int cell_ind, const float threshold,
                        float *pOut)

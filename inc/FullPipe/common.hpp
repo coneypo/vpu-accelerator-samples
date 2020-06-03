@@ -23,15 +23,15 @@ enum class TrackingStatus
 } //namespace HvaPipeline
 
 struct VideoMeta{
-    unsigned videoWidth;
-    unsigned videoHeight;
-    std::size_t fdActualLength;
-    float decFps;
+    unsigned videoWidth;        //Video Width
+    unsigned videoHeight;       //Video height
+    std::size_t fdActualLength; //Fd size
+    float decFps;               //Decode FPS
 #ifdef VALIDATION_DUMP
-    ms frameStart;
-    ms frameEnd;
+    ms frameStart;              //Start frame
+    ms frameEnd;                //End frame
 #endif
-    bool drop;
+    bool drop;                  //Dropped or not
 };
 
 struct ImageMeta{
@@ -47,32 +47,32 @@ struct ImageMeta{
 };
 
 struct ROI {
-    int32_t x {0};
-    int32_t y {0};
-    int32_t width {0};
-    int32_t height {0};
-    std::string labelClassification;
-    int32_t labelIdClassification {0};
-    double confidenceClassification {0.0};
+    int32_t x {0};                          //Left of ROI
+    int32_t y {0};                          //Top of ROI
+    int32_t width {0};                      //Width of ROI
+    int32_t height {0};                     //Height of ROI
+    std::string labelClassification;        //Classification label
+    int32_t labelIdClassification {0};      //Classification label id
+    double confidenceClassification {0.0};  //Classfication confidence
     
-    std::string labelDetection;
-    int32_t labelIdDetection {0};
-    double confidenceDetection {0.0};
+    std::string labelDetection;             //Detection label
+    int32_t labelIdDetection {0};           //Detection label id
+    double confidenceDetection {0.0};       //Detection confidence
 
-    std::size_t pts {0};
-    uint64_t frameId {0};
-    uint64_t streamId {0};
+    std::size_t pts {0};                    //Pts
+    uint64_t frameId {0};                   //Frame id
+    uint64_t streamId {0};                  //Stream id
 
     //for tracking
-    uint64_t trackingId {0};
-    HvaPipeline::TrackingStatus trackingStatus {HvaPipeline::TrackingStatus::LOST}; //default to lost so jpeg won't encode by default
+    uint64_t trackingId {0};                //Tracking id
+    HvaPipeline::TrackingStatus trackingStatus {HvaPipeline::TrackingStatus::LOST}; //Tracking status, default to lost so jpeg won't encode by default
 };
 
 struct InferMeta{
-    int totalROI;
-    int frameId;
-    std::vector<ROI> rois;
-    float inferFps;
+    int totalROI;           //Total ROI number
+    int frameId;            //Frame id
+    std::vector<ROI> rois;  //ROI vector
+    float inferFps;         //Inference FPS
 };
 
 #endif //#ifndef COMMON_HPP

@@ -18,7 +18,19 @@
 
 namespace postprocess
 {
-
+/**
+ * @brief Yolo region layer
+ * @param data Output data from inference
+ * @param shape4D Last layer shape
+ * @param strides4D Last layer stride
+ * @param thresh Detection confidence threshold
+ * @param nms NMS threshold
+ * @param num_classes Detection class number
+ * @param image_width Input image width
+ * @param image_height Input image height
+ * @param result Output detection result
+ * @return Status
+ */
 int yolov2(const float *data, int * shape4D, int * strides4D, float thresh, float nms, 
         int num_classes,
         int image_width, int image_height,
