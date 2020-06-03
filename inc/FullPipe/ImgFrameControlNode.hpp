@@ -4,6 +4,7 @@
 #include <hvaPipeline.hpp>
 #include <string>
 #include <common.hpp>
+#include <unordered_map>
 
 class ImgFrameControlNode : public hva::hvaNode_t{
 public:
@@ -26,16 +27,23 @@ class ImgFrameControlNodeWorker : public hva::hvaNodeWorker_t{
 public:
     ImgFrameControlNodeWorker(hva::hvaNode_t* parentNode, unsigned dropXFrame, unsigned dropEveryXFrame);
 
+    /**
+    * @brief Main frame dropping logic where this node manages on each frame's drop meta
+    *
+    * @param batchIdx batch index assigned by framework
+    * @return void
+    *
+    */
     virtual void process(std::size_t batchIdx) override;
 
     virtual void init() override;
 
 private:
-    void incCount();
+    void incCount(unsigned streamIdx);
 
     unsigned m_dropEveryXFrame;
     unsigned m_dropXFrame;
-    unsigned m_cnt;
+    std::unordered_map<unsigned, unsigned> m_cntMap;
 };
 
 #endif //#ifndef IMGFRAME_CONTROL_NODE_HPP

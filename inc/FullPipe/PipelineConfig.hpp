@@ -48,10 +48,7 @@ public:
     * @return status
     * 
     */
-    bool parse(const std::string& filename);
-
     bool parse(const std::string& filename, bool imgConfig = false);
-
 
     /**
     * @brief get the parsed configuration

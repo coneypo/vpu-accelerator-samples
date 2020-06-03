@@ -12,7 +12,7 @@ std::shared_ptr<hva::hvaNodeWorker_t> ImgFrameControlNode::createNodeWorker() co
 }
 
 ImgFrameControlNodeWorker::ImgFrameControlNodeWorker(hva::hvaNode_t* parentNode, unsigned dropXFrame, unsigned dropEveryXFrame):hva::hvaNodeWorker_t(parentNode), 
-        m_dropEveryXFrame(dropEveryXFrame), m_dropXFrame(dropXFrame), m_cnt(0u){
+        m_dropEveryXFrame(dropEveryXFrame), m_dropXFrame(dropXFrame){
 
 }
 
@@ -21,21 +21,27 @@ void ImgFrameControlNodeWorker::process(std::size_t batchIdx){
 
     if(vInput.size() != 0){
         HVA_DEBUG("FRC received blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
+        unsigned streamIdx = vInput[0]->streamId;
         ImageMeta* pVideoMeta = vInput[0]->get<char, ImageMeta>(0)->getMeta();
         bool drop = true;
-        if(m_dropXFrame == 0 || m_cnt ==0){
-            // sendOutput(vInput[0], 0, ms(0));
+        const auto& item = m_cntMap.find(streamIdx);
+        if(item == m_cntMap.end()){
+            m_cntMap[streamIdx] = 0;
             drop = false;
         }
         else{
-            if(m_cnt > m_dropXFrame){
-                // sendOutput(vInput[0], 0, ms(0));
+            if(m_dropXFrame == 0 || m_cntMap[streamIdx] ==0){
                 drop = false;
+            }
+            else{
+                if(m_cntMap[streamIdx] > m_dropXFrame){
+                    drop = false;
+                }
             }
         }
         pVideoMeta->drop = drop;
         sendOutput(vInput[0], 0, ms(0));
-        incCount();
+        incCount(streamIdx);
         HVA_DEBUG("FRC sent blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
     }
 }
@@ -60,8 +66,8 @@ void ImgFrameControlNodeWorker::init(){
     }
 }
 
-void ImgFrameControlNodeWorker::incCount(){
-    if(++m_cnt > m_dropEveryXFrame){
-        m_cnt = 1;
+void ImgFrameControlNodeWorker::incCount(unsigned streamIdx){
+    if(++m_cntMap[streamIdx] > m_dropEveryXFrame){
+        m_cntMap[streamIdx] = 1;
     }
 }
