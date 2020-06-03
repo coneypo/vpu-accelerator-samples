@@ -1,6 +1,6 @@
 {
   "Detection": {
-    "Model": "/home/kmb/cong/graph/alpha/tiny_yolo_v2_uint8_int8_weights_pertensor.blob",
+    "Model": "/mnt/mydisk1/my_project/ByPassModel/gsthvasample/tiny_yolo_v2_uint8_int8_weights_pertensor.blob",
     "InferReqNumber": "1",
     "Threshold": "0.61"
   },
@@ -48,5 +48,19 @@
   "FRC": {
     "DropEveryXFrame": 3,
     "DropXFrame": 0
-  }
+  },
+    "Img":[
+    {
+        "Path":"/mnt/mydisk1/my_datas/ForTest/416/nv12",
+        "iterNum":15,
+        "width":416,
+        "height":416
+    },
+    {
+        "Path":"/mnt/mydisk1/my_datas/ForTest/416/nv12",
+        "iterNum":15,
+        "width":416,
+        "height":416
+    }
+    ]
 }

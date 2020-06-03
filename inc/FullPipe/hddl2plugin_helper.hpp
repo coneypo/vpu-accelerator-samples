@@ -135,6 +135,49 @@ public:
         // _ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
         _ptrInferRequestPool = std::make_shared<InferRequestPool_t> (_executableNetwork, numInferRequest);
     }
+
+	inline void setupImgPipe(int32_t numInferRequest = 1) {
+		const std::string &modelPath = _graphPath;
+
+		if (_graphPath.find(".blob") != std::string::npos) {
+			std::filebuf blobFile;
+			if (!blobFile.open(modelPath, std::ios::in | std::ios::binary)) {
+				blobFile.close();
+				THROW_IE_EXCEPTION<< "Could not open file: " << modelPath;
+			}
+			std::istream graphBlob(&blobFile);
+			_executableNetwork = _ie.ImportNetwork(graphBlob, "HDDL2");
+		}
+        else
+        {
+            auto network = _ie.ReadNetwork(modelPath, modelPath.substr(0, modelPath.length() - 4) + ".bin");
+
+            const auto in_precision = InferenceEngine::Precision::U8;
+            for (auto &&layer : network.getInputsInfo()) {
+                layer.second->setLayout(InferenceEngine::Layout::NHWC);
+                layer.second->setPrecision(in_precision);
+            }
+
+            const auto out_precision = InferenceEngine::Precision::FP16;
+            for (auto &&layer : network.getOutputsInfo()) {
+                if (layer.second->getDims().size() == 2) {
+                    layer.second->setLayout(InferenceEngine::Layout::NC);
+                } else {
+                    layer.second->setLayout(InferenceEngine::Layout::NHWC);
+                }
+                layer.second->setPrecision(out_precision);
+            }
+
+//            _executableNetwork = _ie.LoadNetwork(network, "HDDL2");
+            _executableNetwork = _ie.LoadNetwork(network, "HDDL2", {});
+        }
+
+		// ---- Create infer request
+		_ptrInferRequest = _executableNetwork.CreateInferRequestPtr();
+		_ptrInferRequestPool = std::make_shared<InferRequestPool_t>(
+				_executableNetwork, numInferRequest);
+	}
+
     //todo fix me
     inline void update(int fd = 0, size_t heightInput = 0, size_t widthInput = 0, const std::vector<ROI> &vecROI = std::vector<ROI>())
     {
@@ -517,6 +560,126 @@ public:
 
         return;
     }
+
+    inline void inferAsyncImgPipe(IE::InferRequest::Ptr ptrInferRequest, InferCallback_t callback,
+                char* hostFd, size_t heightInput = 0, size_t widthInput = 0, const ROI &roi = ROI{})
+    {
+        //todo, fix me
+        if (0 == heightInput)
+        {
+            heightInput = _heightInput;
+        }
+        else
+        {
+            _heightInput = heightInput;
+        }
+        if (0 == widthInput)
+        {
+            widthInput = _widthInput;
+        }
+        else
+        {
+            _widthInput = widthInput;
+        }
+
+#ifdef HDDLPLUGIN_PROFILE
+        auto start = std::chrono::steady_clock::now();
+#endif
+
+#ifndef INFER_ROI
+        IE::ParamMap blobParamMap = {{IE::HDDL2_PARAM_KEY(REMOTE_MEMORY_FD), static_cast<uint64_t>(remoteMemoryFd)},
+                                     {IE::HDDL2_PARAM_KEY(COLOR_FORMAT), IE::ColorFormat::NV12}};
+#else
+        IE::ROI roiIE;
+        if(0 == roi.width || 0 == roi.height)
+        {
+            roiIE = IE::ROI{0, 0, 0, widthInput, heightInput};
+        }
+        else
+        {
+            roiIE = IE::ROI{static_cast<size_t>(0), static_cast<size_t>(roi.x),
+                            static_cast<size_t>(roi.y), static_cast<size_t>(roi.width), static_cast<size_t>(roi.height)};
+        }
+#endif
+
+        //todo fix me
+        if (_executableNetwork.GetInputsInfo().empty())
+        {
+            return;
+        }
+
+        auto inputsInfo = _executableNetwork.GetInputsInfo();
+        _inputName = _executableNetwork.GetInputsInfo().begin()->first;
+
+#ifdef HDDLPLUGIN_PROFILE
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        HVA_DEBUG("[debug] inputsInfo duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+
+        start = std::chrono::steady_clock::now();
+#endif
+
+		// Since it 228x228 image on 224x224 network, resize preprocessing also required
+		IE::PreProcessInfo preprocInfo = ptrInferRequest->GetPreProcess(
+				_inputName);
+		preprocInfo.setResizeAlgorithm(IE::RESIZE_BILINEAR);
+		preprocInfo.setColorFormat(IE::ColorFormat::NV12);
+
+        // Create a blob to hold the NV12 input data
+        // Create tensor descriptors for Y and UV blobs
+		IE::TensorDesc y_plane_desc(IE::Precision::U8, { 1, 1, heightInput,
+				widthInput }, IE::Layout::NHWC);
+		IE::TensorDesc uv_plane_desc(IE::Precision::U8,
+				{ 1, 2, heightInput / 2, widthInput / 2 }, IE::Layout::NHWC);
+		const size_t offset = widthInput * heightInput;
+
+        // Create blob for Y plane from raw data
+		IE::Blob::Ptr y_blob = IE::make_shared_blob<uint8_t>(y_plane_desc,
+				reinterpret_cast<uint8_t*>(hostFd));
+        // Create blob for UV plane from raw data
+		IE::Blob::Ptr uv_blob = IE::make_shared_blob<uint8_t>(uv_plane_desc,
+				reinterpret_cast<uint8_t*>(hostFd) + offset);
+        // Create NV12Blob from Y and UV blobs
+		IE::Blob::Ptr nv12InputBlob = IE::make_shared_blob<IE::NV12Blob>(y_blob,
+				uv_blob);
+
+		ptrInferRequest->SetBlob(_inputName, nv12InputBlob, preprocInfo);
+
+#ifdef INFER_FP16
+
+        auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
+        auto outputBlob = ptrInferRequest->GetBlob(outputBlobName);
+        auto& desc = outputBlob->getTensorDesc();
+
+        desc.setPrecision(IE::Precision::FP32);
+#endif
+
+#ifdef HDDLPLUGIN_PROFILE
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        HVA_DEBUG("[debug] SetBlob duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+
+#ifdef HDDLPLUGIN_PROFILE
+        start = std::chrono::steady_clock::now();
+#endif
+
+        ptrInferRequest->SetCompletionCallback(callback);
+
+        //Async model
+        ptrInferRequest->StartAsync();
+
+        //sync model,callback() be used in inferNode
+//        ptrInferRequest->Infer();
+
+#ifdef HDDLPLUGIN_PROFILE
+        end = std::chrono::steady_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        HVA_DEBUG("[debug] hddl2plugin infer duration is %ld, mode is %s\n", duration, _graphPath.c_str());
+#endif
+        return;
+    }
+
 
     inline IE::Blob::Ptr getOutputBlob(IE::InferRequest::Ptr ptrInferRequest)
     {

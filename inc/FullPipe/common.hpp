@@ -34,6 +34,18 @@ struct VideoMeta{
     bool drop;
 };
 
+struct ImageMeta{
+    unsigned imageWidth;
+    unsigned imageHeight;
+    std::chrono::time_point<std::chrono::steady_clock> pipeTimeStart;
+#ifdef VALIDATION_DUMP
+    ms frameStart;
+    ms frameEnd;
+#endif
+    bool drop;
+    std::string ImgName;
+};
+
 struct ROI {
     int32_t x {0};
     int32_t y {0};
