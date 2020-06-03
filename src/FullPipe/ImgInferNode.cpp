@@ -119,7 +119,6 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
                     }
                     ptrInferMeta->frameId = vecBlobInput[0]->frameId;
                     ptrInferMeta->totalROI = vecObjects.size();
-                    ptrInferMeta->durationDetection = m_durationAve;
                     ptrInferMeta->inferFps = m_fps;
                     blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
                                 if(payload != nullptr){
