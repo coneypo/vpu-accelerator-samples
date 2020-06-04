@@ -992,7 +992,7 @@ bool JpegEncNodeWorker::saveToFile(SurfacePool::Surface* surface){
     int slice_data_length = coded_buffer_segment->size;
     std::size_t w_items = 0;
     std::stringstream ss;
-    ss << "jpegenc-"<<std::to_string(m_WID)<<"-"<< m_jpegCtr.fetch_add(1)<<".jpg";
+    ss << "jpegenc-"<<std::to_string(m_WID)<<"-"<< m_jpegCtr.fetch_add(1)%100<<".jpg";
     FILE* jpeg_fp = fopen(ss.str().c_str(), "wb");  
     if(jpeg_fp != NULL){
         do {
