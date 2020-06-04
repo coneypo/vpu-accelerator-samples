@@ -9,6 +9,16 @@
 
 class ObjectTrackingNode : public hva::hvaNode_t{
 public:
+    /**
+     * @brief Constructor
+     * @param inPortNum Internal parameter handled by hva framework
+     * @param outPortNum Internal parameter handled by hva framework
+     * @param totalThreadNum Internal parameter handled by hva framework
+     * @param vWorkloadId Workload id vector
+     * @param reservedInt Reserved integer
+     * @param reservedStr Reserved string
+     * @param trackingModeStr Tracking mode
+     */
     ObjectTrackingNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, 
         std::vector<WorkloadID> vWorkloadId, int32_t reservedInt,
         std::string reservedStr, const std::string& trackingModeStr);
@@ -26,10 +36,22 @@ private:
 
 class ObjectTrackingNodeWorker : public hva::hvaNodeWorker_t{
 public:
+    /**
+     * @brief Constructor
+     * @param parentNode Internal parameter handled by hva framework
+     * @param workloadId Workload id
+     * @param reservedInt Reserved integer
+     * @param reservedStr Reserved string
+     * @param trackingModeStr Tracking mode
+     */
     ObjectTrackingNodeWorker(hva::hvaNode_t* parentNode,
         WorkloadID workloadId, int32_t reservedInt,
         std::string reservedStr, const std::string& trackingModeStr);
 
+    /**
+     * @brief Called by hva framework for each video frame, Run object tracking algorithm and pass output to following node
+     * @param batchIdx Internal parameter handled by hvaframework
+     */
     virtual void process(std::size_t batchIdx) override;
 
     virtual void init() override;

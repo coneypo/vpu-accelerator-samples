@@ -1,36 +1,34 @@
 #include <iostream>
 #include <memory>
-#include <hvaPipeline.hpp>
 #include <chrono>
 #include <thread>
-#include <jsonParser.hpp>
 #include <string>
+#include <future>
+#include <mutex>
+#include <condition_variable>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
-#include <future>
+#include <boost/algorithm/string.hpp>
+#include <hvaPipeline.hpp>
+#include <object_tracking_node.hpp>
+
+#include <ipc.h>
+#include <jsonParser.hpp>
 #include <jpeg_enc_node.hpp>
 #include <FakeDelayNode.hpp>
 #include <FrameControlNode.hpp>
-#include <ipc.h>
 #include <GstPipeContainer.hpp>
 #include <common.hpp>
-#include <mutex>
-#include <condition_variable>
-#include <boost/algorithm/string.hpp>
-#include "hddl2plugin_helper.hpp"
-#include "InferNode.hpp"
-#include "InferNode_unite.hpp"
+#include <hddl2plugin_helper.hpp>
+#include <InferNode.hpp>
+#include <InferNode_unite.hpp>
 #include <PipelineConfig.hpp>
-#include "object_tracking_node.hpp"
 #include <validationDumpNode.hpp>
 #include <Sender.hpp>
 #include <Messenger.hpp>
 #include <csignal> 
 
-#define STREAMS 1
-#define MAX_STREAMS 64
-// #define USE_FAKE_IE_NODE
-#define USE_OBJECT_TRACKING
 // #define USE_UNITE_API_IE
 using ms = std::chrono::milliseconds;
 
@@ -39,6 +37,11 @@ std::condition_variable g_cv;
 
 static Messenger g_messenger;
 
+/**
+ * @brief Check graph file validity
+ * @param filepath Graph file path
+ * @return Validity
+ */
 bool checkValidNetFile(std::string& filepath){
     std::string::size_type suffix_pos_blob = filepath.find(".blob");
     std::string::size_type suffix_pos_xml = filepath.find(".xml");
@@ -85,6 +88,11 @@ bool checkValidNetFile(std::string& filepath){
     return true;
 }
 
+/**
+ * @brief Check video file validity
+ * @param filepath Video file path
+ * @return Validity
+ */
 bool checkValidVideo(std::string filepath){
     auto p = boost::filesystem::path(filepath);
     if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
@@ -95,12 +103,20 @@ bool checkValidVideo(std::string filepath){
     return true;
 }
 
+/**
+ * Socket configuration
+ */
 struct SocketsConfig_t{
     unsigned numOfStreams;
-    // std::string unixSocket[MAX_STREAMS];
     std::vector<std::string> unixSocket;
 };
 
+/**
+ * @brief Socket configuration receive routine
+ * @param socket_address Socket address for listening
+ * @param config Received socket configuration
+ * @return Status
+ */
 int receiveRoutine(const char* socket_address, SocketsConfig_t* config)
 {
     auto poller = HddlUnite::Poller::create();
@@ -154,7 +170,7 @@ int receiveRoutine(const char* socket_address, SocketsConfig_t* config)
                     for (unsigned i = 0; i < config->unixSocket.size();++i){
                         HVA_DEBUG("Value of config[%d]: %s", i, config->unixSocket[i].c_str());
                     }
-                        config->numOfStreams = config->unixSocket.size();
+                    config->numOfStreams = config->unixSocket.size();
 
                     // *ctrlMsg = ControlMessage::ADDR_RECVED;
                     g_messenger.setMessageAndNotify(ControlMessage::ADDR_RECVED);
@@ -172,11 +188,6 @@ int receiveRoutine(const char* socket_address, SocketsConfig_t* config)
                 std::this_thread::sleep_for(ms(5000));
                 running = false;
                 /* stop pipeline */
-                // {
-                //     std::lock_guard<std::mutex> lg(g_mutex);
-                //     *ctrlMsg = ControlMessage::STOP_RECVED;
-                // }
-                // g_cv.notify_one();
                 break;
 
             default:
@@ -186,15 +197,24 @@ int receiveRoutine(const char* socket_address, SocketsConfig_t* config)
     return 0;
 }
 
+/**
+ * @brief Exit signal handler 
+ */
 void onExitSignal(int sig, siginfo_t *info, void *ucontext){
     HVA_WARNING("Signal handler triggerred!");
     g_messenger.setMessageAndNotify(ControlMessage::STOP_RECVED);
 }
 
+/**
+ * @brief SigPipe signal handler 
+ */
 void onSigPipe(int sig){
     HVA_WARNING("SIGPIPE handler triggerred!");
 }
 
+/**
+ * @brief Register of signal handler 
+ */
 void registerSystemSignalHandler(){
 
     struct sigaction act;
@@ -213,15 +233,17 @@ void registerSystemSignalHandler(){
 
 
 int main(){
-
+    //Logger configuration
     hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
     // hvaLogger.dumpToFile("test.log", false);
     // hvaLogger.enableProfiling();
 
+    //Register signal handler
     registerSystemSignalHandler();
 
     gst_init(0, NULL);
 
+    //Parse config file
     PipelineConfigParser configParser;
     if(!configParser.parse("config.json")){
         std::cout<<"Failed to parse config.json"<<std::endl;
@@ -244,6 +266,7 @@ int main(){
     ControlMessage ctrlMsg = ControlMessage::EMPTY;
     MessageListener& listener = g_messenger.spawn();
 
+    //Listen and receive socket configuration
     std::thread t(receiveRoutine, config.guiSocket.c_str(), &sockConfig);
 
     std::mutex WIDMutex;
@@ -270,6 +293,7 @@ int main(){
     std::vector<uint64_t> vWID(sockConfig.numOfStreams, 0); 
     std::this_thread::sleep_for(ms(1000));
 
+    //Start decode threads
     for(unsigned i = 0; i < sockConfig.numOfStreams; ++i){
         vTh.push_back(new std::thread([&, i](){
                     vCont[i] = new GstPipeContainer(i);
@@ -330,26 +354,19 @@ int main(){
 
     std::cout<<"All WIDs received. Start pipeline with "<<sockConfig.numOfStreams<<" streams."<<std::endl;
     HVA_INFO("All WIDs received. Start pipeline with %d streams", sockConfig.numOfStreams);
-    auto &FRCNode = pl.setSource(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
-#ifdef USE_FAKE_IE_NODE
-    auto& detNode = pl.addNode(std::make_shared<FakeDelayNode>(1,1,2, "detection"), "detNode");
-#else
 
+    //Add FRC node into pipeline
+    auto &FRCNode = pl.setSource(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
+
+    //Add detection node into pipeline
 #ifdef USE_UNITE_API_IE
     auto &detNode = pl.addNode(std::make_shared<InferNode_unite>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
                                                              416*416*3,13*13*125), "detNode");
 #else //#ifdef USE_UNITE_API_IE
-#ifdef INFER_FP16
     auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID, config.detConfig.model, "detection", 
                     &HDDL2pluginHelper_t::postprocYolotinyv2_fp16, config.detConfig.inferReqNumber, config.detConfig.threshold), "detNode");
-#else
-    auto &detNode = pl.addNode(std::make_shared<InferNode>(1, 1, sockConfig.numOfStreams, vWID[0], config.detConfig.model, "detection", 
-                                                             &HDDL2pluginHelper_t::postprocYolotinyv2_u8), "detNode");
-#endif
-
 #endif //#ifdef USE_UNITE_API_IE
-    // auto& detNode = pl.setSource(std::make_shared<InferNode_unite>(1,1,sockConfig.numOfStreams, 
-    // vWID, config.detConfig.model, "detection", 416*416*3, 13*13*125), "detNode");
+
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -359,14 +376,11 @@ int main(){
 
         detNode.configBatch(batchingConfig);
     }
-#endif
 
-#ifndef USE_OBJECT_TRACKING
-    auto &FRCNode = pl.addNode(std::make_shared<FrameControlNode>(1, 1, 1, config.FRCConfig), "FRCNode");
-#else
+    //Add object tracking node into pipeline
     auto &trackingNode = pl.addNode(std::make_shared<ObjectTrackingNode>(1, 1, sockConfig.numOfStreams, 
     vWID, 0, "objectTracking", "short_term_imageless"), "trackingNode");
-    // if(sockConfig.numOfStreams > 1)
+
     {
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -376,22 +390,18 @@ int main(){
 
         trackingNode.configBatch(batchingConfig);
     }
-#endif
 
-#ifdef USE_FAKE_IE_NODE
-    auto& clsNode = pl.addNode(std::make_shared<FakeDelayNode>(1,2,2,"classification"), "clsNode");
-#else //#ifdef USE_FAKE_IE_NODE
+//Add classification node into pipeline
 #ifndef VALIDATION_DUMP
 
-#ifdef INFER_FP16
+#ifdef USE_UNITE_API_IE
+    auto &clsNode = pl.addNode(std::make_shared<InferNode_unite>(1, 2, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification", 
+                                                             224*224*3, 1000), "clsNode");
+#else //#ifdef USE_UNITE_API_IE
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_fp16), "clsNode");
-#else
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 2, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-#endif
-    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
-    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
+                    &HDDL2pluginHelper_t::postprocResnet50_fp16, config.clsConfig.inferReqNumber), "clsNode");
+#endif //#ifdef USE_UNITE_API_IE
+
     if(sockConfig.numOfStreams > 1){
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -407,18 +417,10 @@ int main(){
     auto &clsNode = pl.addNode(std::make_shared<InferNode_unite>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification", 
                                                              224*224*3, 1000), "clsNode");
 #else //#ifdef USE_UNITE_API_IE
-
-#ifdef INFER_FP16
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
                     &HDDL2pluginHelper_t::postprocResnet50_fp16, config.clsConfig.inferReqNumber), "clsNode");
-#else
-    auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID[0], config.clsConfig.model, "classification",
-                                                           &HDDL2pluginHelper_t::postprocResnet50_u8), "clsNode");
-#endif
 #endif //#ifdef USE_UNITE_API_IE
-    // auto& clsNode = pl.addNode(std::make_shared<InferNode_unite>(1,2,sockConfig.numOfStreams, 
-    // vWID, config.clsConfig.model, "classification", 224*224*3, 1000), "clsNode");
-    // if(sockConfig.numOfStreams > 1)
+    if(sockConfig.numOfStreams > 1)
     {
         hva::hvaBatchingConfig_t batchingConfig;
         batchingConfig.batchingPolicy = hva::hvaBatchingConfig_t::BatchingWithStream;
@@ -429,7 +431,8 @@ int main(){
         clsNode.configBatch(batchingConfig);
     }
 #endif //#ifndef VALIDATION_DUMP
-#endif //#ifdef USE_FAKE_IE_NODE
+
+    //Add sender node into pipeline
     if(sockConfig.numOfStreams > 1){
         pl.addNode(std::make_shared<SenderNode>(1,1,sockConfig.numOfStreams,sockConfig.unixSocket), "sendNode");
     }
@@ -437,6 +440,7 @@ int main(){
         pl.addNode(std::make_shared<SenderNode>(1,1,1,sockConfig.unixSocket), "sendNode");
     }
 
+    //Add jpeg encode node into pipeline
     auto& jpegNode = pl.addNode(std::make_shared<JpegEncNode>(1,1,sockConfig.numOfStreams,vWID), "jpegNode");
 
     if(sockConfig.numOfStreams > 1){
@@ -449,18 +453,15 @@ int main(){
         jpegNode.configBatch(batchingConfig);
     }
 
+    //Add validation dump node into pipeline
 #ifdef VALIDATION_DUMP
     auto& validationDumpNode = pl.addNode(std::make_shared<ValidationDumpNode>(1,0,1,"Resnet"), "validationDumpNode");
 #endif //#ifdef VALIDATION_DUMP
 
-#ifndef USE_OBJECT_TRACKING
-    pl.linkNode("FRCNode", 0, "detNode", 0);
-    pl.linkNode("detNode", 0, "clsNode", 0);
-#else
+    //Link nodes
     pl.linkNode("FRCNode", 0, "detNode", 0);
     pl.linkNode("detNode", 0, "trackingNode", 0);
     pl.linkNode("trackingNode", 0, "clsNode", 0);
-#endif
 
     pl.linkNode("clsNode", 0, "jpegNode", 0);
     pl.linkNode("clsNode", 1, "sendNode", 0);
@@ -468,11 +469,13 @@ int main(){
     pl.linkNode("clsNode", 2, "validationDumpNode", 0);
 #endif //#ifdef VALIDATION_DUMP
 
+    //Start pipeline
     pl.prepare();
 
     std::cout<<"\nPipeline Start: "<<std::endl;
     pl.start();
 
+    //Waiting for pipeline stop
     do{
         listener.pop(&ctrlMsg);
         if(ctrlMsg == ControlMessage::STOP_RECVED){
