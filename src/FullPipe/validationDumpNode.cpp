@@ -21,7 +21,7 @@ void ValidationDumpNodeWorker::init(){
         return;
     }
     m_of << "ts.ia.start, ts.ia.end, ts.xbay.start, ts.xbay.end, streamId, frameId, roi.x, roi.y, roi.width, roi.height, "<<
-            "trackingId, detId, detProb, num_cls, nn_name, clsId, clsProb"<<std::endl;
+            "trackingId, detId, detProb, num_cls, nn_name, clsLabel, clsProb"<<std::endl;
 }
 
 void ValidationDumpNodeWorker::process(std::size_t batchIdx){
@@ -38,7 +38,7 @@ void ValidationDumpNodeWorker::process(std::size_t batchIdx){
                 m_of << vInput[0]->streamId << ", " << item.pts << ", ";
                 m_of << item.x << ", " << item.y << ", "<< item.width << ", "<< item.height << ", ";
                 m_of << item.trackingId << ", " << item.labelIdDetection << ", " << item.confidenceDetection<<", ";
-                m_of << "1, " << m_networkName << ", "<< item.labelIdClassification <<", "<< item.confidenceClassification <<std::endl;
+                m_of << "1, " << m_networkName << ", "<< item.labelClassification <<", "<< item.confidenceClassification <<std::endl;
             }
         }
 #endif
