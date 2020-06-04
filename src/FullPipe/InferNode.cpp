@@ -174,6 +174,10 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 {
                     //preprocess for object selection
                     std::shared_ptr<Objects> ptr_input_objects = std::make_shared<Objects>();
+                    if (nullptr == ptr_input_objects)
+                    {
+                        throw std::runtime_error("make_shared fail");
+                    }
                     for (int32_t i = 0; i < vecROI.size(); i++)
                     {
                         auto& roi = ptrInferMeta->rois[i];
@@ -183,10 +187,22 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     
                     // Select new and tracked objects.
                     std::shared_ptr<Objects> ptr_new_objs = std::make_shared<Objects>();
+                    if (nullptr == ptr_new_objs)
+                    {
+                        throw std::runtime_error("make_shared fail");
+                    }
                     std::shared_ptr<Objects> ptr_tracked = std::make_shared<Objects>();
+                    if (nullptr == ptr_tracked)
+                    {
+                        throw std::runtime_error("make_shared fail");
+                    }
                     std::tie(*ptr_new_objs, *ptr_tracked) = m_object_selector->preprocess(*ptr_input_objects);
 
                     std::shared_ptr<std::vector<ROI>> ptr_input_vecROI = std::make_shared<std::vector<ROI>>();
+                    if (nullptr == ptr_input_vecROI)
+                    {
+                        throw std::runtime_error("make_shared fail");
+                    }
 
                     for (auto& o : *ptr_new_objs)
                     {
@@ -199,6 +215,10 @@ void InferNodeWorker::process(std::size_t batchIdx)
                         auto startForFps = std::chrono::steady_clock::now();
                         
                         std::shared_ptr<std::mutex> ptrMutex = std::make_shared<std::mutex>();
+                        if (nullptr == ptrMutex)
+                        {
+                            throw std::runtime_error("make_shared fail");
+                        }
                         std::shared_ptr<int32_t> ptrCntCallback{new int32_t};
                         *ptrCntCallback = 0;
 
