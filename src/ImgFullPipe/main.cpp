@@ -1,24 +1,27 @@
 #include <iostream>
 #include <memory>
-#include <hvaPipeline.hpp>
 #include <chrono>
 #include <thread>
-#include <jsonParser.hpp>
 #include <string>
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem.hpp>
 #include <future>
-#include <ImgFrameControlNode.hpp>
-#include <ipc.h>
-#include <common.hpp>
 #include <mutex>
 #include <condition_variable>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
-#include "hddl2plugin_helper.hpp"
-#include "ImgInferNode.hpp"
+#include <hvaPipeline.hpp>
+#include <object_tracking_node.hpp>
+
+#include <ipc.h>
+#include <jsonParser.hpp>
+#include <hddl2plugin_helper.hpp>
 #include <PipelineConfig.hpp>
 #include <validationDumpNode.hpp>
+
 #include <ImgSenderNode.hpp>
+#include <ImgFrameControlNode.hpp>
+#include <ImgInferNode.hpp>
 // for Image fold
 #include <iostream>
 #include <sys/stat.h>
@@ -30,6 +33,9 @@
 
 using ms = std::chrono::milliseconds;
 
+/**
+ * @Socket Control message
+ */
 enum ControlMessage{
     EMPTY = 0,
     ADDR_RECVED,
@@ -39,6 +45,11 @@ enum ControlMessage{
 std::mutex g_mutex;
 std::condition_variable g_cv;
 
+/**
+ * @brief Check graph file validity
+ * @param filepath Graph file path
+ * @return Validity
+ */
 bool checkValidNetFile(std::string& filepath){
     std::string::size_type suffix_pos_blob = filepath.find(".blob");
     std::string::size_type suffix_pos_xml = filepath.find(".xml");
@@ -85,21 +96,20 @@ bool checkValidNetFile(std::string& filepath){
     return true;
 }
 
-//bool checkValidVideo(std::string filepath){
-//    auto p = boost::filesystem::path(filepath);
-//    if(!boost::filesystem::exists(p) || !boost::filesystem::is_regular_file(p)){
-//        std::cout<<"File "<<filepath<<" does not exists"<<std::endl;
-//        HVA_ERROR("File %s does not exists", filepath);
-//        return false;
-//    }
-//    return true;
-//}
-
+/**
+ * Socket configuration
+ */
 struct SocketsConfig_t{
     unsigned numOfStreams;
     std::vector<std::string> unixSocket;
 };
 
+/**
+ * @brief Socket configuration receive routine
+ * @param socket_address Socket address for listening
+ * @param config Received socket configuration
+ * @return Status
+ */
 int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsConfig_t* config)
 {
     auto poller = HddlUnite::Poller::create();
@@ -147,8 +157,6 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                 }
                 else{
                     /* start pipeline */
-                    // std::vector<std::string> sockets;
-                    // config->unixSocket.reserve();
                     {
                         std::lock_guard<std::mutex> lg(g_mutex);
                         boost::split(config->unixSocket, message, boost::is_any_of(","));
@@ -171,12 +179,6 @@ int receiveRoutine(const char* socket_address, ControlMessage* ctrlMsg, SocketsC
                 HVA_INFO("Going to stop receive routine after 5 s");
                 std::this_thread::sleep_for(ms(5000));
                 running = false;
-                /* stop pipeline */
-                // {
-                //     std::lock_guard<std::mutex> lg(g_mutex);
-                //     *ctrlMsg = ControlMessage::STOP_RECVED;
-                // }
-                // g_cv.notify_one();
                 break;
 
             default:
@@ -224,6 +226,12 @@ void readInputFilesArguments(std::vector<std::string> &files,
 //	}
 }
 
+/**
+* @brief This function generate Image buffer from file
+* @param image_path Image path
+* @param size Image buffer size
+* @return Image buffer pointer
+*/
 char* readImageDataFromFile(const std::string& image_path, const int size) {
     std::ifstream file(image_path, std::ios_base::ate | std::ios_base::binary);
     if (!file.good() || !file.is_open()) {
@@ -246,6 +254,17 @@ char* readImageDataFromFile(const std::string& image_path, const int size) {
     return data;
 }
 
+/**
+* @brief This function load Image buffer into HVA blob
+* @param pipeline HVA pipeline
+* @param file image files' address
+* @param width Image width
+* @param height Image height
+* @param streamId Image streams(One stream for one image folder)
+* @param Iteration numbers for images loop in the image folder
+* @param ctrlMsg Control message
+* @return Status
+*/
 int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 		const int& width, const int& height, const int& streamId,
 		const int& iterNum, ControlMessage* ctrlMsg) {
@@ -386,14 +405,14 @@ int main(){
 
 #ifdef VALIDATION_DUMP
 //    auto& validationDumpNode = pl.addNode(std::make_shared<ValidationDumpNode>(1,0,1,"Yolotinyv2"), "validationDumpNode");
-#endif //#ifdef VALIDATION_DUMP
+#endif
 
     pl.linkNode("FRCNode", 0, "detNode", 0);
     pl.linkNode("detNode", 0, "sendNode", 0);
 
 #ifdef VALIDATION_DUMP
 //    pl.linkNode("detNode", 1, "validationDumpNode", 0);
-#endif //#ifdef VALIDATION_DUMP
+#endif
 
     pl.prepare();
     pl.start();
