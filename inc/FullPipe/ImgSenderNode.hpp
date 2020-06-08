@@ -8,6 +8,7 @@
 #include <atomic>
 #include <unordered_map>
 
+// sender class communicates with GUI through IPC
 class ImgSenderNode : public hva::hvaNode_t{
 public:
 	ImgSenderNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, const std::vector<std::string>& unixSocket);
@@ -27,6 +28,13 @@ class ImgSenderNodeWorker : public hva::hvaNodeWorker_t{
 public:
 	ImgSenderNodeWorker(hva::hvaNode_t* parentNode, const std::unordered_map<unsigned, std::string>& unixSocket);
 
+    /**
+    * @brief wrap every input and send to GUI's IPC socket
+    *
+    * @param batchIdx batch index assigned by framework
+    * @return void
+    *
+    */
     virtual void process(std::size_t batchIdx) override;
 
     virtual void init() override;

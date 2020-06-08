@@ -13,8 +13,7 @@ public:
         unsigned dropXFrame;
     };
 
-    // FrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum, unsigned dropXFrame, unsigned dropEveryXFrame);
-    ImgFrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum/*, const Config& config*/);
+    ImgFrameControlNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum/*, const Config& config*/); //config is not used by now
 
     virtual std::shared_ptr<hva::hvaNodeWorker_t> createNodeWorker() const override;
 

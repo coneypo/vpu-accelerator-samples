@@ -35,15 +35,15 @@ struct VideoMeta{
 };
 
 struct ImageMeta{
-    unsigned imageWidth;
-    unsigned imageHeight;
-    std::chrono::time_point<std::chrono::steady_clock> pipeTimeStart;
+    unsigned imageWidth;                                                  //Image Width
+    unsigned imageHeight;                                                 //Image Height
+    std::chrono::time_point<std::chrono::steady_clock> pipeTimeStart;     //Image Blob start clock
 #ifdef VALIDATION_DUMP
-    ms frameStart;
-    ms frameEnd;
+    ms frameStart;                                                        //Start Image iter count
+    ms frameEnd;                                                          //End Image iter count
 #endif
-    bool drop;
-    std::string ImgName;
+    bool drop;                                                            //Dropped or not
+    std::string ImgName;                                                  //Image name
 };
 
 struct ROI {

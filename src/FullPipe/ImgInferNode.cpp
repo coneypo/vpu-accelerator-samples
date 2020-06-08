@@ -2,10 +2,6 @@
 #include <boost/algorithm/string.hpp>
 #include <chrono>
 
-#define TOTAL_ROIS 2
-#define INFER_ASYNC
-//#define VALIDATION_DUMP
-
 ImgInferNode::ImgInferNode(std::size_t inPortNum, std::size_t outPortNum, std::size_t totalThreadNum,
             std::vector<WorkloadID> vWID, std::string graphPath, std::string mode, HDDL2pluginHelper_t::PostprocPtr_t postproc,
             int32_t numInferRequest, float thresholdDetection)
@@ -18,7 +14,7 @@ ImgInferNode::ImgInferNode(std::size_t inPortNum, std::size_t outPortNum, std::s
 std::shared_ptr<hva::hvaNodeWorker_t> ImgInferNode::createNodeWorker() const
 {
     std::lock_guard<std::mutex> lock{m_mutex};
-//    printf("[debug] cntNodeWorker is %d \n", (int)m_cntNodeWorker);
+    HVA_DEBUG("cntNodeWorker is %d \n", (int)m_cntNodeWorker);
     return std::shared_ptr<hva::hvaNodeWorker_t>{
         new ImgInferNodeWorker{const_cast<ImgInferNode *>(this), m_vWID[m_cntNodeWorker++], m_graphPath, m_mode, m_postproc,
             m_numInferRequest, m_thresholdDetection}};
@@ -38,8 +34,7 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
 
     if (vecBlobInput.size() != 0)
     {
-//        auto start = std::chrono::steady_clock::now();
-//        printf("[debug] frameId is %d, graphName is %s\n", vecBlobInput[0]->frameId, m_mode.c_str());
+        HVA_DEBUG("frameId is %d, graphName is %s\n", vecBlobInput[0]->frameId, m_mode.c_str());
         if (m_mode == "detection")
         {
             auto ptrVideoBuf = vecBlobInput[0]->get<char, ImageMeta>(0);
@@ -68,8 +63,6 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
 
                 auto startForFps = std::chrono::steady_clock::now();
                 auto ptrInferRequest = m_helperHDDL2.getInferRequest();
-
-
 
                 auto callback = [=]() mutable
                 {

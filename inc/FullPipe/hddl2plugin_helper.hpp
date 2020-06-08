@@ -45,8 +45,20 @@ public:
           _thresholdDetection{thresholdDetection}
     {
     }
-
+    /**
+     * @brief Setup HDDL2 plugin for ImagePipe line, load network, create infer request
+     * @param numInferRequest Number of infer request
+     */
 	void setupImgPipe(int32_t numInferRequest = 1);
+    /**
+     * @brief Start ImagePipe line async infer request
+     * @param ptrInferRequest Pointer to infer request
+     * @param callback Callback function pointer
+     * @param remoteMemoryFd FD of remote memory on device
+     * @param heightInput Height of input image
+     * @param widthInput Width of input image
+     * @param roi Inference ROI
+     */
     void inferAsyncImgPipe(IE::InferRequest::Ptr ptrInferRequest, InferCallback_t callback,
                 char* hostFd, size_t heightInput = 0, size_t widthInput = 0, const ROI &roi = ROI{});
 
