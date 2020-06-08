@@ -144,8 +144,10 @@ void hvaLogger_t::log(LogLevel level,const char* file, const char* func, long li
 
 #ifdef ENABLE_LOG
 
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
+
 #define LogPrint(logLevel, ...) \
-    hvaLogger.log(logLevel,  __FILE__, __func__, __LINE__, __VA_ARGS__)
+    hvaLogger.log(logLevel,  __FILENAME__, __func__, __LINE__, __VA_ARGS__)
 
 #define HVA_DEBUG(...) LogPrint(::hva::hvaLogger_t::LogLevel::DEBUG, __VA_ARGS__)
 #define HVA_INFO(...) LogPrint(::hva::hvaLogger_t::LogLevel::INFO, __VA_ARGS__)

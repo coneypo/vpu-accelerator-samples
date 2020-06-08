@@ -121,6 +121,7 @@ class hvaBatchingConfig_t{
 public:
     enum BatchingPolicy : unsigned{
         BatchingIgnoringStream = 0x1,   // batching algorithm ignoring the blob's stream id. default
+
         BatchingWithStream = 0x2,       // if set to BatchingWithStream, node workers only fetches the
                                         //  blobs corrosponding to its assigned batch index. Note that
                                         //  according to user definition, a single batch index may refer 
