@@ -15,9 +15,15 @@ find_package(Boost 1.53 COMPONENTS filesystem REQUIRED)
 
 message("boost header: ${BOOST_INC_DIR}")
 
-set(FULL_PIPE_INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/FullPipe ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/util)
+set(FULL_PIPE_INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/FullPipe
+                         ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/util 
+                         ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/inference_util
+                         ${CMAKE_CURRENT_SOURCE_DIR}/../../inc/nodes)
 
-file(GLOB_RECURSE FULL_PIPE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../util/*.cpp)
+file(GLOB_RECURSE FULL_PIPE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp 
+                                ${CMAKE_CURRENT_SOURCE_DIR}/../util/*.cpp 
+                                ${CMAKE_CURRENT_SOURCE_DIR}/../inference_util/*.cpp
+                                ${CMAKE_CURRENT_SOURCE_DIR}/../nodes/*.cpp)
 file(GLOB_RECURSE FULL_PIPE_SRC_c ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
 
 # find_library(LibVA NAMES va HINTS "/usr/local/lib")
