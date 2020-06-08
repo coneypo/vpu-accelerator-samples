@@ -59,6 +59,7 @@ struct _GstBypass
   GstPad *srcpad;
   // to store WorkloadContextID throughout plugin
   WorkloadID wID;
+  gboolean isWIDExported;
 };
 
 struct _GstBypassClass
