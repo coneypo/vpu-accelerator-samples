@@ -234,7 +234,7 @@ void registerSystemSignalHandler(){
 
 int main(){
     //Logger configuration
-    hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::DEBUG);
+    hvaLogger.setLogLevel(hva::hvaLogger_t::LogLevel::WARNING);
     // hvaLogger.dumpToFile("test.log", false);
     // hvaLogger.enableProfiling();
 
