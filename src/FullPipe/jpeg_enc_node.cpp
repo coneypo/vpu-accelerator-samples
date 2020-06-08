@@ -1047,6 +1047,8 @@ void JpegEncNodeWorker::processByLastRun(std::size_t batchIdx){
     vaDestroyConfig(m_vaDpy,m_jpegConfigId);
     vaTerminate(m_vaDpy);
     va_close_display(m_vaDpy);
+    HVA_DEBUG("Going to destroy WID %u", m_WID);
+    destroyWorkloadContext(m_WID);
     HVA_WARNING("Deinit vaapi done");
 }
 

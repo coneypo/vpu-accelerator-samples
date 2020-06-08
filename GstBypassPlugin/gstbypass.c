@@ -88,6 +88,7 @@ static gboolean gst_bypass_sink_query (GstPad    *pad,
             ret = gst_pad_query_default (pad, parent, query);
             break;
     }
+    obj->isWIDExported = TRUE;
     return ret;
 }
 
@@ -111,10 +112,12 @@ static void gst_bypass_finalize (GObject *object)
         GST_ERROR ("Failed to obtain workload %ld\n", workloadId);
     }
 
-    // destroyWorkloadContext(workloadId);
+    if(!GST_BYPASS(object)->isWIDExported && workloadId != 0){
+        destroyWorkloadContext(workloadId);
 
-    // GST_DEBUG ("Destroyed workload %lu with pid %u tid %lu\n", workloadId, getpid(),
-	// syscall (SYS_gettid));
+        GST_DEBUG ("Destroyed workload %lu with pid %u tid %lu\n", workloadId, getpid(),
+        syscall (SYS_gettid));
+    }
 
     G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -192,6 +195,7 @@ static void gst_bypass_init (GstBypass *bypass)
     if(bypass->wID == NULL){
         GST_ERROR ("Failed to get workload context in class init\n");
     }
+    bypass->isWIDExported = FALSE;
 
     bypass->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
     gst_pad_set_chain_function (bypass->sinkpad, gst_bypass_chain);
