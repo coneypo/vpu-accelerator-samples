@@ -131,6 +131,10 @@ void HDDL2pluginHelper_t::inferAsyncImgPipe(IE::InferRequest::Ptr ptrInferReques
 
     ptrInferRequest->SetBlob(_inputName, nv12InputBlob, preprocInfo);
 
+    if (_executableNetwork.GetOutputsInfo().empty())
+    {
+        throw std::runtime_error("output info empty");
+    }
     auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
     auto outputBlob = ptrInferRequest->GetBlob(outputBlobName);
     auto& desc = outputBlob->getTensorDesc();
@@ -254,6 +258,10 @@ void HDDL2pluginHelper_t::inferAsync(IE::InferRequest::Ptr ptrInferRequest, Infe
     // ---- Set remote NV12 blob with preprocessing information
     ptrInferRequest->SetBlob(_inputName, ptrRemoteBlob, preprocInfo);
 
+    if (_executableNetwork.GetOutputsInfo().empty())
+    {
+        throw std::runtime_error("output info empty");
+    }
     auto outputBlobName = _executableNetwork.GetOutputsInfo().begin()->first;
     auto outputBlob = ptrInferRequest->GetBlob(outputBlobName);
     auto &desc = outputBlob->getTensorDesc();
