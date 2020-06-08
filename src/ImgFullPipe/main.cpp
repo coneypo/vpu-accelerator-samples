@@ -11,7 +11,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 #include <hvaPipeline.hpp>
-#include <object_tracking_node.hpp>
 
 #include <ipc.h>
 #include <jsonParser.hpp>

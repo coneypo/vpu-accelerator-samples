@@ -7,17 +7,22 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/exception/all.hpp>
 #include <iostream>
-#include <GstPipeContainer.hpp>
-#include <InferNode.hpp>
-#include <FrameControlNode.hpp>
+#include <ImgInferNode.hpp>
+#include <ImgFrameControlNode.hpp>
 #include <vector>
 
-struct PipelineConfig{
-    std::vector<GstPipeContainer::Config> vDecConfig;
-    std::string guiSocket;
-    InferNode::Config detConfig;
-    InferNode::Config clsConfig;
-    FrameControlNode::Config FRCConfig;
+struct ImgworkloadConfig {
+	std::string imageFolderPath;
+	int iterNum;
+	int width;
+	int height;
+};
+
+struct ImgPipelineConfig {
+	std::string guiSocket;
+	ImgInferNode::Config detConfig;
+	ImgFrameControlNode::Config FRCConfig;
+	std::vector<ImgworkloadConfig> vImgWLConfig;
 };
 
 // utility class for parsing a json config file
@@ -32,7 +37,7 @@ public:
     * @return status
     * 
     */
-    bool parse(const std::string& filename);
+    bool parse(const std::string& filename, bool imgConfig = false);
 
     /**
     * @brief get the parsed configuration
@@ -41,21 +46,21 @@ public:
     * @return parsed configuration
     * 
     */
-    PipelineConfig get() const;
+    ImgPipelineConfig Imgget() const;
 
 private:
-    bool parseDecConfig();
-    bool parseDetConfig();
-    bool parseClsConfig();
-    bool parseFRCConfig();
-    bool parseGUIConfig();
+
+    bool parseImgDetConfig();
+    bool parseImgFRCConfig();
+    bool parseImgGUIConfig();
+    bool parseImgPathConfig();
 
     template <typename T>
     bool parseFromPTree(const boost::property_tree::ptree& ptree, const std::string& path, T& result);
 
     boost::property_tree::ptree m_ptree;
     std::string m_fileName;
-    PipelineConfig m_config;
+    ImgPipelineConfig m_config_img;
     bool m_ready;
 };
 
