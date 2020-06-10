@@ -14,7 +14,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <uapi/misc/xlink_uapi.h>
+#include <xlink_uapi.h>
 #include <xlink.h>
 #ifdef __cplusplus
 }
