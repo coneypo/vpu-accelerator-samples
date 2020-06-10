@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 #include <uapi/misc/xlink_uapi.h>
-#include <linux/xlink.h>
+#include <xlink.h>
 #ifdef __cplusplus
 }
 #endif
