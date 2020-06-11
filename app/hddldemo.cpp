@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QProcess>
+#include <QDesktopWidget>
 #include <chrono>
 #include <csignal>
 #include <thread>
@@ -145,13 +146,13 @@ HDDLDemo::~HDDLDemo()
     m_pipelineProcesses.clear();
 
     if (m_hvaProcess) {
-        qDebug()<<"Try to send SIGINT to process:"<<m_hvaProcess->pid();
-        if(!kill(m_hvaProcess->pid(), SIGINT)){
-            qDebug()<<"Send SIGINT done";
+        qDebug() << "Try to send SIGINT to process:" << m_hvaProcess->pid();
+        if (!kill(m_hvaProcess->pid(), SIGINT)) {
+            qDebug() << "Send SIGINT done";
         } else {
-            qDebug()<<"Send SIGINT failed";
+            qDebug() << "Send SIGINT failed";
         }
-        if(m_hvaProcess->waitForFinished()){
+        if (m_hvaProcess->waitForFinished()) {
             delete m_hvaProcess;
         }
     }
@@ -169,6 +170,7 @@ void HDDLDemo::channelWIDReceived(qintptr sd, WId wid)
     stream->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     QFrame* frame_container = this->findChild<QFrame*>(QString("frame_%1").arg(m_embededNum));
+    frame_container->setFixedSize(frame_container->size());
     if (frame_container) {
         frame_container->layout()->addWidget(stream);
         m_socketToIndex.insert(sd, m_embededNum);
@@ -196,12 +198,18 @@ void HDDLDemo::channelFpsReceived(qintptr sp, QString text)
 
 void HDDLDemo::channelRoiReceived(qintptr sp, QByteArray* ba)
 {
+    QFrame* resultContainer = ui->centralWidget->findChild<QFrame*>("frame_display");
+    QFrame* frameStatistic= ui->centralWidget->findChild<QFrame*>("frame_statistic");
+    static int frameWidth = resultContainer->width() / 4;
+    static int frameHeight = (QApplication::desktop()->screenGeometry().height() - frameStatistic->height())/m_rows/m_cols * 0.4 ;
+    int size = std::min(frameHeight, frameWidth);
+
     int index = m_channelToRoiNum[m_socketToIndex[sp]];
     m_channelToRoiNum[m_socketToIndex[sp]] = (index + 1) % CROP_ROI_NUM;
     QString name = QString("result_roi_%1_%2").arg(m_socketToIndex[sp]).arg(index);
     QLabel* label_roi = this->findChild<QLabel*>(name);
     if (label_roi) {
-        label_roi->setPixmap(QPixmap::fromImage(QImage((uchar*)ba->data(), CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT, QImage::Format_RGB888)));
+        label_roi->setPixmap(QPixmap::fromImage(QImage((uchar*)ba->data(), CROP_IMAGE_WIDTH, CROP_IMAGE_HEIGHT, QImage::Format_RGB888)).scaled(size, size));
     }
     delete ba;
 }
