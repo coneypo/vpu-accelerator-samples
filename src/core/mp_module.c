@@ -201,6 +201,7 @@ mp_create_modules(mediapipe_t *mp)
     for (int i = 0; i < num_modules; ++i) {
         mp->modules[i] = g_slist_nth_data(module_list, i);
     }
+    g_slist_free(module_list);
 
     print_module_list(mp->modules, num_modules);
 
