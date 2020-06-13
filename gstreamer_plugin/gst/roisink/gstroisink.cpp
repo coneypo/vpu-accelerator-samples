@@ -31,6 +31,7 @@
  */
 #include "gstroisink.h"
 #include "infermetasender.h"
+#include "gstroisink_validation_log.h"
 
 #include <fstream>
 #include <gst/app/gstappsink.h>
@@ -179,6 +180,9 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
     GstSample* sample;
     GstRoiSink* roiSink = GST_ROISINK(sink);
 
+    // Init dump log for validation.
+    auto loghandle = init_validation_log();
+
     /* Retrieve the buffer */
     g_signal_emit_by_name(sink, "pull-sample", &sample);
 
@@ -191,6 +195,9 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
 
             while ((meta_orig = (GstVideoRegionOfInterestMeta*)gst_buffer_iterate_meta_filtered(metaBuffer, &state, gst_video_region_of_interest_meta_api_get_type()))) {
                 std::string label = "null";
+
+                dump_one_frame_log(loghandle, meta_orig);
+
                 if (g_quark_to_string(meta_orig->roi_type)) {
                     label = g_quark_to_string(meta_orig->roi_type);
                 }
