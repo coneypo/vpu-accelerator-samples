@@ -61,7 +61,7 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
                 int input_height = ptrVideoMeta->imageHeight;
                 int input_width = ptrVideoMeta->imageWidth;
 
-                auto startForFps = std::chrono::steady_clock::now();
+                auto startForDuration = std::chrono::steady_clock::now();
                 auto ptrInferRequest = m_helperHDDL2.getInferRequest();
 
                 auto callback = [=]() mutable
@@ -79,12 +79,28 @@ void ImgInferNodeWorker::process(std::size_t batchIdx)
 
                     m_helperHDDL2.putInferRequest(ptrInferRequest); //can this be called before postproc?
 
-                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endPosProc - startForFps).count();
+                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endPosProc - startForDuration).count();
                     m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
-                    m_fps = 1000.0f / m_durationAve;
                     m_cntFrame++;
 
-                    printf("Inference FPS is %f, mode is %s\n", m_fps, m_mode.c_str());
+                    printf("Inference duration is %f ms, mode is %s\n", m_durationAve, m_mode.c_str());
+
+                    int totalCount = ptrVideoMeta->WorkloadCount;
+                    int streamsNum = ptrVideoMeta->WorkloadStreamNum;
+
+                    if (totalCount == 1) {
+                    	m_fps = 1000.0f / m_durationAve;
+                    	printf("Total Inference FPS is %f, mode is %s\n", m_fps, m_mode.c_str());
+                    }
+                    else if (m_cntFrame == 1) {
+                    	inferTimeStart = startForDuration;
+                    }
+                    else if (m_cntFrame == totalCount) {
+                    	auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endPosProc - inferTimeStart).count();
+                    	m_fps = streamsNum * totalCount * 1000.0f / totalDuration;
+                    	printf("Total Inference FPS is %f, mode is %s\n", m_fps, m_mode.c_str());
+                    }
+
 
     #if 0
                     if(m_cntFrame == 1)

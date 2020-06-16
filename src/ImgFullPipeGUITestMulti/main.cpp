@@ -35,7 +35,7 @@ int receiveRoutine(unsigned id)
             // std::cout<<"Recv Socket incoming connecttion accepted"<<std::endl;
             {
                 std::stringstream ss;
-                ss<<titleCoordStr<<"x\ty\twidth\theight\tlabel\t\t\t\tpts\t\tconfidence\t\tinferFps\t\tdecFps\t\tImageName\t\t";
+                ss<<titleCoordStr<<"x\ty\twidth\theight\tlabel\t\t\t\tpts\t\tconfidence\t\tinferFps\t\tpipeLineFps\t\tImageName\t\t";
                 std::cout<<ss.str();
             }
             break;

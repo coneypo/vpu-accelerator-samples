@@ -44,6 +44,8 @@ struct ImageMeta{
 #endif
     bool drop;                                                            //Dropped or not
     std::string ImgName;                                                  //Image name
+    unsigned WorkloadCount;                                               //Workload Count
+    unsigned WorkloadStreamNum;                                           //Workload streams number
 };
 
 struct ROI {

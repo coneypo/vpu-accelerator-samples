@@ -44,7 +44,10 @@ public:
 private:
     std::unordered_map<unsigned, InferMetaSender*> m_sender;
     std::unordered_map<unsigned, std::string> m_unixSocket; 
+    uint64_t m_cntFrame {0ul};
     float m_durationAve;
+    float m_fps {0.0f};
+    std::chrono::time_point<std::chrono::steady_clock> senderTimeStart;
 };
 
 
