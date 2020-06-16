@@ -87,6 +87,8 @@ private:
     int32_t m_numInferRequest{1};
     float m_thresholdDetection{0.6f};
 
+    std::chrono::time_point<std::chrono::steady_clock> inferTimeStart;
+
 private:
     // std::vector<std::shared_ptr<hva::hvaBlob_t>> m_vecBlobInput;
 };

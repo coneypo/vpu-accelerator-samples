@@ -47,24 +47,42 @@ void ImgSenderNodeWorker::process(std::size_t batchIdx){
         HVA_DEBUG("Sender received blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);
         unsigned streamIdx = vInput[0]->streamId;
         InferMeta* meta = vInput[0]->get<int, InferMeta>(0)->getMeta();
+        ImageMeta *ptrImageMeta = vInput[0]->get<char, ImageMeta>(1)->getMeta();
 
-        std::chrono::time_point<std::chrono::steady_clock> pipeTimeStart = vInput[0]->get<char, ImageMeta>(1)->getMeta()->pipeTimeStart;
+        std::chrono::time_point<std::chrono::steady_clock> pipeTimeStart = ptrImageMeta->pipeTimeStart;
         auto pipeTimeEnd = std::chrono::steady_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(pipeTimeEnd - pipeTimeStart).count();
         int frameID = vInput[0]->frameId;
         m_durationAve = (m_durationAve * frameID + duration) / (frameID + 1);
-        float decFps = 1000.0f / m_durationAve;
 
-        printf("Pipeline FPS is %f\n", decFps);
+        printf("Pipeline Duration is %f\n", m_durationAve);
+
+        m_cntFrame++;
 
         float inferFps = meta->inferFps;
-        std::string imgName = vInput[0]->get<char, ImageMeta>(1)->getMeta()->ImgName;
+        std::string imgName = ptrImageMeta->ImgName;
+
+        int totalCount = ptrImageMeta->WorkloadCount;
+        int streamsNum = ptrImageMeta->WorkloadStreamNum;
+
+        if (totalCount == 1) {
+        	m_fps = 1000.0f / m_durationAve;
+        	printf("Total Pipeline FPS is %f\n", m_fps);
+        }
+        else if (m_cntFrame == 1) {
+        	senderTimeStart = pipeTimeStart;
+        }
+        else if (m_cntFrame == totalCount) {
+        	auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - senderTimeStart).count();
+        	m_fps = streamsNum * totalCount * 1000.0f / totalDuration;
+        	printf("Total Pipeline FPS is %f\n", m_fps);
+        }
 
         for(unsigned i =0; i< meta->rois.size(); ++i){
             const auto& rois = meta->rois;
             m_sender[streamIdx]->ImgserializeSave(rois[i].x, rois[i].y, rois[i].width, rois[i].height, rois[i].labelClassification, rois[i].pts,
-                    rois[i].confidenceClassification, inferFps, decFps, imgName);
+                    rois[i].confidenceClassification, inferFps, m_fps, imgName);
         }
         m_sender[streamIdx]->send();
         HVA_DEBUG("Sender complete blob with frameid %u and streamid %u", vInput[0]->frameId, vInput[0]->streamId);

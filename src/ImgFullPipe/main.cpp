@@ -266,7 +266,7 @@ char* readImageDataFromFile(const std::string& image_path, const int size) {
 */
 int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 		const int& width, const int& height, const int& streamId,
-		const int& iterNum, ControlMessage* ctrlMsg) {
+		const int& iterNum, unsigned int& streamsNum, ControlMessage* ctrlMsg) {
 	unsigned long currentSize = 0;
 	float decFps = 0.0;
 	const int size = width * (height * 3 / 2);
@@ -299,12 +299,14 @@ int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 			auto imgBuf = readImageDataFromFile(*it, size);
 			char* imgBufAddr = reinterpret_cast<char*>(imgBuf);
 
+			unsigned int workLoadCount = iterNum * file->size();
+
 			blob->emplace<char, ImageMeta>(imgBufAddr, size, new ImageMeta {
 				static_cast<unsigned int>(width), static_cast<unsigned int>(height), startPosProc
 #ifdef VALIDATION_DUMP
 					, beforeRead, ms(0)
 #endif
-					, false, imgName },
+					, false, imgName, workLoadCount, streamsNum },
 					[](char* BlobimgBufAddr, ImageMeta* meta) {
 						HVA_DEBUG("Preparing to destruct BufAddr %ul", BlobimgBufAddr);
 						delete []BlobimgBufAddr;
@@ -318,7 +320,7 @@ int fillHvaBlobs(hva::hvaPipeline_t* pipeline, std::vector<std::string>* file,
 
 			pipeline->sendToPort(blob, "FRCNode", 0, ms(0));
 
-			std::this_thread::sleep_for(ms(200)); //temp wait
+			std::this_thread::sleep_for(ms(5)); //temp wait
 		}
 	}
 	return 0;
@@ -430,7 +432,7 @@ int main(){
 
             std::vector<std::string> inputFiles;
             readInputFilesArguments(inputFiles, imageFolder);
-            fillHvaBlobs(&pl, &inputFiles, inputWidth, inputHeight, i, iterNum, &ctrlMsg);
+            fillHvaBlobs(&pl, &inputFiles, inputWidth, inputHeight, i, iterNum, sockConfig.numOfStreams, &ctrlMsg);
         }));
     }
 
@@ -448,5 +450,4 @@ int main(){
     std::cout<<"Pipeline has been stopped successfully."<<std::endl;
 
     return 0;
-
 }

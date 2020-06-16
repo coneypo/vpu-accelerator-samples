@@ -162,9 +162,9 @@ Please use the latest commit on branch develop, though the commit we tested upon
 # For Image Workload Pipeline
 
 ## Component commitID: 
-* dldt : 86edc6163e7b02594316bcc151745c2ba7eb24a5(branch:openvino-kmb.beta-20200513 )
-* kmb-plugin : 8b1ebe0804476343d93ca8415a6813ee2c9df661(branch:openvino-kmb.beta-20200513 )
-* hddl-unit : e88a947ce189d(branch:develop )
+* dldt : 6fefbeab6b9c1e1695b3991ac1ebbf7546ec6905(branch:releases/2020/kmb/beta )
+* kmb-plugin : 5e262279b66b5726f229ac6b2f7d8d5b89884494(branch:releases/2020/kmb/beta )
+* hddl-unit : fb9d808(branch:develop )
 
 Image Workload Pipeline is for Image Workload detction(loading NV12 images from IA host and run tiny_yolo_v2_fp16 detction with Inference Engine ASync api).
 
@@ -183,8 +183,12 @@ iterNum: number of loops you want to run for all images in the folder.
 width: Image width (only 416 is tested by now)
 height: Image height (only 416 is tested by now)
 
-resued the Video Pipeline Socket Message format with adding "imgName" into the tail(diffrent from Video Pipeline, 'decFps' here presents total pipeline FPS):
-int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(), size_t pts = 0, double probability = 0, float inferFps = 0.0, float decFps = 0.0, const std::string& imgName = std::string()
+resued the Video Pipeline Socket Message format with adding `imgName` into the tail(diffrent from Video Pipeline, `pipeLineFps` here is used to present total pipeline FPS):
+int roi_x, int roi_y, int roi_width, int roi_height, const std::string& label = std::string(), size_t pts = 0, double probability = 0, float inferFps = 0.0, float pipeLineFps = 0.0, const std::string& imgName = std::string()
+
+As `inferFps` and `pipeLineFps` in `ImgFullPipeGUITestMulti` Command window presents the average FPS of the total pipeline input data, so their values should be got after the pipeline stopped(during pipeline runtime, their values will always be presented as zero).
+
+`Inference duration` and `Pipeline Duration` are also presented in `ImgFullPipe` Command window during pipeline runtime.
 
 ## How to run the Image Workload Pipeline
 
