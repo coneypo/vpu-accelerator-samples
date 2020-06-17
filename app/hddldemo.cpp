@@ -170,8 +170,8 @@ void HDDLDemo::channelWIDReceived(qintptr sd, WId wid)
     stream->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     QFrame* frame_container = this->findChild<QFrame*>(QString("frame_%1").arg(m_embededNum));
-    frame_container->setFixedSize(frame_container->size());
     if (frame_container) {
+        frame_container->setFixedSize(frame_container->size());
         frame_container->layout()->addWidget(stream);
         m_socketToIndex.insert(sd, m_embededNum);
         m_embededNum++;
