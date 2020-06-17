@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #include <atomic>
 #include <boost/algorithm/string.hpp>
 #include <iostream>

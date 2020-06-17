@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef __GST_BLOCKINGQUEUE_H__
 #define __GST_BLOCKINGQUEUE_H__
 

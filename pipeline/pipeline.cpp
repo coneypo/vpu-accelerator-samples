@@ -1,6 +1,7 @@
-//
-// Created by xiao on 2020/2/19.
-//
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
 
 #include "pipeline.h"
 #include "fpsstat.h"

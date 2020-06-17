@@ -1,8 +1,8 @@
-//
-//Copyright (C) 2019 Intel Corporation
-//
-//SPDX-License-Identifier: MIT
-//
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #include <atomic>
 #include <cerrno>
 #include <csignal>
@@ -17,7 +17,6 @@
 #include <unordered_map>
 
 #include "utils/ipc.h"
-//#include "utils/ScopeGuard.h"
 
 namespace HddlUnite {
 class Connection::Impl : public std::enable_shared_from_this<Connection::Impl> {

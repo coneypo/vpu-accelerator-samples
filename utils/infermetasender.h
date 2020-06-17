@@ -1,6 +1,8 @@
-//
-// Created by xiao on 2020/1/22.
-//
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 
 #ifndef HDDLDEMO_INFERMETASENDER_H
 #define HDDLDEMO_INFERMETASENDER_H

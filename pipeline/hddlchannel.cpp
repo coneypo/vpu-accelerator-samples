@@ -1,3 +1,8 @@
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "hddlchannel.h"
 #include "blockingqueue.h"
 #include "fpsstat.h"

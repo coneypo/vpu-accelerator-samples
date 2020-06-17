@@ -1,6 +1,8 @@
-//
-// Created by xiao on 2020/2/19.
-//
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 
 #ifndef HDDLDEMO_PIPELINE_H
 #define HDDLDEMO_PIPELINE_H

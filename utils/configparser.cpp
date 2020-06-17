@@ -1,6 +1,8 @@
-//
-// Created by xiao on 2020/2/11.
-//
+/* *
+ * Copyright (C) 2019 Intel Corporation
+ * SPDX-License-Identifier: MIT
+ */
+
 #include <boost/format.hpp>
 #include <iostream>
 
