@@ -47,7 +47,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-
 /**
  * SECTION:element-gstroisink
  *
@@ -62,9 +61,10 @@
  * </refsect2>
  */
 #include "gstroisink.h"
-#include "infermetasender.h"
 #include "gstroisink_validation_log.h"
+#include "infermetasender.h"
 
+#include <chrono>
 #include <fstream>
 #include <gst/app/gstappsink.h>
 #include <gst/base/gstbasesink.h>
@@ -88,6 +88,7 @@ static void gst_roisink_set_property(GObject* object, guint property_id, const G
 static void gst_roisink_get_property(GObject* object, guint property_id, GValue* value, GParamSpec* pspec);
 static void gst_roisink_finalize(GstRoiSink* roisink);
 static gboolean gst_roisink_query(GstBaseSink* sink, GstQuery* query);
+static void gst_roisink_calculate_fps(GstRoiSink* sink, GstBuffer* metaBuffer);
 
 static GstFlowReturn new_sample(GstElement* sink, gpointer data);
 static GstFlowReturn new_prepoll(GstElement* sink, gpointer data);
@@ -95,7 +96,9 @@ static gboolean connectRoutine(GstRoiSink* roiSink);
 
 enum {
     PROP_0,
-    PROP_SOCKET_NAME
+    PROP_SOCKET_NAME,
+    PROP_CLASSIFCATION_USED,
+    PROP_INFERENCE_INTERVAL
 };
 
 /* pad templates */
@@ -135,6 +138,14 @@ gst_roisink_class_init(GstRoiSinkClass* klass)
     g_object_class_install_property(gobject_class, PROP_SOCKET_NAME,
         g_param_spec_string("socketname", "SocketName", "unix socket file name",
             NULL, G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_CLASSIFCATION_USED,
+        g_param_spec_boolean("useclassification", "UseClassification", "is classification used",
+            TRUE, G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_INFERENCE_INTERVAL,
+        g_param_spec_int("inferenceinterval", "InferenceInterval", "inference interval",
+            1, INT_MAX, 1, G_PARAM_READWRITE));
 }
 
 static void
@@ -142,6 +153,8 @@ gst_roisink_init(GstRoiSink* roisink)
 {
     roisink->sender = new InferMetaSender();
     roisink->isConnected = FALSE;
+    roisink->classificationUsed = TRUE;
+    roisink->inferenceInterval = 1;
 
     gst_app_sink_set_emit_signals(GST_APP_SINK(roisink), TRUE);
     g_signal_connect(GST_APP_SINK(roisink), "new-sample", G_CALLBACK(new_sample), NULL);
@@ -169,6 +182,12 @@ void gst_roisink_set_property(GObject* object, guint property_id,
             std::thread(connectRoutine, roiSink).detach();
         }
         break;
+    case PROP_CLASSIFCATION_USED:
+        roiSink->classificationUsed = g_value_get_boolean(value);
+        break;
+    case PROP_INFERENCE_INTERVAL:
+        roiSink->inferenceInterval = g_value_get_int(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -184,6 +203,12 @@ void gst_roisink_get_property(GObject* object, guint property_id,
     switch (property_id) {
     case PROP_SOCKET_NAME:
         g_value_set_string(value, roisink->socketName);
+        break;
+    case PROP_CLASSIFCATION_USED:
+        g_value_set_boolean(value, roisink->classificationUsed);
+        break;
+    case PROP_INFERENCE_INTERVAL:
+        g_value_set_int(value, roisink->inferenceInterval);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -221,6 +246,7 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
     if (sample) {
         GstBuffer* metaBuffer = gst_sample_get_buffer(sample);
         if (metaBuffer) {
+            gst_roisink_calculate_fps(roiSink, metaBuffer);
             GstVideoRegionOfInterestMeta* meta_orig = NULL;
             gpointer state = NULL;
             gboolean needSend = FALSE;
@@ -233,11 +259,11 @@ GstFlowReturn new_sample(GstElement* sink, gpointer data)
                 if (g_quark_to_string(meta_orig->roi_type)) {
                     label = g_quark_to_string(meta_orig->roi_type);
                 }
-                roiSink->sender->serializeSave(meta_orig->x, meta_orig->y, meta_orig->w, meta_orig->h, label, GST_BUFFER_PTS(metaBuffer), 1.0);
+                roiSink->sender->serializeSave(meta_orig->x, meta_orig->y, meta_orig->w, meta_orig->h, label, GST_BUFFER_PTS(metaBuffer), 1.0, roiSink->inferFps);
                 needSend = TRUE;
             }
-            if(!needSend){
-                roiSink->sender->serializeSave(0,0,0,0,"", GST_BUFFER_PTS(metaBuffer), 1.0);
+            if (!needSend) {
+                roiSink->sender->serializeSave(0, 0, 0, 0, "", GST_BUFFER_PTS(metaBuffer), 1.0, roiSink->inferFps);
             }
 
             if (roiSink->isConnected) {
@@ -262,6 +288,54 @@ GstFlowReturn new_prepoll(GstElement* sink, gpointer data)
     return GST_FLOW_ERROR;
 }
 
+static void gst_roisink_calculate_fps(GstRoiSink* sink, GstBuffer* metaBuffer)
+{
+    // total inference counts arriving in deltaMSec time duration
+    static guint64 inferCount = 0;
+    static guint index = 0;
+    static std::chrono::system_clock::time_point lastTimeStamp = std::chrono::system_clock::now();
+    static std::unordered_map<int, double> objectToConfidence;
+    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+
+    GstVideoRegionOfInterestMeta* meta = NULL;
+    gpointer state = NULL;
+
+    if (sink->classificationUsed) {
+        while ((meta = (GstVideoRegionOfInterestMeta*)gst_buffer_iterate_meta_filtered(metaBuffer, &state, gst_video_region_of_interest_meta_api_get_type()))) {
+            int object_id = 0;
+            double confidence = 0.0;
+            for (GList* l = meta->params; l; l = g_list_next(l)) {
+                GstStructure* structure = (GstStructure*)l->data;
+                if (gst_structure_has_name(structure, "object_id")) {
+                    //extract OT results; refer to vasobjecttracker code
+                    gst_structure_get_int(structure, "id", &object_id);
+                } else if (gst_structure_has_field(structure, "label")) {
+                    // extract classify result; refer to gvaclassiy code
+                    gst_structure_get_double(structure, "confidence", &confidence);
+                }
+            }
+            if (!objectToConfidence.count(object_id) || objectToConfidence[object_id] != confidence) {
+                inferCount++;
+                objectToConfidence[object_id] = confidence;
+            }
+        }
+    }
+
+    // take detection count into consideration
+    index = (index + 1) % sink->inferenceInterval;
+    if (!index) {
+        inferCount++;
+    }
+
+    int deltaMSec = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeStamp).count();
+
+    if (deltaMSec >= 1000) {
+        double deltaSec = ((double)deltaMSec) / 1000;
+        sink->inferFps = (double)(inferCount) / deltaSec;
+        lastTimeStamp = now;
+        inferCount = 0;
+    }
+}
 
 static gboolean connectRoutine(GstRoiSink* roiSink)
 {

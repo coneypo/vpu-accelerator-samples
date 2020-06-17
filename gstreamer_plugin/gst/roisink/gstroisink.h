@@ -54,6 +54,7 @@
 #include "utils/infermetasender.h"
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
+#include <unordered_map>
 
 G_BEGIN_DECLS
 
@@ -71,6 +72,9 @@ struct _GstRoiSink {
     gboolean isConnected;
     InferMetaSender* sender;
     const gchar* socketName;
+    double inferFps;
+    bool classificationUsed;
+    gint32 inferenceInterval;
 };
 
 struct _GstRoiSinkClass {

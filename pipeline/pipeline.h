@@ -32,6 +32,8 @@ public:
 private:
     static gboolean busCallBack(GstBus* bus, GstMessage* msg, gpointer data);
     void getVideoResolution(const std::string& mediaFile);
+    //only used for streaming mode
+    void configureRoiSink(const std::string& pipeline);
 
     GstElement* m_pipeline { nullptr };
     GstElement* m_displaySink { nullptr };

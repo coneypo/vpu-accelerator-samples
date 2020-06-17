@@ -19,7 +19,7 @@ public:
         , m_droppedFps(0)
         , m_lastRendered(0)
         , m_lastDropped(0)
-        , m_intervalInMs(100)
+        , m_intervalInMs(1000)
         , m_lastTimeStamp(system_clock::now())
     {
         m_pad = pad;

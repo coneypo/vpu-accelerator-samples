@@ -56,6 +56,8 @@ bool Pipeline::parse(const char* pipeline, const char* displaySink)
         g_object_set(inferElem, "height", m_videoHeight, NULL);
     }
 
+    configureRoiSink(pipelineStr);
+
     //set bus callback
     GstBus* bus = gst_element_get_bus(m_pipeline);
     gst_bus_add_watch(bus, Pipeline::busCallBack, this);
@@ -182,6 +184,27 @@ void Pipeline::getVideoResolution(const std::string& mediaFile)
     if (video.isOpened()) {
         m_videoWidth = video.get(cv::CAP_PROP_FRAME_WIDTH);
         m_videoHeight = video.get(cv::CAP_PROP_FRAME_HEIGHT);
+    }
+}
+
+void Pipeline::configureRoiSink(const std::string& pipeline)
+{
+    //Find roisink element, set its properties accordingly
+    GstElement* roiSink = gst_bin_get_by_name(GST_BIN(m_pipeline), "roisink0");
+    if (roiSink) {
+        if (pipeline.find("gvaclassify") != std::string::npos) {
+            g_object_set(roiSink, "useclassification", TRUE, NULL);
+        } else {
+            g_object_set(roiSink, "useclassification", FALSE, NULL);
+            std::smatch result;
+            std::regex pattern("inference-interval=([0-9]*)");
+            int inferenceInterval = 1;
+            if (std::regex_search(pipeline, result, pattern)) {
+                inferenceInterval = std::stoi(result[1].str());
+            }
+            g_object_set(roiSink, "inferenceinterval", inferenceInterval, NULL);
+
+        }
     }
 }
 
