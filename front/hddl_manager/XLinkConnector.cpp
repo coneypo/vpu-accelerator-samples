@@ -19,7 +19,7 @@ namespace hddl {
 XLinkConnector::XLinkConnector()
     : m_init(false)
     , m_channelMinValue(0x402)
-    , m_channelMaxValue(0xFFF)
+    , m_channelMaxValue(0x5DB)
 {
 }
 
