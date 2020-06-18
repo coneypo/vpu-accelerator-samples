@@ -1,0 +1,6 @@
+[submodule "mediapipe"]
+	path = mediapipe
+	url = git@github.com:intel/vpu-accelerator-samples.git
+[submodule "gstreamer-osd"]
+	path = gstreamer-osd
+	url = git@github.com:intel/vpu-accelerator-samples.git
