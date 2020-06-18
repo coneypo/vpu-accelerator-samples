@@ -383,7 +383,7 @@ void HDDL2pluginHelper_t::postprocResnet50_fp16(IE::Blob::Ptr ptrBlob, std::vect
 {
     float *ptrFP32 = ptrBlob->buffer().as<float *>();
 
-    size_t outputSize = 1000;
+    size_t outputSize = ptrBlob->byteSize() / sizeof(float);
 
     float *ptrFP32_ROI = ptrFP32;
     float max = 0.0f;
