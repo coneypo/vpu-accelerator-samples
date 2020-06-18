@@ -667,10 +667,10 @@ JpegEncNodeWorker::JpegEncNodeWorker(hva::hvaNode_t* parentNode, uint64_t WID):
 }
 
 JpegEncNodeWorker::~JpegEncNodeWorker(){
-    if(!m_pool)
+    if(m_pool)
         delete m_pool;
 
-    if(!m_picPool)
+    if(m_picPool)
         delete[] m_picPool;
 }
 
@@ -1038,12 +1038,12 @@ void JpegEncNodeWorker::processByLastRun(std::size_t batchIdx){
         }while(usedSurface != nullptr);
     }
 
-    if(!m_pool){
+    if(m_pool){
         delete m_pool;
         m_pool = nullptr;
     }
 
-    if(!m_picPool){
+    if(m_picPool){
         delete[] m_picPool;
         m_picPool = nullptr;
     }
