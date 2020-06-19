@@ -56,5 +56,13 @@
     "height":100,
     "cellSz":5,
     "decim":0
+    },
+    {
+    "meta_id":6,
+    "meta_type":"image",
+    "x":200,
+    "y":400,
+    "img_path":"starve.jpeg",
+    "alpha":100
     }
 ]

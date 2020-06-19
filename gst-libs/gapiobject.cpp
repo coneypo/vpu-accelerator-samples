@@ -26,6 +26,7 @@
 #include "gapiobjectline.h"
 #include "gapiobjectcircle.h"
 #include "gapiobjectmosaic.h"
+#include "gapiobjectimage.h"
 
 #define g_api_object_parent_class parent_class
 G_DEFINE_TYPE(GapiObject, g_api_object, G_TYPE_OBJECT);
@@ -152,6 +153,11 @@ GAPI_OBJECT_INFO gapi_info_map[] = {
         "mosaic",
         g_api_object_mosaic_get_type(),
         gapiobjectMosaic_create
+    },
+    {
+        "image",
+        g_api_object_image_get_type(),
+        gapiobjectImage_create
     }
 };
 
