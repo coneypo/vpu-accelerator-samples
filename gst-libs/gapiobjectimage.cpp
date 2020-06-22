@@ -44,7 +44,7 @@ g_api_object_image_init(GApiObjectImage *object)
     object->imageInfo.org.x = 300;
     object->imageInfo.org.y = 300;
 
-//    object->img_path = "intel.jpeg";
+    object->img_path = "";
 //    object->alpha_val = 100;
 
 }
@@ -76,15 +76,20 @@ static gboolean image_parse_json(GapiObject *apiobject,
     gapiosd_json_get_int(json_object, "alpha", &(object->alpha_val));
 
 
-    const char* tmp_path = gapiosd_json_get_string(json_object, "img_path");
+    const char* tmp_path = "";
+    tmp_path = gapiosd_json_get_string(json_object, "img_path");
     if(g_file_test(tmp_path,G_FILE_TEST_IS_REGULAR)){
          object->img_path = tmp_path;
     }else{
-        //Use the default assignment in the function g_api_object_image_class_init.
+        GST_WARNING_OBJECT(object, "WARNING : The image file(%s) is not exist\n", tmp_path);
+        return FALSE;
     }
 
     object->imageInfo.img = cv::imread(object->img_path,CV_LOAD_IMAGE_UNCHANGED);
-    g_assert(!object->imageInfo.img.empty());
+    if(object->imageInfo.img.empty()){
+        GST_WARNING_OBJECT(object, "WARNING : Read image file(%s) error\n", tmp_path);
+        return FALSE;
+    }
     if(object->alpha_val < 1){
         object->alpha_val = 1 ;
     }else if(object->alpha_val >255){
@@ -119,9 +124,19 @@ static gboolean image_parse_gst_structure(GapiObject *apiobject,
     RETURN_VAL_IF_FAIL(gst_structure_get_int(structure, "y",
                        &(object->imageInfo.org.y)), FALSE);
     RETURN_VAL_IF_FAIL(gst_structure_get_int(structure, "alpha", &(object->alpha_val)), FALSE);
-    object->img_path = gst_structure_get_string(structure, "img_path");
+    const char* tmp_path = "";
+    tmp_path = gst_structure_get_string(structure, "img_path");
+    if(g_file_test(tmp_path,G_FILE_TEST_IS_REGULAR)){
+         object->img_path = tmp_path;
+    }else{
+        GST_WARNING_OBJECT(object, "WARNING : The image file(%s) is not exist\n", tmp_path);
+        return FALSE;
+    }
     object->imageInfo.img = cv::imread(object->img_path,CV_LOAD_IMAGE_UNCHANGED);
-    g_assert(!object->imageInfo.img.empty());
+    if(object->imageInfo.img.empty()){
+        GST_WARNING_OBJECT(object, "WARNING : Read image file(%s) error\n", tmp_path);
+        return FALSE;
+    }
     if(object->alpha_val < 1){
         object->alpha_val = 1 ;
     }else if(object->alpha_val >255){
