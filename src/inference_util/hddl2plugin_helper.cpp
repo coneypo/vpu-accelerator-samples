@@ -410,6 +410,64 @@ void HDDL2pluginHelper_t::postprocResnet50_fp16(IE::Blob::Ptr ptrBlob, std::vect
     return;
 }
 
+void HDDL2pluginHelper_t::postprocGooglenet_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI)
+{
+    float *ptrFP32 = ptrBlob->buffer().as<float *>();
+
+    size_t outputSize = ptrBlob->byteSize() / sizeof(float);
+
+    float *ptrFP32_ROI = ptrFP32;
+    float max = 0.0f;
+    int idx = 0;
+    for (int j = 0; j < outputSize; j++)
+    {
+        if (ptrFP32_ROI[j] > max)
+        {
+            idx = j;
+            max = ptrFP32_ROI[j];
+        }
+    }
+    ROI roi;
+    roi.labelIdClassification = idx-1;
+    roi.labelClassification = m_labels.imagenet_labelstring(idx-1);
+    roi.confidenceClassification = max;
+    HVA_DEBUG("roi label is : %s\n", m_labels.imagenet_labelstring(idx-1).c_str());
+
+    vecROI.clear();
+    vecROI.push_back(roi);
+
+    return;
+}
+
+void HDDL2pluginHelper_t::postprocSqueezenet_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI)
+{
+    float *ptrFP32 = ptrBlob->buffer().as<float *>();
+
+    size_t outputSize = ptrBlob->byteSize() / sizeof(float);
+
+    float *ptrFP32_ROI = ptrFP32;
+    float max = 0.0f;
+    int idx = 0;
+    for (int j = 0; j < outputSize; j++)
+    {
+        if (ptrFP32_ROI[j] > max)
+        {
+            idx = j;
+            max = ptrFP32_ROI[j];
+        }
+    }
+    ROI roi;
+    roi.labelIdClassification = idx;
+    roi.labelClassification = m_labels.imagenet_labelstring(idx);
+    roi.confidenceClassification = max;
+    HVA_DEBUG("roi label is : %s\n", m_labels.imagenet_labelstring(idx).c_str());
+
+    vecROI.clear();
+    vecROI.push_back(roi);
+
+    return;
+}
+
 void HDDL2pluginHelper_t::postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI)
 {
     auto blobDequant = deQuantize(ptrBlob, 0.151837, 67);

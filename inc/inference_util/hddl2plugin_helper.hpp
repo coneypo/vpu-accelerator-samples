@@ -111,6 +111,10 @@ public:
 
     void postprocResnet50_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI);
 
+    void postprocGooglenet_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI);
+
+    void postprocSqueezenet_fp16(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI);
+
     void postprocResnet50_u8(IE::Blob::Ptr ptrBlob, std::vector<ROI> &vecROI);
 
     template <int N>
