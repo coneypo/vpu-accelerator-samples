@@ -65,7 +65,7 @@ keyshot_process(mediapipe_t *mp, void *userdata)
 //        printf(" ===== 'r' : switch resolution between 1080p and 720o    =====\n");
 //        printf(" ===== 's' : switch rotation dynamically                 =====\n");
         printf(" ===== 'b' : switch bitrate between 5120000 and 10240000 =====\n");
-        printf(" ===== 'f' : switch framerate between 30fps and 10fps    =====\n");
+        printf(" ===== 'f' : switch framerate between 30fps and 60fps    =====\n");
         printf(" ===== 'v' : switch br between cbr and vbr               =====\n");
 //        printf(" ===== 'p' : switch qp between 10 and 40 when using CQP  =====\n");
         printf(" ===== 'o' : switch gop between 128 and 90               =====\n");
