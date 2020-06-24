@@ -57,7 +57,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 InferMeta *ptrInferMeta = new InferMeta;
                 ptrInferMeta->frameId = vecBlobInput[0]->frameId;
                 ptrInferMeta->totalROI = 0;
-                ptrInferMeta->inferFps = m_fps;
+                ptrInferMeta->inferFps = m_ips;
                 blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
                             if(payload != nullptr){
                                 delete payload;
@@ -78,7 +78,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
                 input_height = HDDL2pluginHelper_t::alignTo<64>(input_height);
                 input_width = HDDL2pluginHelper_t::alignTo<64>(input_width);
 
-                auto startForFps = std::chrono::steady_clock::now();
+                static auto startForIps = std::chrono::steady_clock::now();
+                auto startForLatency = std::chrono::steady_clock::now();
                 auto ptrInferRequest = m_helperHDDL2.getInferRequest();
 
                 auto callback = [=]() mutable
@@ -96,10 +97,12 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                     HVA_DEBUG("postproc duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
-                    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
+                    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForLatency).count();
                     m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
-                    m_fps = 1000.0f / m_durationAve;
                     m_cntFrame++;
+                    m_cntInfer++;
+                    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForIps).count();
+                    m_ips = m_cntInfer * 1000.0f / duration;
 
                     std::shared_ptr<hva::hvaBlob_t> blob(new hva::hvaBlob_t());
                     InferMeta *ptrInferMeta = new InferMeta;
@@ -119,7 +122,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                     }
                     ptrInferMeta->frameId = vecBlobInput[0]->frameId;
                     ptrInferMeta->totalROI = vecObjects.size();
-                    ptrInferMeta->inferFps = m_fps;
+                    ptrInferMeta->inferFps = m_ips;
                     blob->emplace<int, InferMeta>(nullptr, 0, ptrInferMeta, [](int* payload, InferMeta* meta){
                                 if(payload != nullptr){
                                     delete payload;
@@ -212,7 +215,8 @@ void InferNodeWorker::process(std::size_t batchIdx)
 
                     if(ptr_input_vecROI->size() > 0)
                     {
-                        auto startForFps = std::chrono::steady_clock::now();
+                        static auto startForIps = std::chrono::steady_clock::now();
+                        auto startForLatency = std::chrono::steady_clock::now();
                         
                         std::shared_ptr<std::mutex> ptrMutex = std::make_shared<std::mutex>();
                         if (nullptr == ptrMutex)
@@ -263,10 +267,14 @@ void InferNodeWorker::process(std::size_t batchIdx)
                                     {
 
                                         end = std::chrono::steady_clock::now();
-                                        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForFps).count();
+                                        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForLatency).count();
                                         m_durationAve = (m_durationAve * m_cntFrame + duration) / (m_cntFrame + 1);
-                                        m_fps = 1000.0f / m_durationAve;
                                         m_cntFrame++;
+                                        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - startForIps).count();
+                                        m_cntInfer += vecROI.size();
+                                        m_ips = m_cntInfer * 1000.0f / duration;
+
+                                        ptrInferMeta->inferFps += m_ips;
 
                                         HVA_DEBUG("classification whole duration is %ld, mode is %s\n", duration, m_mode.c_str());
 
@@ -343,6 +351,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                             ptrInferMeta->rois[o.oid].confidenceClassification = o.confidence_classification;
                         }
 
+                        ptrInferMeta->inferFps += m_ips;
                         sendOutput(vecBlobInput[0], 0, ms(0));
                         sendOutput(vecBlobInput[0], 1, ms(0));
 
@@ -367,6 +376,7 @@ void InferNodeWorker::process(std::size_t batchIdx)
                             
                 m_orderKeeper.bypass(ptrInferMeta->frameId);
 
+                ptrInferMeta->inferFps += m_ips;
                 sendOutput(vecBlobInput[0], 0, ms(0));
                 sendOutput(vecBlobInput[0], 1, ms(0));
 #ifdef VALIDATION_DUMP

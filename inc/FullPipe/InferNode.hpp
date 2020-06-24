@@ -80,12 +80,13 @@ private:
     HDDL2pluginHelper_t m_helperHDDL2;
     std::string m_mode;
 
-    float m_fps {0.0f};
+    float m_ips {0.0f};
     float m_durationAve {0.0f};
     uint64_t m_cntFrame {0ul};
 
     std::atomic<int32_t> m_cntAsyncEnd{0};
     std::atomic<int32_t> m_cntAsyncStart{0};
+    std::atomic<int32_t> m_cntInfer{0};
 
     ObjectSelector::Ptr m_object_selector;
     HDDL2pluginHelper_t::OrderKeeper_t m_orderKeeper;
