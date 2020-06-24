@@ -65,9 +65,29 @@ bool PipelineConfigParser::parseImgDetConfig(){
     if(parseFromPTree(m_ptree, "Detection.InferReqNumber", str)){
     	m_config_img.detConfig.inferReqNumber = std::stoi(str);
     }
+    if (m_config_img.detConfig.inferReqNumber > 8)
+    {
+        m_config_img.detConfig.inferReqNumber = 8;
+        std::cout<<"Warning: max infer request number is 8"<<std::endl;
+    }
+    if (m_config_img.detConfig.inferReqNumber < 1)
+    {
+        m_config_img.detConfig.inferReqNumber = 1;
+        std::cout<<"Warning: min infer request numer is 1"<<std::endl;
+    }
 
     if(parseFromPTree(m_ptree, "Detection.Threshold", str)){
     	m_config_img.detConfig.threshold = std::stof(str);
+    }
+    if (m_config_img.detConfig.threshold > 1.0f)
+    {
+        m_config_img.detConfig.threshold = 1.0f;
+        std::cout<<"Warning: max threshold is 1"<<std::endl;
+    }
+    if (m_config_img.detConfig.threshold < 0.0f)
+    {
+        m_config_img.detConfig.threshold = 0.0f;
+        std::cout<<"Warning: min threshold is 0"<<std::endl;
     }
 
     return true;
