@@ -417,8 +417,15 @@ int main(){
     auto &clsNode = pl.addNode(std::make_shared<InferNode_unite>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification", 
                                                              224*224*3, 1000), "clsNode");
 #else //#ifdef USE_UNITE_API_IE
+    HDDL2pluginHelper_t::PostprocPtr_t ptrPostproc = &HDDL2pluginHelper_t::postprocResnet50_fp16;
+    if (config.clsConfig.model.find("google") != std::string::npos) {
+        ptrPostproc = &HDDL2pluginHelper_t::postprocGooglenet_fp16;
+    }
+    else if (config.clsConfig.model.find("squeeze") != std::string::npos) {
+        ptrPostproc = &HDDL2pluginHelper_t::postprocSqueezenet_fp16;
+    }
     auto &clsNode = pl.addNode(std::make_shared<InferNode>(1, 3, sockConfig.numOfStreams, vWID, config.clsConfig.model, "classification",
-                    &HDDL2pluginHelper_t::postprocResnet50_fp16, config.clsConfig.inferReqNumber), "clsNode");
+                    ptrPostproc, config.clsConfig.inferReqNumber), "clsNode");
 #endif //#ifdef USE_UNITE_API_IE
     if(sockConfig.numOfStreams > 1)
     {
