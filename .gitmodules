@@ -4,3 +4,9 @@
 [submodule "gstreamer-osd"]
 	path = gstreamer-osd
 	url = git@github.com:intel/vpu-accelerator-samples.git
+[submodule "demoUI"]
+	path = demoUI
+	url = git@github.com:intel/vpu-accelerator-samples.git
+[submodule "gsthvasample"]
+	path = gsthvasample
+	url = git@github.com:intel/vpu-accelerator-samples.git
